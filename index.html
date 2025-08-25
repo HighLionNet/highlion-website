@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="color-scheme" content="dark"/>
+  <meta name="theme-color" content="#070914"/>
+
+<script>document.documentElement.setAttribute('data-theme','cyber');</script>
+  <title>HighLion — Home</title>
+  <link rel="icon" href="/assets/icons/HighLion.ico" sizes="any">
+  <link rel="stylesheet" href="/css/style.css">
+  
+  <!-- Minimal, safe additions: clearer themes + terminal styles (scoped) -->
+  <style>
+    
+    /* Unified terminal (namespaced to avoid collisions) */
+    .hlterm-panel { border:1px dashed var(--border, rgba(125,211,252,.25)); border-radius:16px; overflow:hidden;
+      background:linear-gradient(180deg, rgba(0,0,0,.35), rgba(255,255,255,.03)); }
+    .hlterm-head { display:flex; align-items:center; gap:10px; padding:10px 12px; border-bottom:1px solid rgba(255,255,255,.06);
+      background:rgba(0,0,0,.2) }
+    .hlterm-lights { display:flex; gap:6px }
+    .hlterm-lights .r,.hlterm-lights .y,.hlterm-lights .g { width:10px; height:10px; border-radius:50% }
+    .hlterm-lights .r{ background:#ff5f56 } .hlterm-lights .y{ background:#ffbd2e } .hlterm-lights .g{ background:#27c93f }
+    .hlterm-title { font:600 12px ui-monospace,monospace; color:var(--muted,#8ea3c0); letter-spacing:.08em }
+    .hlterm-body { position:relative; font:14px/1.6 ui-monospace,monospace; min-height:420px; max-height:520px; overflow:auto;
+      color:#cbd5e1; background:radial-gradient(600px 300px at 60% -10%, rgba(125,211,252,.08), transparent 60%), #0a0f1c }
+    .hlterm-out { white-space:pre-wrap; padding:14px 14px 0 14px }
+    .hlterm-prompt { display:flex; align-items:center; gap:8px; padding:10px 14px 14px 14px }
+    .hlterm-prompt .ps1 { color:#10b981 } .hlterm-prompt .path { color:#60a5fa }
+    .hlterm-prompt input { background:transparent; border:0; outline:0; color:inherit; font:inherit; flex:1 }
+    .hlterm-matrix { position:absolute; inset:38px 0 0 0; pointer-events:none; opacity:.7; display:none }
+  </style>
+</head>
+<body>
+  <a href="#main" class="skip">Skip to content</a>
+  <div class="scanlines" aria-hidden="true"></div>
+  <canvas id="fx" class="fx" aria-hidden="true"></canvas>
+
+  <!-- Includes -->
+  <div data-include="/components/header.html"></div>
+
+  <!-- Hero -->
+  <main id="main" class="hero" role="main">
+    <div class="inner">
+      <div>
+        <div class="kicker">CYBERSECURITY • LINUX • NETWORKING</div>
+<h1 class="headline"><span class="glitch" data-text="HighLion system">HighLion system</span>: a <span class="accent">personal project</span> Made by HighLion for fun, experience, and flair.</h1>
+<p class="lead">HighLion is made by an aspiring CyberSecurity professional, with a slick, reactive UI: Working Terminal, particles & grid, projects index, and a <span class="accent">flashy</span> Web design.</p>
+        <div class="cta">
+          <a class="btn" href="/projects.html">Explore Projects</a>
+          <a class="btn ghost" href="/about.html">How it’s built</a>
+        </div>
+        <div class="glass-card" style="margin-top:18px">
+          <div class="stat-grid">
+            <div class="stat"><div class="v" id="vVisits">0</div><div class="l">VISITS</div></div>
+            <div class="stat"><div class="v" id="vUptime">0s</div><div class="l">SESSION UPTIME</div></div>
+            <div class="stat"><div class="v" id="vTZ">—</div><div class="l">TIMEZONE</div></div>
+          </div>
+        </div>
+      </div>
+
+
+ <!-- NEW unified Kali-style terminal on right column -->
+      <aside class="hlterm-panel glass-card" id="hlterm-panel" aria-label="Terminal" style="grid-column:2; margin-top:12px">
+        <div class="hlterm-head">
+          <div class="hlterm-lights"><span class="r"></span><span class="y"></span><span class="g"></span></div>
+          <div class="hlterm-title">visitor@highlion: ~</div>
+          <button class="btn ghost sm" id="hlterm-pop" type="button">Popout</button>
+        </div>
+        <div class="hlterm-body" id="hlterm" role="region" aria-live="polite">
+          <canvas id="hlterm-matrix" class="hlterm-matrix" aria-hidden="true"></canvas>
+          <div class="hlterm-out"></div>
+          <div class="hlterm-prompt">
+            <span class="ps1">visitor@highlion</span>:<span class="path">~</span>$
+            <input id="hlterm-cli" autocomplete="off" aria-label="Terminal input">
+          </div>
+        </div>
+      </aside>
+
+
+
+
+
+
+
+
+      <div class="glass-card" aria-label="Live status" style="padding:16px">
+        <div class="kv"><div class="k">BUILD</div><div class="v" id="buildTag">HLv6.2.1 • multi-page</div></div>
+        <div class="grid-2" style="margin-top:12px">
+          <div class="kv"><div class="k">BROWSER</div><div class="v" id="ua"></div></div>
+          <div class="kv"><div class="k">OS</div><div class="v" id="os"></div></div>
+          <div class="kv"><div class="k">CORES</div><div class="v" id="cores"></div></div>
+          <div class="kv"><div class="k">MEMORY</div><div class="v" id="mem"></div></div>
+        </div>
+      </div>
+
+     
+    </div>
+    <canvas class="hero-canvas" id="grid" aria-hidden="true"></canvas>
+  </main>
+
+  <section aria-label="divider"><div class="divider"></div></section>
+
+  <!-- Projects Teaser -->
+  <section aria-labelledby="proj-title">
+    <div class="sec-title"><span class="tag">CATALOG</span><h2 id="proj-title">My Featured Projects</h2></div>
+    <div class="projects">
+      <article class="card"><div class="hdr"><span>Pi-hole DNS filtering + FW hardening</span><span class="pill">Network Security</span></div><div class="body">Segmentation with VLANs, Private DNS server, ACL presets.</div><div class="links"><a class="btn" href="/projects.html">See all projects</a></div><div class="shine"></div></article>
+      <article class="card"><div class="hdr"><span>HighLion Web v6.2.1</span><span class="pill">WEB</span></div><div class="body">This very website! with its flashy cyber asthetic multi-page UI.</div><div class="links"><a class="btn" href="/about.html">How it’s built</a></div><div class="shine"></div></article>
+      <article class="card"><div class="hdr"><span>Kali Purple Playbook</span><span class="pill">PURPLE TEAM</span></div><div class="body">SOC-oriented presets: Privacy mode, Attack, Defence, Cleanup, and a panic toggle.</div><div class="links"><a class="btn" href="/projects.html#blue-team">Explore</a></div><div class="shine"></div></article>
+      <!-- 4th card for symmetry -->
+      <article class="card"><div class="hdr"><span>Raspberry Pi Services</span><span class="pill">SELF‑HOST</span></div><div class="body">Private Nextcloud server, Pi‑hole DNS server, Nginx web server exposed via Cloudflare Tunnel. Including automation scripts and hardening.</div><div class="links"><a class="btn" href="/projects.html#self-host">Docs</a></div><div class="shine"></div></article>
+    </div>
+  </section>
+
+  <section aria-label="divider"><div class="divider"></div></section>
+
+  <div data-include="/components/footer.html"></div>
+
+  <!-- Safe inline JS: runs after everything; modifies only header+terminal; animations untouched -->
+  <script>
+    window.addEventListener('load', function(){
+      // -- Header tweaks local to this page (no header.html edits) --
+      function withHeader(cb){
+        const start = Date.now();
+        (function find(){
+          const h = document.querySelector('header');
+          if(h) return cb(h);
+          if(Date.now()-start < 3000) return setTimeout(find, 50);
+        })();
+      }
+      withHeader(function(header){
+        // 2x logo if image exists
+        const logo = header.querySelector('img');
+        if(logo){ logo.style.width='48px'; logo.style.height='48px'; logo.setAttribute('width','48'); logo.setAttribute('height','48'); }
+        // Brand text: set to HighLion only if we can find a label element
+        const nameEl = header.querySelector('.brand-name') || header.querySelector('a.brand span') || null;
+        if(nameEl){ nameEl.textContent = 'HighLion'; }
+        // Wire the existing Terminal control to the new terminal panel
+        const panel = document.getElementById('hlterm-panel');
+        const termBtn = Array.from(header.querySelectorAll('a,button')).find(el => (el.textContent||'').trim().toLowerCase()==='terminal');
+        if(termBtn && panel){ termBtn.addEventListener('click', function(ev){ ev.preventDefault(); panel.style.display='block'; panel.scrollIntoView({behavior:'smooth', block:'center'}); const inp=document.getElementById('hlterm-cli'); if(inp) inp.focus(); }, {capture:true}); }
+      });
+
+      // -- Unified terminal implementation (scoped) --
+      (function(){
+        const panel = document.getElementById('hlterm-panel'); if(!panel) return;
+        const body = document.getElementById('hlterm');
+        const out = body.querySelector('.hlterm-out');
+        const cli = document.getElementById('hlterm-cli');
+        const mtx = document.getElementById('hlterm-matrix');
+        const ctx = mtx.getContext('2d');
+        let t0=Date.now(), cmOn=false, cols=[], hist=[], hi=-1;
+
+        function println(s=''){ out.insertAdjacentHTML('beforeend', `<div>${escapeHtml(s)}</div>`); body.scrollTop=body.scrollHeight; }
+        function raw(html){ out.insertAdjacentHTML('beforeend', `<div>${html}</div>`); body.scrollTop=body.scrollHeight; }
+        function escapeHtml(x){ return x.replace(/[&<>]/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m])); }
+        const fmt = sec=>{sec=Math.floor(sec); const h=(sec/3600)|0, m=((sec%3600)/60)|0, s=(sec%60)|0; return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`};
+
+        const files={
+          'README.txt':'HighLion system — personal cybersec & automation playground. https://www.highlion.net',
+          'projects.md':'- Pi-hole + DMZ Hardening\n- HighLion Web v6\n- Kali Purple Playbooks\n- Raspberry Pi Services'
+        };
+
+        function handle(line){
+          const [cmd,...rest]=line.trim().split(/\s+/); const arg=rest.join(' ');
+          switch(cmd){
+            case '': return;
+            case 'help': println('Available: help, clear, echo, whoami, uname -a, neofetch, date, time, uptime, ls, cat, ping, curl, open, theme, cmatrix, banner'); break;
+            case 'clear': out.innerHTML=''; break;
+            case 'echo': println(arg); break;
+            case 'whoami': println('kali'); break;
+            case 'uname': println(rest[0]==='-a'?'Linux highlion 6.6.0 #1 SMP x86_64 GNU/Linux':'Linux'); break;
+            case 'neofetch': raw(renderNeofetch()); break;
+            case 'date': println(new Date().toString()); break;
+            case 'time': println(new Date().toLocaleTimeString()); break;
+            case 'uptime': println(fmt((Date.now()-t0)/1000)); break;
+            case 'ls': println(Object.keys(files).join('  ')); break;
+            case 'cat': files[arg]? println(files[arg]) : println(`cat: ${arg}: No such file`); break;
+            case 'ping': simulatePing(arg||'highlion.net'); break;
+            case 'curl': arg.includes('ping.txt')? println('pong') : println('HTTP/1.1 200 OK'); break;
+            case 'open': openNav(arg); break;
+            case 'banner': raw(`<pre>
+ _   _ _       _     _ _                 
+| | | (_) __ _| |__ | (_)_ __   ___  _ __
+| |_| | |/ _\\/ '_ \\| | | '_ \\ / _ \\| '__|
+|  _  | | (_| | | | | | | | | | (_) | |   
+|_| |_|_|\\__, |_| |_|_|_|_| |_|\\___/|_|   
+         |___/  HighLion</pre>`); break;
+            case 'theme': (window.handleThemeCmd ? window.handleThemeCmd(rest, println) : println('theme handler missing')); break;
+            case 'cmatrix': cmatrixCmd(rest); break;
+            default: println(`${cmd}: command not found`);
+          }
+        }
+
+        function renderNeofetch(){
+          const tz=Intl.DateTimeFormat().resolvedOptions().timeZone;
+          return `<div style="display:flex;gap:16px"><pre style="margin:0">\n\\\n \\\n  \\\n   \\\n HL \\\n     \\\n      *\n</pre><div>HighLion (theme: ${document.documentElement.getAttribute('data-theme')||document.body.getAttribute('data-theme')||'indigo'})<br>
+Kernel: ${navigator.platform}<br>Shell: hlsh 0.6<br>CPU: ${navigator.hardwareConcurrency||'?'} cores<br>Mem: ${navigator.deviceMemory? navigator.deviceMemory+'GiB':'?'}<br>Uptime: ${fmt((Date.now()-t0)/1000)}<br>UA: ${navigator.userAgent}<br>TZ: ${tz}</div></div>`;
+        }
+
+        function simulatePing(host){ let c=0,n=4; (function tick(){ if(c===0) println(`PING ${host} (203.0.113.8): 56 data bytes`);
+          if(c<n){ println(`64 bytes from 203.0.113.8: icmp_seq=${c+1} ttl=61 time=${(Math.random()*20+10).toFixed(2)} ms`); c++; setTimeout(tick, 280); }
+          else { println(`--- ${host} ping statistics ---`); println(`${n} packets transmitted, ${n} received, 0% packet loss`);} })(); }
+
+        function openNav(dest){ const map={projects:'/projects.html', about:'/about.html', contact:'/contact.html', home:'/index.html'};
+          if(map[dest]){ location.href=map[dest]; println(`Opened ${dest}`);} else println(`open: unknown target '${dest}'`); }
+
+
+        function cmatrixCmd(args){ const sub=args[0]; if(sub==='on'){ cmOn=true; mtx.style.display='block'; startMatrix(); println('cmatrix: on'); return; }
+          if(sub==='off'){ cmOn=false; mtx.style.display='none'; println('cmatrix: off'); return; } println('usage: cmatrix [on|off]'); }
+
+        function startMatrix(){ const w=mtx.width=body.clientWidth; const h=mtx.height=body.clientHeight-40; const fs=14; const count=Math.floor(w/fs); cols=Array(count).fill(0);
+          (function loop(){ if(!cmOn) return; requestAnimationFrame(loop); ctx.fillStyle='rgba(0,0,0,0.15)'; ctx.fillRect(0,0,w,h); ctx.fillStyle='#34d399'; ctx.font=fs+'px monospace'; cols.forEach((y,i)=>{ const ch=String.fromCharCode(0x30A0+Math.random()*96); const x=i*fs; ctx.fillText(ch,x,y); cols[i]= y>h+Math.random()*900?0:y+fs; }); })(); }
+
+        // Input & history
+        cli.addEventListener('keydown', e=>{
+          if(e.key==='Enter'){ const line=cli.value; raw(`<div><span class=\"ps1\">kali@highlion</span>:<span class=\"path\">~</span>$ ${escapeHtml(line)}</div>`); hist.push(line); hi=hist.length; cli.value=''; handle(line); }
+          else if(e.key==='ArrowUp'){ if(hi>0){ hi--; cli.value=hist[hi]; setTimeout(()=>cli.setSelectionRange(cli.value.length,cli.value.length)); } }
+          else if(e.key==='ArrowDown'){ if(hi<hist.length-1){ hi++; cli.value=hist[hi]; } else { hi=hist.length; cli.value=''; } }
+        });
+
+        raw('<div>Type <span style=\"color:#93c5fd\">help</span> to see available commands.</div>');
+      })();
+    });
+  </script>
+
+  <script src="/js/script.js" defer></script>
+</body>
+</html>

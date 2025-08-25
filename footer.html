@@ -1,0 +1,25 @@
+<!-- Shared Footer -->
+<footer>
+  <div>© <span id="year"></span> HighLion • HLv6.2.1 • All Rights Reserved <span aria-hidden="true">▁▂▃▅▆▇</span></div>
+</footer>
+
+<!-- Terminal Overlay (shared) -->
+<dialog id="termModal" style="border:none; padding:0; background:transparent">
+  <div class="terminal" style="width:min(980px, 96vw)">
+    <div class="term-hdr">
+      <div class="dot"></div><div class="dot d2"></div><div class="dot d3"></div>
+      <div style="margin-left:8px; letter-spacing:.16em; color:var(--muted)">/usr/bin/hl-term</div>
+      <button class="btn ghost" id="termClose" style="margin-left:auto">Close</button>
+    </div>
+    <div class="term-body" id="termBody2" role="log" aria-label="Terminal output (overlay)"></div>
+    <div class="term-input">
+      <span class="prompt" aria-hidden="true">hl</span><span class="path" id="termPath2" aria-hidden="true">~/v6</span><span aria-hidden="true">$</span>
+      <input id="termInput2" type="text" autocomplete="off" spellcheck="false" aria-label="Terminal input"/>
+      <button class="btn" id="termSend2">Run</button>
+    </div>
+  </div>
+</dialog>
+
+<div id="toast" aria-live="polite" aria-atomic="true"></div>
+<button id="backTop" class="btn" title="Back to top">↑ Top</button>
+<canvas id="matrix" style="position:fixed; inset:0; z-index:-1; display:none" aria-hidden="true"></canvas>

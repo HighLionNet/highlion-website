@@ -1,0 +1,3 @@
+# v3.5 note: Audio SFX is inlined via data URI in index.html and starts muted.
+# Keeping this file (placeholder base64 string) to satisfy full file set; not used by pages at runtime.
+data:audio/wav;base64,UklGRmQAAABXQVZFZm10IBAAAAABAAEAESsAACJWAAACABYAAAAAQUFBQUFBQUFBQUFBQUFBQUFBQUFBQf8AAAD///8=

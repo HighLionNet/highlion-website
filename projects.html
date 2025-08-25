@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="color-scheme" content="dark"/>
+  <title>HighLion • Projects</title>
+  <link rel="icon" href="/assets/icons/HighLion.ico">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <a href="#main" class="skip">Skip to content</a>
+  <div class="scanlines" aria-hidden="true"></div>
+  <canvas id="fx" class="fx" aria-hidden="true"></canvas>
+
+  <div data-include="/components/header.html"></div>
+
+  <main id="main" class="hero" role="main">
+    <div class="inner">
+      <div>
+        <div class="kicker">CATALOG</div>
+        <h1 class="headline">Projects & builds</h1>
+        <p class="lead">A selection of practical builds across networking, self-host, security, and UI. Click a card to copy snippets or open details.</p>
+      </div>
+      <div class="glass-card" style="padding:16px">
+        <div class="kv"><div class="k">TIP</div><div class="v">Press <kbd>~</kbd> then type <code>projects</code> to list cards or <code>open 0</code> to center the first card.</div></div>
+      </div>
+    </div>
+    <canvas class="hero-canvas" id="grid" aria-hidden="true"></canvas>
+  </main>
+
+  <section aria-label="divider"><div class="divider"></div></section>
+
+  <section aria-labelledby="projects-title">
+    <div class="sec-title"><span class="tag">CATALOG</span><h2 id="projects-title">All projects</h2></div>
+    <div class="projects">
+      <article class="card" data-tags="security,automation,pi">
+        <div class="hdr"><span>Pi-hole + DMZ Hardening</span><span class="pill">NETSEC</span></div>
+        <div class="body">VLANs 10/20/30/40, Pi-hole DNS, DMZ Web on Pi, inter-VLAN rules and VPN ingress.</div>
+        <div class="links"><a href="#" class="btn" data-open="copy:acl">Copy ACLs</a></div>
+        <div class="shine"></div>
+      </article>
+      <article class="card" data-tags="web,design,fx">
+        <div class="hdr"><span>HighLion Web v6</span><span class="pill">WEB</span></div>
+        <div class="body">Neon-indigo UI: dividers, glass cards, terminal overlay, animated particles, glitch edits.</div>
+        <div class="links"><a href="/about.html" class="btn ghost">How it’s built</a><a href="#" class="btn" data-open="copy:snippet">Copy CSS tokens</a></div>
+        <div class="shine"></div>
+      </article>
+      <article class="card" data-tags="linux,kali,blue-team" id="blue-team">
+        <div class="hdr"><span>Kali Purple Playbooks</span><span class="pill">BLUE TEAM</span></div>
+        <div class="body">Privacy, Attack, Defence, Cleanup, Panic toggles. Modular scripts to flip posture quickly.</div>
+        <div class="links"><a href="#" class="btn" data-open="copy:toggle">Copy toggles</a></div>
+        <div class="shine"></div>
+      </article>
+      <article class="card" data-tags="pi,storage,nextcloud">
+        <div class="hdr"><span>Nextcloud on Pi-5</span><span class="pill">SELF-HOST</span></div>
+        <div class="body">Nightly photo sync to ext4 HDD, headless SSH, integrity checks, counterfeit SD tips.</div>
+        <div class="links"><a href="#" class="btn" data-open="copy:systemd">Copy unit</a></div>
+        <div class="shine"></div>
+      </article>
+      <article class="card" data-tags="music,goa,flstudio">
+        <div class="hdr"><span>Goa Trance Toolkit</span><span class="pill">AUDIO</span></div>
+        <div class="body">Kick/bass/lead Q&A, arrangement scaffolds, quick macros for FL Studio 21.</div>
+        <div class="links"><a href="#" class="btn" data-open="copy:macros">Copy macros</a></div>
+        <div class="shine"></div>
+      </article>
+      <article class="card" data-tags="interview,windows,ad">
+        <div class="hdr"><span>Windows AD Lab Kit</span><span class="pill">IT OPS</span></div>
+        <div class="body">20 user scripts, layered GPOs, PSO, ACL templates. Rehearse common admin scenarios.</div>
+        <div class="links"><a href="#" class="btn ghost" data-open="details:ad">Details</a></div>
+        <div class="shine"></div>
+      </article>
+    </div>
+  </section>
+
+  <div data-include="/components/footer.html"></div>
+  <script src="/js/script.js" defer></script>
+</body>
+</html>

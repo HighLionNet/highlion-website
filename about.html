@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+
+
+
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="color-scheme" content="dark"/>
+  <title>HighLion • About</title>
+  <link rel="icon" href="/assets/icons/HighLion.ico">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <a href="#main" class="skip">Skip to content</a>
+  <div class="scanlines" aria-hidden="true"></div>
+  <canvas id="fx" class="fx" aria-hidden="true"></canvas>
+
+  <div data-include="/components/header.html"></div>
+
+  <main id="main" class="hero" role="main">
+    <div class="inner">
+      <div>
+        <div class="kicker">PROFILE</div>
+        <h1 class="headline">About HighLion</h1>
+        <p class="lead">HighLion.net is a part of my personal home Cyber Lab, made to show visible performance,and provide information about me and my projects.</p>
+      </div>
+      <div class="glass-card" style="padding:16px">
+        <div class="kv"><div class="k">TIP</div><div class="v">Press <kbd>~</kbd> for terminal. Try: <code>help</code>, <code>skills</code>, <code>theme cyber</code>, <code>matrix on</code>.</div></div>
+      </div>
+    </div>
+    <canvas class="hero-canvas" id="grid" aria-hidden="true"></canvas>
+  </main>
+
+  <section aria-label="divider"><div class="divider"></div></section>
+
+  <section id="about" aria-labelledby="about-title">
+    <div class="headline"</h2>Profile & Terminal</h2></div>
+    <div class="about">
+      <aside class="terminal" aria-live="polite">
+        <div class="term-hdr"><div class="dot"></div><div class="dot d2"></div><div class="dot d3"></div><div style="margin-left:8px; letter-spacing:.16em; color:var(--muted)">/usr/bin/hl-term</div></div>
+        <div class="term-body" id="termBody" role="log" aria-label="Terminal output"></div>
+        <div class="term-input"><span class="prompt" aria-hidden="true">hl</span><span class="path" id="termPath" aria-hidden="true">~/v6</span><span aria-hidden="true">$</span>
+          <input id="termInput" type="text" inputmode="text" autocomplete="off" spellcheck="false" aria-label="Terminal input"/>
+          <button class="btn" id="termSend">Run</button>
+        </div>
+      </aside>
+      <article class="profile">
+        <p><strong>HighLion</strong> is made to ba a compact and intricate system — from the flashy frontfacing webpages to the secure network that holds it together.</p>
+        <div class="grid-2" style="margin-top:12px">
+          <div class="kv"><div class="k">MY FOCUS</div><div class="v">creating a flashy and intricate web page system</div></div>
+          <div class="kv"><div class="k">MADE WITH</div><div class="v">HTML/CSS/JS • Bash scripts • Self-Hosted servers</div></div>
+          <div class="kv"><div class="k">MY OBJECTIVES</div><div class="v">To improve my Linux and HTML skills, to practice Networking and Security, and to show off my work to the world</div></div>
+          <div class="kv"><div class="k">FEATURES</div><div class="v">Built-in Terminal •Dynamic backround animations • Contact information and Resume • Color-changing Themes</div></div>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <div data-include="/components/footer.html"></div>
+  <script src="/js/script.js" defer></script>
+</body>
+</html>
