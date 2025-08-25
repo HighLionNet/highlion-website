@@ -1,0 +1,11 @@
+# Ignore personal documents
+resume.pdf
+*.pdf
+*.docx
+*.xlsx
+*.pptx
+
+# Ignore OS/editor junk
+Thumbs.db
+desktop.ini
+.DS_Store
