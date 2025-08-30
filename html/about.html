@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+
+
+
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="color-scheme" content="dark"/>
+  <title>HighLion • About</title>
+  <link rel="icon" href="/assets/icons/HighLion.ico">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<div data-include="/components/header.html"></div>
+  <a href="#main" class="skip">Skip to content</a>
+  <div class="scanlines" aria-hidden="true"></div>
+  <canvas id="fx" class="fx" aria-hidden="true"></canvas>
+
+  <div data-include="/components/header.html?v=fix1"></div>
+
+  <main id="main" class="hero" role="main">
+    <div class="inner">
+      <div>
+        <div class="kicker">PROFILE</div>
+        <h1 class="headline">About HighLion</h1>
+        <p class="lead">HighLion.net is a part of my personal home Lab, made to show visible performance, and provide information about me and my projects.</p>
+      </div>
+      <div class="glass-card" style="padding:16px">
+        <div class="kv"><div class="k">TIP</div><div class="v">Try the Terminal; Type: <br> <code>help</code>, <code>skills</code>, <code>ping</code>, <code>matrix on</code>.</div></div>
+      </div>
+    </div>
+    <canvas class="hero-canvas" id="grid" aria-hidden="true"></canvas>
+  </main>
+
+  <section aria-label="divider"><div class="divider"></div></section>
+
+  <section id="about" aria-labelledby="about-title">
+    <div class="headline"<h3>Details & Terminal</h3></div>
+    <p> Some features not available yet. </p>
+    <div class="about">
+      <aside class="terminal" aria-live="polite">
+        <div class="term-hdr"><div class="dot"></div><div class="dot d2"></div><div class="dot d3"></div><div style="margin-left:8px; letter-spacing:.16em; color:var(--muted)">/usr/bin/HLshell</div></div>
+        <div class="term-body" id="termBody" role="log" aria-label="Terminal output"></div>
+        <div class="term-input"><span class="prompt" aria-hidden="true">visitor</span><span class="path" id="termPath" aria-hidden="true">@ highlion</span><span aria-hidden="true">$</span>
+          <input id="termInput" type="text" inputmode="text" autocomplete="off" spellcheck="false" aria-label="Terminal input"/>
+          <button class="btn" id="termSend">Run</button>
+        </div>
+      </aside>
+      <article class="profile">
+        <p><strong>HighLion.net</strong> was made to ba a compact and intricate system — with flashy frontfacing webpages and a secure network that holds it together.</p>
+        <div class="grid-2" style="margin-top:12px">
+          <div class="kv"><div class="k">MY FOCUS</div><div class="v">Creating a secure and intricate web page system</div></div>
+          <div class="kv"><div class="k">MADE WITH</div><div class="v">HTML/CSS/JS • Bash scripts • Self-Hosted servers</div></div>
+          <div class="kv"><div class="k">MY OBJECTIVES</div><div class="v">To improve my Linux and HTML skills, and practice Networking and Security</div></div>
+          <div class="kv"><div class="k">FEATURES</div><div class="v">Built-in Terminal • Contact information and Resume • Project updates</div></div>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <div data-include="/components/footer.html?v=fix1"></div>
+  <div data-include="/components/footer.html"></div>
+      <script src="/js/fix-include.js" defer></script>
+
+<!-- -------------------------------------test version of about.html terminal------------------------------------ -->
+<script>
+(() => {
+  // --- find the About page terminal elements (HL style) ---
+   const term =
+     document.querySelector('#hlterm, #hlterm-panel .hlterm-body') ||  // HL terminal body (preferred)
+     document.querySelector('#terminal, [data-terminal], .terminal');  // legacy wrappers
+   if (!term) return;
+
+const input = term.querySelector('#termInput, #hlterm-cli, #term-input, input, textarea');
+  if (!input) return;
+
+  // write to the proper output area INSIDE the terminal
+  
+
+const out = term.querySelector('#termBody, .term-body');
+
+  const println = (s='') => { out.insertAdjacentHTML('beforeend', `<div>${escapeHtml(String(s))}</div>`); out.scrollTop = out.scrollHeight; };
+  const raw     = (html='') => { out.insertAdjacentHTML('beforeend', `<div>${html}</div>`); out.scrollTop = out.scrollHeight; };
+  const escapeHtml = x => x.replace(/[&<>]/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]));
+
+  // --- small, self-contained commands (local to About) ---
+  const t0 = Date.now();
+  const fmt = sec => { sec|=0; const h=(sec/3600)|0, m=((sec%3600)/60)|0, s=(sec%60)|0; return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`; };
+  const files = {
+    'README.txt': 'HighLion system — personal cybersec & automation playground. https://www.highlion.net',
+    'projects.md': '- Pi-hole + DMZ Hardening\n- HighLion Web v6\n- Kali Purple Playbooks\n- Raspberry Pi Services'
+  };
+
+  function simulatePing(host){ let c=0,n=4;
+    (function tick(){
+      if(c===0) println(`PING ${host} (203.0.113.8): 56 data bytes`);
+      if(c<n){ println(`64 bytes from 203.0.113.8: icmp_seq=${c+1} ttl=61 time=${(Math.random()*20+10).toFixed(2)} ms`); c++; setTimeout(tick, 280); }
+      else { println(`--- ${host} ping statistics ---`); println(`${n} packets transmitted, ${n} received, 0% packet loss`); }
+    })();
+  }
+
+  function openNav(dest){
+    const map = { projects:'/projects.html', about:'/about.html', contact:'/contact.html', home:'/index.html' };
+    if (map[dest]) { location.href = map[dest]; println(`Opened ${dest}`); }
+    else println(`open: unknown target '${dest}'`);
+  }
+
+  function neofetch(){
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    raw(`<div style="display:flex;gap:16px">
+      <pre style="margin:0">\\
+ \\
+  \\
+   \\
+ HL \\
+     \\
+      *</pre>
+      <div>HighLion (theme: ${document.documentElement.getAttribute('data-theme')||document.body.getAttribute('data-theme')||'indigo'} )<br>
+      Kernel: ${navigator.platform}<br>Shell: hlsh 0.6<br>CPU: ${navigator.hardwareConcurrency||'?'} cores<br>
+      Mem: ${navigator.deviceMemory? navigator.deviceMemory+'GiB':'?'}<br>Uptime: ${fmt((Date.now()-t0)/1000)}<br>
+      UA: ${escapeHtml(navigator.userAgent)}<br>TZ: ${tz}</div>
+    </div>`);
+  }
+
+  function handle(line){
+    const [cmd, ...rest] = line.trim().split(/\s+/);
+    const arg = rest.join(' ');
+    switch(cmd){
+      case '': return;
+      case 'help': println('Available: help, clear, echo, whoami, uname -a, neofetch, date, time, uptime, ls, cat, ping, curl, open, banner'); break;
+      case 'clear': out.innerHTML = ''; break;
+      case 'echo': println(arg); break;
+      case 'whoami': println('kali'); break;
+      case 'uname': println(rest[0]==='-a' ? 'Linux highlion 6.6.0 #1 SMP x86_64 GNU/Linux' : 'Linux'); break;
+      case 'neofetch': neofetch(); break;
+      case 'date': println(new Date().toString()); break;
+      case 'time': println(new Date().toLocaleTimeString()); break;
+      case 'uptime': println(fmt((Date.now()-t0)/1000)); break;
+      case 'ls': println(Object.keys(files).join('  ')); break;
+      case 'cat': files[arg] ? println(files[arg]) : println(`cat: ${arg}: No such file`); break;
+      case 'ping': simulatePing(arg||'highlion.net'); break;
+      case 'curl': arg.includes('ping.txt') ? println('pong') : println('HTTP/1.1 200 OK'); break;
+      case 'open': openNav(arg); break;
+      case 'banner': raw('<pre>Welcome to HighLion</pre>'); break;
+      default: println(`${cmd}: command not found`);
+    }
+  }
+
+  // --- input handling (Enter + form submit) ---
+  const form = input.closest('form');
+
+
+
+
+const runBtn = term.querySelector('#termSend, button[type="submit"], .hlterm-run, .btn.run, .run');
+if (runBtn) runBtn.addEventListener('click', e => { e.preventDefault(); submit(); });
+
+
+
+
+  const submit = () => {
+    const line = (input.value || '').trim();
+    if (!line) return;
+    // echo command with PS1 like on Home
+    raw(`<div><span class="ps1">visitor@highlion</span>:<span class="path">~</span>$ ${escapeHtml(line)}</div>`);
+    input.value = '';
+    handle(line);
+  };
+  if (form) form.addEventListener('submit', e => { e.preventDefault(); submit(); });
+  input.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); submit(); } });
+
+  // greet
+  raw('<div>Type <span style="color:#93c5fd">help</span> to see available commands.</div>');
+})();
+</script>
+
+
+
+</body>
+</html>
