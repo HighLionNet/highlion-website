@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="color-scheme" content="dark"/>
+  <meta name="theme-color" content="#070914"/>
+
+  <script>document.documentElement.setAttribute('data-theme','cyber');</script>
+  <title>HighLion — Security Writeups</title>
+  <link rel="icon" href="/assets/icons/HighLion.ico" sizes="any">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+  <a href="#main" class="skip">Skip to content</a>
+  <div class="scanlines" aria-hidden="true"></div>
+  <canvas id="fx" class="fx" aria-hidden="true"></canvas>
+
+  <div data-include="/components/header.html"></div>
+
+  <main id="main" class="hero" role="main">
+    <div class="inner">
+
+      <!-- Intro + full incident in a single wide card -->
+      <section class="glass-card"
+               style="padding:24px; max-width:1100px; grid-column:1 / -1; margin:0 auto;">
+
+        <!-- Short intro -->
+        <div class="kicker">• WRITEUPS •</div>
+        <h1 class="headline">Security writeups & incident audits</h1>
+        <p class="lead">
+          Documentation and incident reporting is part of the work. Below are real incident audits
+          from my home lab, including technical analysis and remediation.
+        </p>
+        <div class="cta" style="margin-top:12px; align-items:center; gap:12px;">
+          <a class="btn" href="/assets/Incident_Audit_Pihole.pdf" target="_blank" rel="noopener">
+            Download in PDF
+          </a>
+          <span style="font-size:0.9rem; color:var(--muted,#9ca3af); white-space:nowrap;">
+            MD5: aaeeae394b6f1eb892a1b4a2be04a3e9
+          </span>
+        </div>
+
+        <!-- Incident audit -->
+        <hr style="border:none;border-top:1px solid rgba(148,163,184,0.3);margin:20px 0;">
+
+        <h2>Incident audit: Exposed Pi-hole admin page</h2>
+        <p><strong>Status:</strong> Fixed</p>
+
+        <h3>Summary</h3>
+        <p>
+          In my home network, I discovered that the Pi-hole admin login page was exposed to the internet
+          through my domain. I found this while reviewing my own attack surface, trying several admin
+          paths and then verifying that the Pi-hole panel was indeed reachable from outside the network.
+        </p>
+
+        <h3>Environment</h3>
+        <ul>
+          <li>Web server: Running Apache and NGINX, with Cloudflared as a reverse proxy.</li>
+          <li>Pi-hole instance (DNS server).</li>
+          <li>Public-facing website.</li>
+          <li>Public access via: <code>https://www.highlion.net</code>.</li>
+          </ul>
+
+        <h3>How I found it</h3>
+        <p>
+          As part of self-testing my own network, I checked my domain from the outside. I browsed to
+          the domain, and then tried several common admin paths, including <code>/admin</code> and <code>/admin/login</code>. The
+          latter path directed me to the Pi-hole admin login page. I then confirmed the
+          exposure from another external network to make sure it was not just a routing or DNS issue.
+        </p>
+
+        <!-- Exposed login screenshot -->
+        <div style="margin:16px 0;">
+          <img src="/assets/pihole_page_screenshot.png"
+               alt="Pi-hole admin login exposed via domain"
+               style="width:100%;max-width:100%;border-radius:12px;display:block;">
+        </div>
+
+        <h3>Root cause</h3>
+        <p>
+          The issue came from a reverse-proxy misconfiguration:
+        </p>
+        <ul>
+          <li>Both the public website and Pi-hole were running on the same server.</li>
+          <li>The proxy rules for the domain did not include a proper catch-all/default restriction.</li>
+          <li>The misconfiguration acted as a fallback for <code>/admin/login</code>.</li>
+        </ul>
+        <p>
+          Because of this, requests to <code>https://www.highlion.net/admin/login</code> were routed to the
+          Pi-hole backend, and the admin panel, which was meant to be internal only, became exposed to the internet.
+        </p>
+
+        <!-- Logs screenshot -->
+        <div style="margin:16px 0;">
+          <img src="/assets/logs_screenshot.png"
+               alt="Web server logs showing requests to /admin and /admin/login"
+               style="width:100%;max-width:100%;border-radius:12px;display:block;">
+        </div>
+
+        <h3>Fixes and hardening</h3>
+        <p>To fix the vulnerability and harden the network, I took these steps:</p>
+        <ol>
+          <li>
+            <strong>Separated services.</strong>
+            I Moved the Pi-hole service to a different machine instead of sharing the server with the public website.
+          </li>
+          <li>
+            <strong>Fixed the reverse-proxy configuration.</strong>
+            I Created a proper catch-all/default configuration for the public domain so that non public
+            paths do not fall back to other internal services.
+          </li>
+          <li>
+            <strong>Restricted Pi-hole admin access.</strong>
+            I Limited Pi-hole admin access to specific admin IPs from the internal network only, and verified that
+            <code>/admin</code> and <code>/admin/login</code> no longer expose the panel and now return a 404
+            from the internet.
+          </li>
+        </ol>
+
+        <!-- Patched config screenshot -->
+        <div style="margin:16px 0;">
+          <img src="/assets/config_file_screenshot.png"
+               alt="Patched reverse-proxy configuration snippet"
+               style="width:100%;max-width:100%;border-radius:12px;display:block;">
+        </div>
+
+        <!-- 404 screenshot -->
+        <div style="margin:16px 0;">
+          <img src="/assets/404_screenshot.png"
+               alt="404 page after removing external access to Pi-hole admin"
+               style="width:100%;max-width:100%;border-radius:12px;display:block;">
+        </div>
+
+      </section>
+
+    </div>
+
+    <canvas class="hero-canvas" id="grid" aria-hidden="true"></canvas>
+  </main>
+
+  <section aria-label="divider"><div class="divider"></div></section>
+
+  <div data-include="/components/footer.html"></div>
+
+  <script src="/js/fix-include.js" defer></script>
+</body>
+</html>
