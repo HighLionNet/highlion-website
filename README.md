@@ -1,11 +1,11 @@
 # HighLion Website
 
-My personal portfolio site, built with HTML, CSS, and JavaScript.
+My personal portfolio site, built with HTML, CSS, JS.
 
 Features:
-- Futuristic cyber theme
-- Interactive telemetry (user info)
+- Built in shell terminal
+- Interactive user info
 - Projects index and portfolio 
-- Custom components (header, footer, canvas)
+- Incident response writeups
 
 Live site: [highlion.net](https://www.highlion.net)
