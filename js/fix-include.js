@@ -5,8 +5,8 @@
   window.__HL_INCLUDES_DONE = true;
 
   function dedupeOnce() {
-    var headers = document.querySelectorAll("header");
-    var footers = document.querySelectorAll("footer");
+    var headers = document.querySelectorAll("header.nav");
+    var footers = document.querySelectorAll("footer.site-footer");
     for (var i = 1; i < headers.length; i += 1) headers[i].remove();
     for (var j = 1; j < footers.length; j += 1) footers[j].remove();
   }

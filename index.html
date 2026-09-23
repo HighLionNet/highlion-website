@@ -5,35 +5,36 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="dark">
   <meta name="theme-color" content="#050a12">
-  <meta name="description" content="HighLion is a personal cybersecurity lab focused on Linux, networking, SOC operations, projects, and incident writeups.">
+  <meta name="description" content="HighLion is a personal cyber lab and portfolio by Shmuel Yermus, focusing on Linux, networking, SOC skills and junior penetration testing. Includes home-lab projects, incident writeups and security tooling.">
   <link rel="canonical" href="https://www.highlion.net/">
-  <meta property="og:title" content="HighLion — Cybersecurity Lab">
-  <meta property="og:description" content="Security projects, incident audits, and vulnerability research from the HighLion lab.">
+  <meta property="og:title" content="HighLion – Cyber Lab &amp; Portfolio">
+  <meta property="og:description" content="Home lab, security projects and incident writeups by Shmuel Yermus – aspiring SOC analyst and junior penetration tester.">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://www.highlion.net/">
   <meta property="og:image" content="https://www.highlion.net/assets/icons/HighLion.ico">
   <meta name="twitter:card" content="summary">
-  <meta name="twitter:title" content="HighLion — Cybersecurity Lab">
-  <meta name="twitter:description" content="Security projects, incident audits, and vulnerability research from the HighLion lab.">
+  <meta name="twitter:title" content="HighLion – Cyber Lab &amp; Portfolio">
+  <meta name="twitter:description" content="Home lab, security projects and incident writeups by Shmuel Yermus – aspiring SOC analyst and junior penetration tester.">
   <title>HighLion — Home</title>
   <link rel="icon" href="/assets/icons/HighLion.ico" sizes="any">
-  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/css/style.css?v=hl8b">
 </head>
 <body>
   <a class="skip" href="#main">Skip to content</a>
-  <div class="scanlines" aria-hidden="true"></div>
   <canvas id="fx" class="fx" aria-hidden="true"></canvas>
   <div data-include="/components/header.html"></div>
 
   <main id="main">
     <div class="shell home-hero">
       <section class="hero-copy" aria-labelledby="home-title">
-        <div class="kicker">Security operations</div>
-        <h1 id="home-title" class="headline">A working cyber lab, documented.</h1>
-        <p class="lead">HighLion collects hands-on work across Linux, networking, web infrastructure, and defensive security. Explore the current projects and concise incident research from the lab.</p>
+        <div class="kicker">Cybersecurity • Linux • Networking</div>
+        <h1 id="home-title" class="headline">Welcome to HighLion: The cybersecurity project made for <span class="accent">attack</span> and <span class="accent">defense</span> skill development.</h1>
+        <p class="lead">HighLion was created by an aspiring CyberSecurity professional, as a practice ground for web design and security.</p>
+        <p class="lead lead-follow"><strong>This site is used to document ongoing security work and experiments. Content is added as systems break, change, or require closer inspection.</strong></p>
         <div class="actions">
-          <a class="btn" href="/writeups.html">View writeups</a>
-          <a class="btn secondary" href="/projects.html">Browse projects</a>
+          <a class="btn" href="/projects.html">Read About Projects</a>
+          <a class="btn secondary" href="/about.html">How It’s Built</a>
+          <a class="btn" href="/writeups.html">View Security Writeups</a>
         </div>
       </section>
 
@@ -68,31 +69,32 @@
       <div class="section-heading">
         <div>
           <div class="kicker">Writeups</div>
-          <h2 id="latest-writeups">Latest field notes</h2>
+          <h2 id="latest-writeups">Security writeups &amp; incident reports</h2>
         </div>
         <a href="/writeups.html">All writeups →</a>
       </div>
+      <p class="section-intro">Beyond hands-on projects, I document issues which I encounter: reproducing problems, collecting evidence, and writing clear incident reports with root cause and remediation steps.</p>
       <div class="writeup-grid">
         <article class="panel writeup-card">
           <div class="eyebrow">Incident audit</div>
           <h2>Exposed Pi-hole Admin Page</h2>
-          <p>A reverse-proxy misconfiguration exposed an internal administration panel to the public internet.</p>
-          <div class="status-row"><span class="status-label">Status</span><span class="status-value fixed">Fixed</span></div>
+          <p>Home lab penetration-testing, covering a reverse-proxy misconfiguration that exposed an internal Pi-hole administration panel.</p>
+          <div class="status-row"><span class="status-label">Status</span><span class="status-value patched">Patched</span></div>
           <div class="hash-row"><span class="hash-label">SHA-256</span><code class="hash-value">25A17FC060946D52A71F53F98612964B9A16FD47EC12618435B6D0C838D89C82</code></div>
           <div class="card-actions">
-            <a class="card-link" href="/writeups/pihole.html">Read</a>
-            <a class="card-link" href="/assets/writeups/pdf/Incident_Audit_Pihole.pdf" target="_blank" rel="noopener">PDF</a>
+            <a class="card-link" href="/writeups/pihole.html">Read Online</a>
+            <a class="card-link" href="/assets/writeups/pdf/Incident_Audit_Pihole.pdf" target="_blank" rel="noopener">Download PDF</a>
           </div>
         </article>
         <article class="panel writeup-card">
           <div class="eyebrow">Vulnerability research</div>
           <h2>CVE-2026-2441</h2>
-          <p>A focused report on a Blink use-after-free vulnerability and its exploitation flow.</p>
+          <p>SOC report of Use-After-Free in CSS - CVE-2026-2441 vulnerability.</p>
           <div class="status-row"><span class="status-label">Status</span><span class="status-value research">Research</span></div>
           <div class="hash-row"><span class="hash-label">SHA-256</span><code class="hash-value">345BD2C08A94EBEB55BD4D7D7B186921D39DD42A5941D15F170C088B29604057</code></div>
           <div class="card-actions">
-            <a class="card-link" href="/writeups/cve-2026-2441.html">Read</a>
-            <a class="card-link" href="/assets/writeups/pdf/CVE-2026-2441.pdf" target="_blank" rel="noopener">PDF</a>
+            <a class="card-link" href="/writeups/cve-2026-2441.html">Read Online</a>
+            <a class="card-link" href="/assets/writeups/pdf/CVE-2026-2441.pdf" target="_blank" rel="noopener">Download PDF</a>
           </div>
         </article>
       </div>
@@ -100,9 +102,9 @@
   </main>
 
   <div data-include="/components/footer.html"></div>
-  <script src="/js/fix-include.js" defer></script>
-  <script src="/js/terminal.js" defer></script>
-  <script src="/js/particles.js" defer></script>
+  <script src="/js/fix-include.js?v=hl8b" defer></script>
+  <script src="/js/terminal.js?v=hl8b" defer></script>
+  <script src="/js/particles.js?v=hl8b" defer></script>
   <script>
     (function () {
       var started = Date.now();

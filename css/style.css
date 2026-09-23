@@ -14,7 +14,7 @@
   --blue: #63a9ff;
   --stroke: rgba(105, 196, 203, 0.24);
   --stroke-strong: rgba(105, 222, 224, 0.46);
-  --fixed: #74d49b;
+  --patched: #74d49b;
   --research: #e7c56b;
   --danger: #f28b8b;
   --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
@@ -85,19 +85,10 @@ textarea {
   top: 1rem;
 }
 
-.scanlines {
-  position: fixed;
-  inset: 0;
-  z-index: 300;
-  pointer-events: none;
-  opacity: 0.035;
-  background: repeating-linear-gradient(180deg, #fff 0, #fff 1px, transparent 1px, transparent 4px);
-}
-
 .fx {
   position: fixed;
   inset: 0;
-  z-index: -1;
+  z-index: 0;
   pointer-events: none;
 }
 
@@ -166,7 +157,14 @@ textarea {
 }
 
 main {
+  position: relative;
+  z-index: 1;
   flex: 1;
+}
+
+.site-footer {
+  position: relative;
+  z-index: 1;
 }
 
 .shell {
@@ -233,11 +231,24 @@ h3 {
   max-width: 17ch;
 }
 
+.home-hero .headline {
+  max-width: 30ch;
+  font-size: clamp(2.4rem, 4.2vw, 3.5rem);
+}
+
+.accent {
+  color: var(--cyan-strong);
+}
+
 .lead {
   max-width: 68ch;
   margin-bottom: 0;
   color: var(--text-soft);
   font-size: clamp(1rem, 1.5vw, 1.15rem);
+}
+
+.lead-follow {
+  margin-top: 0.7rem;
 }
 
 .home-hero {
@@ -247,6 +258,10 @@ h3 {
   align-content: center;
   gap: 2.4rem;
   padding: 4.5rem 0 3rem;
+}
+
+.home-hero > .hlterm-panel {
+  grid-column: 2;
 }
 
 .hero-copy {
@@ -289,7 +304,7 @@ h3 {
   background: var(--cyan);
   font: 700 0.75rem/1 var(--mono);
   letter-spacing: 0.04em;
-  text-decoration: none;
+  text-decoration: none !important;
   cursor: pointer;
 }
 
@@ -331,7 +346,11 @@ h3 {
 .stat {
   min-width: 0;
   padding: 0.9rem 1rem;
+  border: 0;
   border-right: 1px solid var(--stroke);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .stat:last-child {
@@ -364,6 +383,12 @@ h3 {
   margin-bottom: 1.3rem;
   padding-bottom: 0.8rem;
   border-bottom: 1px solid var(--stroke);
+}
+
+.section-intro {
+  max-width: 76ch;
+  margin: -0.2rem 0 1.3rem;
+  color: var(--text-soft);
 }
 
 .section-heading h2 {
@@ -430,8 +455,8 @@ h3 {
   font: 500 0.78rem/1.5 var(--mono);
 }
 
-.status-value.fixed {
-  color: var(--fixed);
+.status-value.patched {
+  color: var(--patched);
 }
 
 .status-value.research {
@@ -479,6 +504,11 @@ h3 {
   padding: 1.3rem;
 }
 
+.profile-panel > p {
+  margin-bottom: 1.2rem;
+  color: var(--text-soft);
+}
+
 .profile-grid {
   display: grid;
   gap: 0;
@@ -513,6 +543,7 @@ h3 {
 
 .hlterm-panel {
   min-width: 0;
+  align-self: stretch;
   overflow: hidden;
   border: 1px solid var(--stroke-strong);
   border-radius: 5px;
@@ -563,6 +594,7 @@ h3 {
 .hlterm-body {
   position: relative;
   height: 390px;
+  min-height: 360px;
   overflow: auto;
   display: flex;
   flex-direction: column;
@@ -617,6 +649,7 @@ h3 {
 .hlterm-prompt {
   display: flex;
   align-items: center;
+  flex-wrap: nowrap;
   gap: 0.5rem;
   padding: 0.55rem 1rem 0.9rem;
 }
@@ -628,7 +661,7 @@ h3 {
 }
 
 .hlterm-input {
-  min-width: 3rem;
+  min-width: 0;
   flex: 1;
   padding: 0;
   border: 0;
@@ -638,6 +671,8 @@ h3 {
   background: transparent;
   font: inherit;
   caret-color: var(--cyan-strong);
+  box-shadow: none;
+  appearance: none;
 }
 
 .article-shell {
@@ -662,6 +697,10 @@ h3 {
 
 .article-hash {
   margin-top: 1rem;
+}
+
+.article-status {
+  margin-top: 1.25rem;
 }
 
 .article-content {
@@ -746,7 +785,7 @@ h3 {
 }
 
 .form-status[data-state="sent"] {
-  color: var(--fixed);
+  color: var(--patched);
 }
 
 .form-status[data-state="error"] {
@@ -842,6 +881,10 @@ h3 {
     padding-top: 3.5rem;
   }
 
+  .home-hero > .hlterm-panel {
+    grid-column: 1;
+  }
+
   .stats-strip {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
@@ -928,13 +971,13 @@ h3 {
   }
 
   .hlterm-prompt {
-    align-items: flex-start;
-    flex-wrap: wrap;
+    align-items: center;
+    flex-wrap: nowrap;
     gap: 0.25rem 0.5rem;
   }
 
   .hlterm-input {
-    flex-basis: 100%;
+    flex-basis: auto;
     min-height: 1.6em;
   }
 
@@ -955,7 +998,6 @@ h3 {
     scroll-behavior: auto;
   }
 
-  .scanlines,
   .fx {
     display: none;
   }

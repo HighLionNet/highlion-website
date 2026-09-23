@@ -24,7 +24,7 @@
   var files = {
     "README.txt": "HighLion is a self-hosted cybersecurity lab documenting networking, Linux, web infrastructure, and security operations.",
     "projects.md": "Home Lab — VLAN segmentation, Pi-hole DNS, DMZ separation, and routing.\nHighLion Web — self-hosted NGINX and Apache infrastructure.\nKali tools — local attack, defense, cleanup, and privacy mode scripts.\nNextcloud Server — SSD-backed file sync and headless administration.\nNetworking Projects — Cisco Packet Tracer labs.\nWindows AD — user automation, GPO, PSO, and ACL templates.",
-    "writeups.md": "Exposed Pi-hole Admin Page — incident audit, fixed.\nCVE-2026-2441 — vulnerability research.",
+    "writeups.md": "Exposed Pi-hole Admin Page — incident audit, patched.\nCVE-2026-2441 — vulnerability research.",
     "ping.txt": "pong"
   };
 
@@ -101,7 +101,7 @@
   }
 
   function listWriteups() {
-    appendLine("INCIDENT  Exposed Pi-hole Admin Page  [Fixed]");
+    appendLine("INCIDENT  Exposed Pi-hole Admin Page  [Patched]");
     appendLine("RESEARCH  CVE-2026-2441              [Research]");
   }
 
