@@ -24,15 +24,15 @@
     canvas.style.height = height + "px";
     context.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-    var count = Math.min(72, Math.max(22, Math.floor((width * height) / 26000)));
+    var count = Math.min(58, Math.max(18, Math.floor((width * height) / 32000)));
     points = Array.from({ length: count }, function () {
       return {
         x: Math.random() * width,
         y: Math.random() * height,
         vx: (Math.random() - 0.5) * 0.12,
         vy: (Math.random() - 0.5) * 0.12,
-        size: Math.random() * 0.8 + 0.45,
-        alpha: Math.random() * 0.22 + 0.12
+        size: Math.random() * 0.7 + 0.35,
+        alpha: Math.random() * 0.13 + 0.07
       };
     });
   }
@@ -58,7 +58,7 @@
       if (point.y < -5) point.y = height + 5;
       if (point.y > height + 5) point.y = -5;
 
-      context.fillStyle = "rgba(74, 232, 225, " + point.alpha + ")";
+      context.fillStyle = "rgba(102, 220, 231, " + point.alpha + ")";
       context.beginPath();
       context.arc(point.x, point.y, point.size, 0, Math.PI * 2);
       context.fill();
@@ -69,7 +69,7 @@
         var dy = neighbor.y - point.y;
         var distance = Math.sqrt(dx * dx + dy * dy);
         if (distance < 110) {
-          context.strokeStyle = "rgba(49, 197, 203, " + (0.055 * (1 - distance / 110)) + ")";
+          context.strokeStyle = "rgba(102, 220, 231, " + (0.035 * (1 - distance / 110)) + ")";
           context.lineWidth = 1;
           context.beginPath();
           context.moveTo(point.x, point.y);

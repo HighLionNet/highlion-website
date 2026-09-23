@@ -4,16 +4,16 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="dark">
-  <meta name="theme-color" content="#050a12">
+  <meta name="theme-color" content="#070914">
   <meta name="description" content="Contact HighLion and find its public security profiles.">
   <title>HighLion — Contact</title>
   <link rel="icon" href="/assets/icons/HighLion.ico" sizes="any">
-  <link rel="stylesheet" href="/css/style.css?v=hl8b">
+  <link rel="stylesheet" href="/css/style.css?v=hl8c">
 </head>
 <body>
   <a class="skip" href="#main">Skip to content</a>
   <canvas id="fx" class="fx" aria-hidden="true"></canvas>
-  <div data-include="/components/header.html"></div>
+  <div data-include="/components/header.html?v=hl8c"></div>
 
   <main id="main">
     <header class="shell page-head">
@@ -24,6 +24,10 @@
 
     <section class="shell contact-layout" aria-label="Contact form and public links">
       <form class="contact-panel contact-form" id="contactForm" novalidate>
+        <div class="contact-panel-head">
+          <div class="profile-label">Message</div>
+          <h2>Send a message</h2>
+        </div>
         <div class="field">
           <label for="name">Name</label>
           <input id="name" name="name" type="text" autocomplete="name" maxlength="80" placeholder="Your Name Here" required>
@@ -43,8 +47,11 @@
         <p class="contact-copy" id="formFeedback" aria-live="polite"></p>
       </form>
 
-      <aside class="contact-panel">
-        <div class="profile-label">Links</div>
+      <aside class="contact-panel contact-links-panel">
+        <div class="contact-panel-head">
+          <div class="profile-label">Links</div>
+          <h2>Find HighLion</h2>
+        </div>
         <div class="socials">
           <a class="social-link" href="https://github.com/highlionnet" target="_blank" rel="noopener noreferrer">
             <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .7a11.5 11.5 0 0 0-3.64 22.4c.58.1.79-.25.79-.56v-2c-3.22.7-3.9-1.36-3.9-1.36-.52-1.34-1.29-1.7-1.29-1.7-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.04 1.77 2.72 1.26 3.38.96.1-.75.4-1.26.74-1.55-2.57-.3-5.27-1.29-5.27-5.69 0-1.26.45-2.28 1.18-3.08-.12-.29-.51-1.46.11-3.03 0 0 .96-.31 3.16 1.17a10.9 10.9 0 0 1 5.76 0c2.2-1.48 3.16-1.17 3.16-1.17.62 1.57.23 2.74.11 3.03.74.8 1.18 1.82 1.18 3.08 0 4.42-2.71 5.39-5.29 5.68.42.36.79 1.07.79 2.14v3.18c0 .31.21.67.8.56A11.5 11.5 0 0 0 12 .7Z"></path></svg>
@@ -67,9 +74,9 @@
     </section>
   </main>
 
-  <div data-include="/components/footer.html"></div>
-  <script src="/js/fix-include.js?v=hl8b" defer></script>
-  <script src="/js/particles.js?v=hl8b" defer></script>
+  <div data-include="/components/footer.html?v=hl8c"></div>
+  <script src="/js/fix-include.js?v=hl8c" defer></script>
+  <script src="/js/particles.js?v=hl8c" defer></script>
   <script>
     (function () {
       var form = document.getElementById("contactForm");
