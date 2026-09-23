@@ -1,145 +1,122 @@
-/* ==========================================================================
-   HighLion Particles v3.5 — modes: hybrid | stars | orbs | off
-   Frame-rate aware motion; reduced-motion support; API: window.__HLParticles
-   Longer than v3 and tuned for Pi 5 stability.
-   ========================================================================== */
+(function () {
+  "use strict";
 
-(function(){
-  let canvas = null, ctx = null, width = 0, height = 0;
-  let mode = 'hybrid';
-  let particles = [];
-  let rafId = null;
-  let lastTs = 0;
-  let density = 100; // adjusted by performance & window size
-  const prefersReduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-  function setCanvas(el) {
-    canvas = el;
-    if (!canvas) return;
-    ctx = canvas.getContext('2d');
-    resize();
-    initParticles();
-    cancelAnimationFrame(rafId);
-    rafId = requestAnimationFrame(loop);
-  }
+  var canvas;
+  var context;
+  var points = [];
+  var frame = 0;
+  var running = false;
+  var lastFrame = 0;
+  var width = 0;
+  var height = 0;
+  var dpr = 1;
+  var pointer = { x: 0, y: 0, active: false };
+  var reducedMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)");
 
   function resize() {
-    if (!canvas) return;
-    width = canvas.width = window.innerWidth;
-    height = canvas.height = window.innerHeight;
-    // density scale based on viewport, capped tighter for ultra-wide/4K
-    const area = width * height;
-    density = Math.min(180, Math.max(60, Math.floor(area / 20000)));
-    if (prefersReduce) density = 0; // honor reduced motion
+    if (!canvas || !context) return;
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    width = window.innerWidth;
+    height = window.innerHeight;
+    canvas.width = Math.floor(width * dpr);
+    canvas.height = Math.floor(height * dpr);
+    canvas.style.width = width + "px";
+    canvas.style.height = height + "px";
+    context.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    var count = Math.min(72, Math.max(22, Math.floor((width * height) / 26000)));
+    points = Array.from({ length: count }, function () {
+      return {
+        x: Math.random() * width,
+        y: Math.random() * height,
+        vx: (Math.random() - 0.5) * 0.12,
+        vy: (Math.random() - 0.5) * 0.12,
+        size: Math.random() * 0.8 + 0.45,
+        alpha: Math.random() * 0.22 + 0.12
+      };
+    });
   }
 
-  function initParticles() {
-    particles = [];
-    const count = (mode === 'off' || prefersReduce) ? 0 : density;
-    for (let i = 0; i < count; i++) {
-      particles.push(spawnParticle());
-    }
-  }
+  function draw(timestamp) {
+    if (!running || !context) return;
+    frame = window.requestAnimationFrame(draw);
+    if (timestamp - lastFrame < 32) return;
+    lastFrame = timestamp;
+    context.clearRect(0, 0, width, height);
 
-  function spawnParticle() {
-    const base = {
-      x: Math.random() * width,
-      y: Math.random() * height,
-      vx: (Math.random() - 0.5) * 0.4,
-      vy: (Math.random() - 0.5) * 0.4,
-      r: Math.random() * 2 + 0.7,
-      a: Math.random()
-    };
-    if (mode === 'stars') {
-      base.vx *= 0.2; base.vy *= 0.2; base.r = Math.random() * 1.6 + 0.4;
-    } else if (mode === 'orbs') {
-      base.vx *= 0.35; base.vy *= 0.35; base.r = Math.random() * 2.6 + 1.1;
-    } else if (mode === 'hybrid') {
-      if (Math.random() > 0.5) { base.r += 0.8; }
-    }
-    return base;
-  }
+    points.forEach(function (point, index) {
+      point.x += point.vx;
+      point.y += point.vy;
 
-  function draw(ts) {
-    if (!ctx) return;
-    const dt = Math.min(32, (ts - lastTs) || 16);
-    lastTs = ts;
-    ctx.clearRect(0, 0, width, height);
-
-    if (mode === 'off' || prefersReduce) return;
-
-    if (mode === 'stars' || mode === 'hybrid') {
-      // trailing parallax lanes
-      ctx.globalCompositeOperation = 'lighter';
-      ctx.strokeStyle = 'rgba(0,240,255,0.15)';
-      ctx.lineWidth = 1;
-      for (let i=0;i<6;i++) {
-        const y = (i / 6) * height;
-        ctx.beginPath();
-        ctx.moveTo(0, y);
-        ctx.lineTo(width, y);
-        ctx.stroke();
+      if (pointer.active) {
+        point.x += (pointer.x - width / 2) * (index % 5 + 1) * 0.000012;
+        point.y += (pointer.y - height / 2) * (index % 5 + 1) * 0.000012;
       }
-      ctx.globalCompositeOperation = 'source-over';
-    }
 
-    const dtScale = dt / 16;
-    for (let i = 0; i < particles.length; i++) {
-      const p = particles[i];
-      // move (frame-rate aware)
-      p.x += p.vx * dtScale;
-      p.y += p.vy * dtScale;
-      // bounce
-      if (p.x < 0 || p.x > width) p.vx *= -1;
-      if (p.y < 0 || p.y > height) p.vy *= -1;
+      if (point.x < -5) point.x = width + 5;
+      if (point.x > width + 5) point.x = -5;
+      if (point.y < -5) point.y = height + 5;
+      if (point.y > height + 5) point.y = -5;
 
-      // draw glow orbs
-      if (mode === 'orbs' || (mode === 'hybrid' && p.r > 2.0)) {
-        const grad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r * 4);
-        grad.addColorStop(0, 'rgba(122,92,255,0.9)');
-        grad.addColorStop(1, 'rgba(122,92,255,0.0)');
-        ctx.fillStyle = grad;
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.r * 4, 0, Math.PI * 2);
-        ctx.fill();
+      context.fillStyle = "rgba(74, 232, 225, " + point.alpha + ")";
+      context.beginPath();
+      context.arc(point.x, point.y, point.size, 0, Math.PI * 2);
+      context.fill();
+
+      if (index % 4 === 0) {
+        var neighbor = points[(index + 7) % points.length];
+        var dx = neighbor.x - point.x;
+        var dy = neighbor.y - point.y;
+        var distance = Math.sqrt(dx * dx + dy * dy);
+        if (distance < 110) {
+          context.strokeStyle = "rgba(49, 197, 203, " + (0.055 * (1 - distance / 110)) + ")";
+          context.lineWidth = 1;
+          context.beginPath();
+          context.moveTo(point.x, point.y);
+          context.lineTo(neighbor.x, neighbor.y);
+          context.stroke();
+        }
       }
-      // draw core point
-      ctx.fillStyle = 'rgba(0,240,255,0.88)';
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-      ctx.fill();
+    });
+  }
+
+  function off() {
+    running = false;
+    window.cancelAnimationFrame(frame);
+    if (context) context.clearRect(0, 0, width, height);
+  }
+
+  function on() {
+    if (!canvas || (reducedMotion && reducedMotion.matches) || running) return;
+    running = true;
+    frame = window.requestAnimationFrame(draw);
+  }
+
+  function init() {
+    canvas = document.getElementById("fx");
+    if (!canvas || (reducedMotion && reducedMotion.matches)) return;
+    context = canvas.getContext("2d", { alpha: true });
+    if (!context) return;
+    resize();
+    on();
+
+    window.addEventListener("resize", resize, { passive: true });
+    window.addEventListener("pointermove", function (event) {
+      pointer.x = event.clientX;
+      pointer.y = event.clientY;
+      pointer.active = true;
+    }, { passive: true });
+    document.addEventListener("visibilitychange", function () {
+      if (document.hidden) off(); else on();
+    });
+    if (reducedMotion.addEventListener) {
+      reducedMotion.addEventListener("change", function (event) {
+        if (event.matches) off(); else on();
+      });
     }
   }
 
-  function loop(ts) {
-    draw(ts || performance.now());
-    rafId = requestAnimationFrame(loop);
-  }
-
-  // Public API for script.js
-  window.__HLParticles = {
-    setMode(next) {
-      mode = next;
-      initParticles();
-    },
-    getStatus() {
-      return { mode, count: particles.length };
-    },
-    onCanvasReady(el) {
-      setCanvas(el);
-    }
-  };
-
-  // If canvas already on DOM by the time this script runs:
-  function tryAttachEarly() {
-    const el = document.getElementById('particles-canvas');
-    if (el) setCanvas(el);
-  }
-
-  window.addEventListener('resize', resize);
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', tryAttachEarly);
-  } else {
-    tryAttachEarly();
-  }
+  window.__HLParticles = { off: off, on: on };
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
+  else init();
 })();

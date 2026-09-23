@@ -1,36 +1,54 @@
-/* HighLion include helper (idempotent + dedupe) */
-(function(){
+/* HighLion shared include loader. */
+(function () {
   "use strict";
-  if (window.__HL_INCLUDES_DONE) return;       // don't run twice
+  if (window.__HL_INCLUDES_DONE) return;
   window.__HL_INCLUDES_DONE = true;
 
-  function dedupeOnce(){
-    // keep the first header/footer; remove the rest
-    var hs = document.querySelectorAll('header'); 
-    for (var i=1;i<hs.length;i++) try{ hs[i].remove(); }catch(e){}
-    var fs = document.querySelectorAll('footer'); 
-    for (var j=1;j<fs.length;j++) try{ fs[j].remove(); }catch(e){}
+  function dedupeOnce() {
+    var headers = document.querySelectorAll("header");
+    var footers = document.querySelectorAll("footer");
+    for (var i = 1; i < headers.length; i += 1) headers[i].remove();
+    for (var j = 1; j < footers.length; j += 1) footers[j].remove();
   }
 
-  document.addEventListener('DOMContentLoaded', function(){
-    // fetch and replace placeholders
-    var nodes = Array.from(document.querySelectorAll('[data-include]'));
-    if (!nodes.length){ dedupeOnce(); return; }
-    Promise.all(nodes.map(function(el){
-      var url = el.getAttribute('data-include');
-      return fetch(url, {cache:'no-store', credentials:'same-origin'})
-        .then(function(r){ if(!r.ok) throw new Error(r.status+' '+r.statusText); return r.text(); })
-        .then(function(html){
-          el.insertAdjacentHTML('beforebegin', html);   // inject content
-          try{ el.remove(); }catch(e){}                 // remove placeholder
-        })
-        .catch(function(e){ console.error('include fail:', url, e); });
-    }))
-    .finally(function(){
-      // one pass of dedupe after all inserts
-      dedupeOnce();
-      // extra pass shortly after in case something else injects late
-      setTimeout(dedupeOnce, 100);
+  function finish() {
+    dedupeOnce();
+    document.querySelectorAll("[data-current-year]").forEach(function (node) {
+      node.textContent = String(new Date().getFullYear());
     });
+
+    var path = window.location.pathname;
+    if (path === "/") path = "/index.html";
+    document.querySelectorAll(".nav-links a").forEach(function (link) {
+      if (link.getAttribute("href") === path) link.setAttribute("aria-current", "page");
+    });
+  }
+
+  document.addEventListener("DOMContentLoaded", function () {
+    var nodes = Array.from(document.querySelectorAll("[data-include]"));
+    if (!nodes.length) {
+      finish();
+      return;
+    }
+
+    Promise.all(nodes.map(function (element) {
+      var url = element.getAttribute("data-include");
+      return fetch(url, { cache: "no-store", credentials: "same-origin" })
+        .then(function (response) {
+          if (!response.ok) throw new Error(response.status + " " + response.statusText);
+          return response.text();
+        })
+        .then(function (html) {
+          element.insertAdjacentHTML("beforebegin", html);
+          element.remove();
+        })
+        .catch(function (error) {
+          console.error("include failed:", url, error);
+        });
+    }))
+      .finally(function () {
+        finish();
+        window.setTimeout(dedupeOnce, 100);
+      });
   });
 })();

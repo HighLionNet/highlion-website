@@ -1,173 +1,60 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <meta name="color-scheme" content="dark"/>
-  <meta name="theme-color" content="#070914"/>
-
-  <script>document.documentElement.setAttribute('data-theme','cyber');</script>
-  <title>HighLion — Security Writeups</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#050a12">
+  <meta name="description" content="HighLion incident audits and vulnerability research writeups.">
+  <title>HighLion — Writeups</title>
   <link rel="icon" href="/assets/icons/HighLion.ico" sizes="any">
   <link rel="stylesheet" href="/css/style.css">
 </head>
-
 <body>
+  <a class="skip" href="#main">Skip to content</a>
+  <div class="scanlines" aria-hidden="true"></div>
+  <canvas id="fx" class="fx" aria-hidden="true"></canvas>
+  <div data-include="/components/header.html"></div>
 
-<a href="#main" class="skip">Skip to content</a>
-<div class="scanlines" aria-hidden="true"></div>
-<canvas id="fx" class="fx" aria-hidden="true"></canvas>
+  <main id="main">
+    <header class="shell page-head">
+      <div class="kicker">Writeups</div>
+      <h1 class="headline">Incident audits and security research.</h1>
+      <p class="lead">Technical findings from controlled testing, home-lab incidents, and vulnerability analysis.</p>
+    </header>
 
-<div data-include="/components/header.html"></div>
-
-<main id="main" class="hero" role="main">
-  <div class="inner">
-
-    <section class="glass-card"
-             style="padding:24px; max-width:1100px; grid-column:1 / -1; margin:0 auto;">
-
-      <div class="kicker">• WRITEUPS •</div>
-
-      <h1 class="headline">Security writeups & incident audits</h1>
-
-      <p class="lead">
-        Technical research, vulnerability analysis, and incident documentation from security testing and lab environments.
-      </p>
-
-
-      <div style="
-        display:grid;
-        grid-template-columns:repeat(auto-fit,minmax(350px,1fr));
-        gap:24px;
-        margin-top:30px;
-      ">
-
-
-        <!-- Pi-hole Incident -->
-        <div class="glass-card"
-             style="
-             padding:24px;
-             border:1px solid rgba(34,197,94,0.25);
-             box-shadow:0 0 25px rgba(34,197,94,0.08);
-             ">
-
-          <div class="kicker">INCIDENT AUDIT</div>
-
+    <section class="shell section" aria-labelledby="writeup-index">
+      <div class="section-heading"><h2 id="writeup-index">Published reports</h2></div>
+      <div class="writeup-grid">
+        <article class="panel writeup-card">
+          <div class="eyebrow">Incident audit</div>
           <h2>Exposed Pi-hole Admin Page</h2>
-
-          <p style="color:#22c55e;font-family:monospace;">
-            HOME LAB INCIDENT RESPONSE
-          </p>
-
-          <p>
-            Home lab penetration-testing, covering a reverse-proxy misconfiguration
-            that exposed an internal Pi-hole administration panel.
-          </p>
-
-          <div style="
-            margin-top:16px;
-            padding:12px;
-            border-left:3px solid #22c55e;
-            background:rgba(34,197,94,0.08);
-          ">
-            <strong>Status:</strong> Fixed
+          <p>A reverse-proxy misconfiguration exposed an internal administration panel to the public internet.</p>
+          <div class="status-row"><span class="status-label">Status</span><span class="status-value fixed">Fixed</span></div>
+          <div class="hash-row"><span class="hash-label">SHA-256</span><code class="hash-value">25A17FC060946D52A71F53F98612964B9A16FD47EC12618435B6D0C838D89C82</code></div>
+          <div class="card-actions">
+            <a class="card-link" href="/writeups/pihole.html">Read</a>
+            <a class="card-link" href="/assets/writeups/pdf/Incident_Audit_Pihole.pdf" target="_blank" rel="noopener">PDF</a>
           </div>
+        </article>
 
-          <div style="
-            margin-top:16px;
-            padding:12px;
-            border-radius:8px;
-            background:rgba(15,23,42,0.6);
-          ">
-            <strong>SHA-256</strong>
-            <br>
-            <code style="font-size:0.85rem;word-break:break-all;">
-              25A17FC060946D52A71F53F98612964B9A16FD47EC12618435B6D0C838D89C82
-            </code>
-          </div>
-
-          <div class="cta" style="margin-top:18px;gap:12px;">
-            <a class="btn" href="/writeups/pihole.html">
-              Read Online
-            </a>
-
-            <a class="btn"
-               href="/assets/writeups/pdf/Incident_Audit_Pihole.pdf"
-               target="_blank"
-               rel="noopener">
-              Download PDF
-            </a>
-          </div>
-
-        </div>
-
-
-
-        <!-- CVE Research -->
-        <div class="glass-card"
-             style="
-             padding:24px;
-             border:1px solid rgba(96,165,250,0.3);
-             box-shadow:0 0 25px rgba(96,165,250,0.1);
-             ">
-
-          <div class="kicker">VULNERABILITY RESEARCH</div>
-
+        <article class="panel writeup-card">
+          <div class="eyebrow">Vulnerability research</div>
           <h2>CVE-2026-2441</h2>
-
-          <p style="color:#60a5fa;font-family:monospace;">
-            Vulnerability Report:
-          </p>
-
-          <p>
-            SOC report of Use-After-Free in CSS - CVE-2026-2441 vulnerability.
-          </p>
-
-          <div style="
-            margin-top:16px;
-            padding:12px;
-            border-radius:8px;
-            background:rgba(15,23,42,0.6);
-          ">
-            <strong>SHA-256</strong>
-            <br>
-            <code style="font-size:0.85rem;word-break:break-all;">
-              345BD2C08A94EBEB55BD4D7D7B186921D39DD42A5941D15F170C088B29604057
-            </code>
+          <p>A focused report on a Blink use-after-free vulnerability and its exploitation flow.</p>
+          <div class="status-row"><span class="status-label">Status</span><span class="status-value research">Research</span></div>
+          <div class="hash-row"><span class="hash-label">SHA-256</span><code class="hash-value">345BD2C08A94EBEB55BD4D7D7B186921D39DD42A5941D15F170C088B29604057</code></div>
+          <div class="card-actions">
+            <a class="card-link" href="/writeups/cve-2026-2441.html">Read</a>
+            <a class="card-link" href="/assets/writeups/pdf/CVE-2026-2441.pdf" target="_blank" rel="noopener">PDF</a>
           </div>
-
-          <div class="cta" style="margin-top:18px;gap:12px;">
-            <a class="btn" href="/writeups/cve-2026-2441.html">
-              Read Online
-            </a>
-
-            <a class="btn"
-               href="/assets/writeups/pdf/CVE-2026-2441.pdf"
-               target="_blank"
-               rel="noopener">
-              Download PDF
-            </a>
-          </div>
-
-        </div>
-
-
+        </article>
       </div>
-
     </section>
+  </main>
 
-  </div>
-
-  <canvas class="hero-canvas" id="grid" aria-hidden="true"></canvas>
-</main>
-
-<section aria-label="divider">
-  <div class="divider"></div>
-</section>
-
-<div data-include="/components/footer.html"></div>
-
-<script src="/js/fix-include.js" defer></script>
-
+  <div data-include="/components/footer.html"></div>
+  <script src="/js/fix-include.js" defer></script>
+  <script src="/js/particles.js" defer></script>
 </body>
 </html>
