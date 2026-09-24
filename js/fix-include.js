@@ -17,10 +17,15 @@
       node.textContent = String(new Date().getFullYear());
     });
 
-    var path = window.location.pathname;
-    if (path === "/") path = "/index.html";
+    var path = window.location.pathname.replace(/\/+$/, "") || "/";
+    if (path === "/" || path === "/index") path = "/index.html";
+    else if (/^\/writeups\//.test(path) || path === "/writeups") path = "/writeups.html";
+    else if (path === "/projects") path = "/projects.html";
+    else if (path === "/about") path = "/about.html";
+    else if (path === "/contact" || path === "/403" || path === "/403.html") path = "/contact.html";
     document.querySelectorAll(".nav-links a").forEach(function (link) {
       if (link.getAttribute("href") === path) link.setAttribute("aria-current", "page");
+      else link.removeAttribute("aria-current");
     });
   }
 

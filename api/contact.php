@@ -36,13 +36,22 @@ $value = static function (string $key) use ($payload): string {
 $company = trim($value('company'));
 if ($company !== '') {
     $page = $value('page') === '403' ? '403' : 'contact';
+    $ip = hl_client_ip();
+    $country = hl_country();
+    $userAgent = hl_clean_header(substr((string) ($_SERVER['HTTP_USER_AGENT'] ?? 'unknown'), 0, 300));
     hl_honeypot_write([
         'ts' => gmdate('c'),
-        'ip' => hl_client_ip(),
-        'ua' => hl_clean_header(substr((string) ($_SERVER['HTTP_USER_AGENT'] ?? 'unknown'), 0, 300)),
+        'ip' => $ip,
+        'ua' => $userAgent,
         'page' => $page,
+        'country' => $country,
+        'extra' => (object) [],
     ]);
     hl_log('honeypot trip');
+    hl_telegram(
+        '/etc/highlion/honeypot.env',
+        "HighLion honeypot\n" . trim($ip . ' ' . $country . ' ' . $page) . "\n" . $userAgent
+    );
     hl_json(['ok' => true]);
 }
 
@@ -93,20 +102,8 @@ $body = implode("\n", [
     '-----',
     $safeMessage,
 ]);
-$headers = implode("\r\n", [
-    'From: letterbox@highlion.net',
-    'Reply-To: ' . $safeEmail,
-    'Content-Type: text/plain; charset=UTF-8',
-]);
-
-$sent = @mail(
-    'admin@highlion.net',
-    $subject,
-    $body,
-    $headers,
-    '-f letterbox@highlion.net'
-);
-hl_log('contact ' . ($sent ? 'sent ' : 'failed ') . strlen($body));
+$sent = hl_telegram('/etc/highlion/letterbox.env', $subject . "\n" . $body);
+hl_log('contact telegram ' . ($sent ? 'sent' : 'failed'));
 if (!$sent) {
     hl_json(['ok' => false], 500);
 }

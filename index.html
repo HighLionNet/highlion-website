@@ -17,13 +17,13 @@
   <meta name="twitter:description" content="Home lab, security projects and incident writeups by Shmuel Yermus – aspiring SOC analyst and junior penetration tester.">
   <title>HighLion — Home</title>
   <link rel="icon" href="/assets/icons/HighLion.ico" sizes="any">
-  <link rel="stylesheet" href="/css/style.css?v=hl8f">
+  <link rel="stylesheet" href="/css/style.css?v=hl8g">
 </head>
 <body>
   <a class="skip" href="#main">Skip to content</a>
   <div class="scanlines" aria-hidden="true"></div>
   <canvas id="fx" class="fx" aria-hidden="true"></canvas>
-  <div data-include="/components/header.html?v=hl8f"></div>
+  <div data-include="/components/header.html?v=hl8g"></div>
 
   <main id="main">
     <section class="shell home-stage">
@@ -37,6 +37,16 @@
           <a class="btn secondary" href="/writeups.html">Read writeups</a>
         </div>
       </article>
+
+      <aside class="news-rail" id="newsRail" aria-label="Cyber news">
+        <div class="news-kicker-row">
+          <span class="kicker news-kicker">Intel</span>
+          <span class="news-stamp" id="newsStamp">offline</span>
+        </div>
+        <div class="news-track-wrap">
+          <ol class="news-list" id="news-list"></ol>
+        </div>
+      </aside>
 
       <aside class="ops-board monitor" aria-label="Local session">
         <header class="monitor-head">
@@ -92,26 +102,11 @@
       </aside>
     </section>
 
-    <div class="bleed-band rain-band" id="rainWrap" aria-hidden="true">
-      <canvas id="rain" class="rain-canvas"></canvas>
+    <div class="bleed-band rule-band rule-band-top" aria-hidden="true">
+      <canvas class="rain-canvas"></canvas>
     </div>
 
-    <section class="shell home-ops">
-      <aside class="news-rail monitor" aria-label="Cyber news">
-        <header class="monitor-head news-head">
-          <div class="hlterm-lights" aria-hidden="true">
-            <span class="red"></span><span class="amber"></span><span class="green"></span>
-          </div>
-          <div class="monitor-heading">
-            <div class="kicker news-kicker">News</div>
-            <h2>External headlines</h2>
-          </div>
-          <span class="news-stamp" id="newsStamp">offline</span>
-        </header>
-        <div class="monitor-body news-body">
-          <ol class="news-list" id="news-list"></ol>
-        </div>
-      </aside>
+    <section class="shell home-term">
       <aside class="monitor hlterm-panel" id="hlterm-panel" data-hlshell data-matrix-default="off" aria-label="HighLion terminal">
         <div class="hlterm-head monitor-head">
           <div class="hlterm-lights" aria-hidden="true">
@@ -125,6 +120,10 @@
         </div>
       </aside>
     </section>
+
+    <div class="bleed-band rule-band rule-band-bot" aria-hidden="true">
+      <canvas class="rain-canvas"></canvas>
+    </div>
 
     <section class="shell section" aria-labelledby="latest-writeups">
       <div class="section-heading">
@@ -162,12 +161,13 @@
     </section>
   </main>
 
-  <div data-include="/components/footer.html?v=hl8f"></div>
-  <script src="/js/fix-include.js?v=hl8f" defer></script>
-  <script src="/js/particles.js?v=hl8f" defer></script>
-  <script src="/js/rain.js?v=hl8f" defer></script>
-  <script src="/js/intel-feed.js?v=hl8f" defer></script>
-  <script src="/js/terminal.js?v=hl8f" defer></script>
-  <script src="/js/dashboard.js?v=hl8f" defer></script>
+  <div data-include="/components/footer.html?v=hl8g"></div>
+  <script src="/js/fix-include.js?v=hl8g" defer></script>
+  <script src="/js/session-meta.js?v=hl8g" defer></script>
+  <script src="/js/particles.js?v=hl8g" defer></script>
+  <script src="/js/rain.js?v=hl8g" defer></script>
+  <script src="/js/intel-feed.js?v=hl8g" defer></script>
+  <script src="/js/terminal.js?v=hl8g" defer></script>
+  <script src="/js/dashboard.js?v=hl8g" defer></script>
 </body>
 </html>

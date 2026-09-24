@@ -114,21 +114,15 @@
 
   form.addEventListener("submit", async function (event) {
     event.preventDefault();
-    if (fields.company.value.trim()) {
-      clearErrors();
-      form.reset();
-      setState("Sent", "");
-      return;
-    }
-
     var payload = {
       name: fields.name.value.trim(),
       email: fields.email.value.trim(),
       message: fields.message.value.trim(),
-      company: "",
+      company: fields.company.value.trim(),
       page: window.location.pathname === "/403.html" ? "403" : "contact"
     };
-    var messages = validate(payload);
+    var messages = payload.company ? { name: "", email: "", message: "" } : validate(payload);
+    if (payload.company) clearErrors();
     var firstError = messages.name || messages.email || messages.message;
     if (firstError) {
       setState("Error", firstError);
@@ -138,8 +132,8 @@
     setState("Sending", "");
     button.disabled = true;
     try {
-      var token = await tokenPromise;
-      if (!token) {
+      var token = payload.company ? "" : await tokenPromise;
+      if (!token && !payload.company) {
         token = await loadToken();
         tokenPromise = Promise.resolve(token);
       }

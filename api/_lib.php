@@ -44,7 +44,7 @@ function hl_origin_ok(string $csrfToken = ''): bool
 
     $host = strtolower(trim((string) ($_SERVER['HTTP_HOST'] ?? '')));
     $host = preg_replace('/:\d+$/', '', $host);
-    return $host === 'www.highlion.net' && hl_csrf_check($csrfToken);
+    return ($host === 'www.highlion.net' || $host === 'highlion.net') && hl_csrf_check($csrfToken);
 }
 
 function hl_client_ip(): string
@@ -143,6 +143,83 @@ function hl_honeypot_write(array $row): void
     if (is_string($encoded)) {
         @file_put_contents('/var/tmp/highlion-honeypot.log', $encoded . PHP_EOL, FILE_APPEND | LOCK_EX);
     }
+}
+
+function hl_env_load(string $path): array
+{
+    if (!is_readable($path)) {
+        return [];
+    }
+    $lines = @file($path, FILE_IGNORE_NEW_LINES);
+    if (!is_array($lines)) {
+        return [];
+    }
+    $values = [];
+    foreach ($lines as $line) {
+        $line = trim((string) $line);
+        if ($line === '' || substr($line, 0, 1) === '#' || strpos($line, '=') === false) {
+            continue;
+        }
+        [$key, $value] = explode('=', $line, 2);
+        $key = trim($key);
+        $value = trim($value);
+        if (!preg_match('/^[A-Z][A-Z0-9_]*$/', $key)) {
+            continue;
+        }
+        if (strlen($value) >= 2) {
+            $first = $value[0];
+            $last = $value[strlen($value) - 1];
+            if (($first === '"' && $last === '"') || ($first === "'" && $last === "'")) {
+                $value = substr($value, 1, -1);
+            }
+        }
+        $values[$key] = $value;
+    }
+    return $values;
+}
+
+function hl_telegram(string $envPath, string $text): bool
+{
+    $values = hl_env_load($envPath);
+    $token = trim((string) ($values['TELEGRAM_BOT_TOKEN'] ?? ''));
+    $chatId = trim((string) ($values['TELEGRAM_CHAT_ID'] ?? ''));
+    if ($token === '' || $chatId === '' || preg_match('/^[A-Za-z0-9:_-]+$/', $token) !== 1) {
+        return false;
+    }
+    if (function_exists('mb_substr')) {
+        $text = mb_substr($text, 0, 3500, 'UTF-8');
+    } else {
+        $text = substr($text, 0, 3500);
+    }
+    $body = http_build_query([
+        'chat_id' => $chatId,
+        'text' => $text,
+        'disable_web_page_preview' => 'true',
+    ], '', '&', PHP_QUERY_RFC3986);
+    $context = stream_context_create([
+        'http' => [
+            'method' => 'POST',
+            'timeout' => 8,
+            'ignore_errors' => true,
+            'header' => "Content-Type: application/x-www-form-urlencoded\r\nContent-Length: " . strlen($body) . "\r\n",
+            'content' => $body,
+        ],
+        'ssl' => [
+            'verify_peer' => true,
+            'verify_peer_name' => true,
+        ],
+    ]);
+    $http_response_header = [];
+    $response = @file_get_contents('https://api.telegram.org/bot' . $token . '/sendMessage', false, $context);
+    $statusOk = isset($http_response_header[0]) && preg_match('/\s200\s/', (string) $http_response_header[0]) === 1;
+    $decoded = is_string($response) ? json_decode($response, true) : null;
+    return $statusOk && is_array($decoded) && ($decoded['ok'] ?? false) === true;
+}
+
+function hl_country(): string
+{
+    $country = strtoupper(trim((string) ($_SERVER['HTTP_CF_IPCOUNTRY'] ?? '')));
+    return preg_match('/^[A-Z]{2}$/', $country) === 1 ? $country : '';
 }
 
 function hl_clean_header($s): string

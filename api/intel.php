@@ -9,7 +9,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'GET') {
 }
 
 $cacheFile = '/var/tmp/highlion-intel.json';
-$cacheTtl = 900;
+$cacheTtl = 86400;
 $cached = null;
 if (is_readable($cacheFile)) {
     $decoded = json_decode((string) @file_get_contents($cacheFile), true);
@@ -23,21 +23,21 @@ if (is_readable($cacheFile)) {
 }
 
 $feeds = [
-    'https://www.cisa.gov/cybersecurity-advisories/all.xml',
-    'https://feeds.feedburner.com/TheHackersNews',
     'https://www.bleepingcomputer.com/feed/',
+    'https://feeds.feedburner.com/TheHackersNews',
     'https://krebsonsecurity.com/feed/',
+    'https://www.cisa.gov/cybersecurity-advisories/all.xml',
 ];
 $domAvailable = class_exists('DOMDocument') && class_exists('DOMXPath');
 if (!$domAvailable) {
     if (is_array($cached)) {
         $cached['count'] = count($cached['items']);
+        $cached['stale'] = true;
         hl_json($cached);
     }
     hl_json(['ok' => false, 'generated' => gmdate('c'), 'items' => [], 'count' => 0]);
 }
-$items = [];
-$seen = [];
+$feedItems = [];
 $context = stream_context_create([
     'http' => [
         'timeout' => 8,
@@ -77,8 +77,10 @@ $fetchFeed = static function (string $url) use ($context): string {
 };
 
 foreach ($feeds as $feed) {
+    $current = [];
     $xmlText = $fetchFeed($feed);
     if ($xmlText === '') {
+        $feedItems[] = $current;
         continue;
     }
     $document = new DOMDocument();
@@ -87,11 +89,13 @@ foreach ($feeds as $feed) {
     libxml_clear_errors();
     libxml_use_internal_errors($previous);
     if (!$loaded) {
+        $feedItems[] = $current;
         continue;
     }
     $xpath = new DOMXPath($document);
     $nodes = $xpath->query('//*[local-name()="item"] | //*[local-name()="entry"]');
     if ($nodes === false) {
+        $feedItems[] = $current;
         continue;
     }
     foreach ($nodes as $node) {
@@ -117,38 +121,59 @@ foreach ($feeds as $feed) {
             $url = trim((string) $linkNode->textContent);
         }
         $scheme = strtolower((string) parse_url($url, PHP_URL_SCHEME));
-        if ($title === '' || filter_var($url, FILTER_VALIDATE_URL) === false || !in_array($scheme, ['http', 'https'], true) || isset($seen[$url])) {
+        if ($title === '' || filter_var($url, FILTER_VALIDATE_URL) === false || !in_array($scheme, ['http', 'https'], true)) {
             continue;
         }
         $dateNode = $xpath->query('./*[local-name()="pubDate" or local-name()="published" or local-name()="updated"]', $node)->item(0);
         $timestamp = $dateNode !== null ? strtotime(trim((string) $dateNode->textContent)) : false;
         $host = strtolower((string) parse_url($url, PHP_URL_HOST));
-        $seen[$url] = true;
-        $items[] = [
+        $current[] = [
             'title' => $title,
             'url' => $url,
             'source' => $host,
             'date' => $timestamp === false ? '' : gmdate('Y-m-d', $timestamp),
         ];
+        if (count($current) >= 8) {
+            break;
+        }
+    }
+    $feedItems[] = $current;
+}
+
+$items = [];
+$seen = [];
+for ($round = 0; $round < 8 && count($items) < 8; $round += 1) {
+    foreach ($feedItems as $current) {
+        if (!isset($current[$round])) {
+            continue;
+        }
+        $item = $current[$round];
+        $url = (string) ($item['url'] ?? '');
+        if ($url === '' || isset($seen[$url])) {
+            continue;
+        }
+        $seen[$url] = true;
+        $items[] = $item;
+        if (count($items) >= 8) {
+            break;
+        }
     }
 }
 
 if ($items === []) {
     if (is_array($cached)) {
         $cached['count'] = count($cached['items']);
+        $cached['stale'] = true;
         hl_json($cached);
     }
     hl_json(['ok' => false, 'generated' => gmdate('c'), 'items' => [], 'count' => 0]);
 }
 
-usort($items, static function (array $left, array $right): int {
-    return strcmp((string) $right['date'], (string) $left['date']);
-});
 $payload = [
     'ok' => true,
     'generated' => gmdate('c'),
-    'items' => array_slice($items, 0, 8),
-    'count' => min(8, count($items)),
+    'items' => $items,
+    'count' => count($items),
 ];
 @file_put_contents($cacheFile, (string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE), LOCK_EX);
 hl_json($payload);

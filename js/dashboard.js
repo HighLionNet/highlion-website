@@ -138,42 +138,20 @@
       .catch(function () { renderTraffic({ ok: false, count: 0, codes: {} }); });
   }
 
-  function wait(milliseconds) {
-    return new Promise(function (resolve) { window.setTimeout(resolve, milliseconds); });
-  }
-
-  function probeOnce(url) {
-    var before = performance.now();
-    return fetch(url, { credentials: "same-origin", cache: "no-store" }).then(function (response) {
-      if (!response.ok) throw new Error("probe unavailable");
-      return performance.now() - before;
+  function loadLatency() {
+    var sessionMeta = window.HighLionSessionMeta;
+    if (!sessionMeta || !sessionMeta.latency) {
+      set(nodes.latency, "—");
+      set(nodes.probe, "—");
+      return;
+    }
+    sessionMeta.latency.then(function (result) {
+      set(nodes.latency, result && Number.isFinite(result.ms) ? result.ms + " ms" : "—");
+      set(nodes.probe, result && result.url ? result.url : "—");
+    }).catch(function () {
+      set(nodes.latency, "—");
+      set(nodes.probe, "—");
     });
-  }
-
-  async function probeUrl(url) {
-    var samples = [];
-    for (var index = 0; index < 3; index += 1) {
-      samples.push(await probeOnce(url));
-      if (index < 2) await wait(200);
-    }
-    samples.sort(function (left, right) { return left - right; });
-    return Math.round(samples[1]);
-  }
-
-  async function loadLatency() {
-    var probes = ["/api/csrf.php", "/assets/ping.txt"];
-    for (var index = 0; index < probes.length; index += 1) {
-      try {
-        var median = await probeUrl(probes[index]);
-        set(nodes.latency, median + " ms");
-        set(nodes.probe, probes[index]);
-        return;
-      } catch (error) {
-        continue;
-      }
-    }
-    set(nodes.latency, "—");
-    set(nodes.probe, "—");
   }
 
   try {
