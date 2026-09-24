@@ -7,12 +7,13 @@
   <meta name="theme-color" content="#070914">
   <title>HighLion — 403 Forbidden</title>
   <link rel="icon" href="/assets/icons/HighLion.ico" sizes="any">
-  <link rel="stylesheet" href="/css/style.css?v=hl8c">
+  <link rel="stylesheet" href="/css/style.css?v=hl8e">
 </head>
 <body>
   <a class="skip" href="#main">Skip to content</a>
+  <div class="scanlines" aria-hidden="true"></div>
   <canvas id="fx" class="fx" aria-hidden="true"></canvas>
-  <div data-include="/components/header.html?v=hl8c"></div>
+  <div data-include="/components/header.html?v=hl8e"></div>
 
   <main id="main" class="shell error-page">
     <section class="panel error-panel">
@@ -24,11 +25,35 @@
         <a class="btn secondary" href="/writeups.html">Writeups</a>
         <a class="btn secondary" href="mailto:admin@highlion.net">Email admin</a>
       </div>
+      <form class="contact-form compact" id="contactForm" novalidate>
+        <div class="field">
+          <label for="name">Name</label>
+          <input id="name" name="name" type="text" autocomplete="name" maxlength="80" required>
+        </div>
+        <div class="field">
+          <label for="email">Email</label>
+          <input id="email" name="email" type="email" autocomplete="email" maxlength="254" required>
+        </div>
+        <div class="field">
+          <label for="message">Message</label>
+          <textarea id="message" name="message" maxlength="4000" required></textarea>
+        </div>
+        <div class="honeypot" aria-hidden="true">
+          <label for="company">Company</label>
+          <input id="company" name="company" type="text" tabindex="-1" autocomplete="off">
+        </div>
+        <div class="form-row">
+          <button class="btn" id="submitContact" type="submit">Send message</button>
+          <span class="form-status" id="formStatus" data-state="idle" aria-live="polite">Idle</span>
+        </div>
+        <p class="contact-copy" id="formFeedback" aria-live="polite"></p>
+      </form>
     </section>
   </main>
 
-  <div data-include="/components/footer.html?v=hl8c"></div>
-  <script src="/js/fix-include.js?v=hl8c" defer></script>
-  <script src="/js/particles.js?v=hl8c" defer></script>
+  <div data-include="/components/footer.html?v=hl8e"></div>
+  <script src="/js/fix-include.js?v=hl8e" defer></script>
+  <script src="/js/particles.js?v=hl8e" defer></script>
+  <script src="/js/contact-form.js?v=hl8e" defer></script>
 </body>
 </html>

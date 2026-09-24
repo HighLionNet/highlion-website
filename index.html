@@ -17,16 +17,17 @@
   <meta name="twitter:description" content="Home lab, security projects and incident writeups by Shmuel Yermus – aspiring SOC analyst and junior penetration tester.">
   <title>HighLion — Home</title>
   <link rel="icon" href="/assets/icons/HighLion.ico" sizes="any">
-  <link rel="stylesheet" href="/css/style.css?v=hl8c">
+  <link rel="stylesheet" href="/css/style.css?v=hl8e">
 </head>
 <body>
   <a class="skip" href="#main">Skip to content</a>
+  <div class="scanlines" aria-hidden="true"></div>
   <canvas id="fx" class="fx" aria-hidden="true"></canvas>
-  <div data-include="/components/header.html?v=hl8c"></div>
+  <div data-include="/components/header.html?v=hl8e"></div>
 
   <main id="main">
-    <div class="shell home-hero">
-      <section class="hero-copy" aria-labelledby="home-title">
+    <section class="shell home-top">
+      <article class="hero-copy">
         <div class="kicker">Cybersecurity • Linux • Networking</div>
         <h1 id="home-title" class="headline">Welcome to HighLion: The cybersecurity project made for <span class="accent">attack</span> and <span class="accent">defense</span> skill development.</h1>
         <p class="lead">HighLion was created by an aspiring CyberSecurity professional, as a practice ground for web design and security.</p>
@@ -36,9 +37,39 @@
           <a class="btn secondary" href="/about.html">How It’s Built</a>
           <a class="btn" href="/writeups.html">View Security Writeups</a>
         </div>
-      </section>
+      </article>
 
-      <aside class="hlterm-panel" id="hlterm-panel" aria-label="HighLion terminal">
+      <aside class="ops-board" aria-label="Session dashboard and intel feed">
+        <header class="ops-board-head">
+          <div class="kicker">OPS BOARD</div>
+          <h2>Session dashboard</h2>
+        </header>
+        <div class="dash-grid">
+          <div class="dash-tile"><div class="dash-label">SESSIONS</div><div class="dash-value" id="dSessions">001</div></div>
+          <div class="dash-tile"><div class="dash-label">SESSION UPTIME</div><div class="dash-value" id="dUptime">00:00:00</div></div>
+          <div class="dash-tile"><div class="dash-label">TIMEZONE</div><div class="dash-value" id="dTimezone">Local</div></div>
+          <div class="dash-tile"><div class="dash-label">USER AGENT</div><div class="dash-value" id="dUserAgent">Browser</div></div>
+          <div class="dash-tile"><div class="dash-label">HOST OS</div><div class="dash-value" id="dHostOS">Unknown</div></div>
+          <div class="dash-tile"><div class="dash-label">CPU CORES</div><div class="dash-value" id="dCpuCores">Unknown</div></div>
+          <div class="dash-tile"><div class="dash-label">VIEWPORT</div><div class="dash-value" id="dViewport">—</div></div>
+          <div class="dash-tile"><div class="dash-label">PAGE</div><div class="dash-value" id="dPage">home</div></div>
+        </div>
+        <section class="intel-feed" aria-label="Intel feed">
+          <div class="kicker">INTEL FEED</div>
+          <ol class="intel-list" id="intel-list"></ol>
+        </section>
+      </aside>
+    </section>
+
+    <div class="shell hl-divider" aria-hidden="true"></div>
+
+    <section class="shell home-term" aria-label="HighLion terminal">
+      <header class="term-section-head">
+        <div class="kicker">HLSHELL</div>
+        <h2>Kali-style lab terminal</h2>
+        <p class="lead">Client-side lab shell. Type help. No outbound network.</p>
+      </header>
+      <aside class="hlterm-panel" id="hlterm-panel">
         <div class="hlterm-head">
           <div class="hlterm-lights" aria-hidden="true">
             <span class="red"></span><span class="amber"></span><span class="green"></span>
@@ -54,16 +85,7 @@
           </div>
         </div>
       </aside>
-
-      <section class="stats-strip" aria-label="Client session statistics">
-        <div class="stat"><div class="stat-value" id="vVisits">001</div><div class="stat-label">Sessions</div></div>
-        <div class="stat"><div class="stat-value" id="vUptime">00:00:00</div><div class="stat-label">Uptime</div></div>
-        <div class="stat"><div class="stat-value" id="vTZ">—</div><div class="stat-label">TZ</div></div>
-        <div class="stat"><div class="stat-value" id="vBrowser">—</div><div class="stat-label">UA</div></div>
-        <div class="stat"><div class="stat-value" id="vOS">—</div><div class="stat-label">OS</div></div>
-        <div class="stat"><div class="stat-value" id="vCPU">—</div><div class="stat-label">CPU</div></div>
-      </section>
-    </div>
+    </section>
 
     <section class="shell section" aria-labelledby="latest-writeups">
       <div class="section-heading">
@@ -101,42 +123,59 @@
     </section>
   </main>
 
-  <div data-include="/components/footer.html?v=hl8c"></div>
-  <script src="/js/fix-include.js?v=hl8c" defer></script>
-  <script src="/js/terminal.js?v=hl8c" defer></script>
-  <script src="/js/particles.js?v=hl8c" defer></script>
+  <div data-include="/components/footer.html?v=hl8e"></div>
+  <script src="/js/fix-include.js?v=hl8e" defer></script>
+  <script src="/js/particles.js?v=hl8e" defer></script>
+  <script src="/js/intel-feed.js?v=hl8e" defer></script>
+  <script src="/js/terminal.js?v=hl8e" defer></script>
   <script>
     (function () {
       var started = Date.now();
-      var visits = document.getElementById("vVisits");
-      var uptime = document.getElementById("vUptime");
-      var timezone = document.getElementById("vTZ");
-      var browser = document.getElementById("vBrowser");
-      var os = document.getElementById("vOS");
-      var cpu = document.getElementById("vCPU");
+      var sessions = document.getElementById("dSessions");
+      var uptime = document.getElementById("dUptime");
+      var timezone = document.getElementById("dTimezone");
+      var userAgent = document.getElementById("dUserAgent");
+      var hostOS = document.getElementById("dHostOS");
+      var cpuCores = document.getElementById("dCpuCores");
+      var viewport = document.getElementById("dViewport");
 
       try {
         var count = Number.parseInt(localStorage.getItem("highlion_visits") || "0", 10) + 1;
         localStorage.setItem("highlion_visits", String(count));
-        visits.textContent = String(count).padStart(3, "0");
+        sessions.textContent = String(count).padStart(3, "0");
       } catch (error) {
-        visits.textContent = "001";
+        sessions.textContent = "001";
       }
 
       var zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
       timezone.textContent = zone || "Local";
       var ua = navigator.userAgent;
-      browser.textContent = /Edg\//.test(ua) ? "Edge" : /Firefox\//.test(ua) ? "Firefox" : /Chrome\//.test(ua) ? "Chrome" : /Safari\//.test(ua) ? "Safari" : "Browser";
-      os.textContent = /Windows/.test(ua) ? "Windows" : /Mac OS/.test(ua) ? "macOS" : /Linux/.test(ua) ? "Linux" : "Unknown";
-      cpu.textContent = navigator.hardwareConcurrency ? navigator.hardwareConcurrency + " threads" : "Unknown";
+      var match = ua.match(/Edg\/([\d.]+)/);
+      var browserName = "Edge";
+      if (!match) { match = ua.match(/Firefox\/([\d.]+)/); browserName = "Firefox"; }
+      if (!match) { match = ua.match(/Chrome\/([\d.]+)/); browserName = "Chrome"; }
+      if (!match && !/Chrome\//.test(ua)) { match = ua.match(/Version\/([\d.]+).*Safari\//); browserName = "Safari"; }
+      userAgent.textContent = match ? browserName + " " + match[1].split(".")[0] : "Browser";
+      userAgent.title = ua;
+      hostOS.textContent = /Android/.test(ua) ? "Android" : /iPhone|iPad|iPod/.test(ua) ? "iOS" : /Windows/.test(ua) ? "Windows" : /Mac OS/.test(ua) ? "macOS" : /Linux/.test(ua) ? "Linux" : "Unknown";
+      cpuCores.textContent = navigator.hardwareConcurrency ? navigator.hardwareConcurrency + " cores" : "Unknown";
 
-      window.setInterval(function () {
+      function updateViewport() {
+        viewport.textContent = window.innerWidth + "×" + window.innerHeight;
+      }
+
+      function updateUptime() {
         var seconds = Math.floor((Date.now() - started) / 1000);
         var hours = Math.floor(seconds / 3600);
         var minutes = Math.floor((seconds % 3600) / 60);
         var remainder = seconds % 60;
         uptime.textContent = String(hours).padStart(2, "0") + ":" + String(minutes).padStart(2, "0") + ":" + String(remainder).padStart(2, "0");
-      }, 1000);
+      }
+
+      updateViewport();
+      updateUptime();
+      window.addEventListener("resize", updateViewport, { passive: true });
+      window.setInterval(updateUptime, 1000);
     })();
   </script>
 </body>

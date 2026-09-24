@@ -8,12 +8,13 @@
   <meta name="description" content="Contact HighLion and find its public security profiles.">
   <title>HighLion — Contact</title>
   <link rel="icon" href="/assets/icons/HighLion.ico" sizes="any">
-  <link rel="stylesheet" href="/css/style.css?v=hl8c">
+  <link rel="stylesheet" href="/css/style.css?v=hl8e">
 </head>
 <body>
   <a class="skip" href="#main">Skip to content</a>
+  <div class="scanlines" aria-hidden="true"></div>
   <canvas id="fx" class="fx" aria-hidden="true"></canvas>
-  <div data-include="/components/header.html?v=hl8c"></div>
+  <div data-include="/components/header.html?v=hl8e"></div>
 
   <main id="main">
     <header class="shell page-head">
@@ -34,11 +35,15 @@
         </div>
         <div class="field">
           <label for="email">Email</label>
-          <input id="email" name="email" type="email" autocomplete="email" maxlength="254" placeholder="abc123@gmail.com" required>
+          <input id="email" name="email" type="email" autocomplete="email" maxlength="254" placeholder="name@example.com" required>
         </div>
         <div class="field">
           <label for="message">Message</label>
           <textarea id="message" name="message" maxlength="4000" placeholder="Hello from the neon district…" required></textarea>
+        </div>
+        <div class="honeypot" aria-hidden="true">
+          <label for="company">Company</label>
+          <input id="company" name="company" type="text" tabindex="-1" autocomplete="off">
         </div>
         <div class="form-row">
           <button class="btn" id="submitContact" type="submit">Send message</button>
@@ -65,80 +70,23 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M12 2 4 5.5v5.2c0 5 3.3 9.3 8 11.3 4.7-2 8-6.3 8-11.3V5.5L12 2Z"></path><path d="m8.5 12 2.2 2.2 4.8-5"></path></svg>
             TryHackMe
           </a>
+          <a class="social-link" href="mailto:admin@highlion.net">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="m4 7 8 6 8-6"></path></svg>
+            Email
+          </a>
+          <button type="button" class="social-link locked">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="5" y="10" width="14" height="11" rx="2"></rect><path d="M8 10V7a4 4 0 0 1 8 0v3"></path></svg>
+            Resume (locked)
+          </button>
         </div>
-        <p class="contact-copy"><a class="social-link" href="mailto:admin@highlion.net">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="m4 7 8 6 8-6"></path></svg>
-          admin@highlion.net
-        </a></p>
+        <p class="contact-copy">Resume available upon request.</p>
       </aside>
     </section>
   </main>
 
-  <div data-include="/components/footer.html?v=hl8c"></div>
-  <script src="/js/fix-include.js?v=hl8c" defer></script>
-  <script src="/js/particles.js?v=hl8c" defer></script>
-  <script>
-    (function () {
-      var form = document.getElementById("contactForm");
-      var button = document.getElementById("submitContact");
-      var status = document.getElementById("formStatus");
-      var feedback = document.getElementById("formFeedback");
-      var fields = {
-        name: document.getElementById("name"),
-        email: document.getElementById("email"),
-        message: document.getElementById("message")
-      };
-
-      function setState(state, detail) {
-        status.textContent = state;
-        status.dataset.state = state.toLowerCase();
-        feedback.textContent = detail || "";
-      }
-
-      function valid(payload) {
-        var emailShape = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        var checks = {
-          name: payload.name.length >= 2 && payload.name.length <= 80,
-          email: payload.email.length <= 254 && emailShape.test(payload.email),
-          message: payload.message.length >= 10 && payload.message.length <= 4000
-        };
-        Object.keys(checks).forEach(function (key) {
-          fields[key].setAttribute("aria-invalid", checks[key] ? "false" : "true");
-        });
-        return checks.name && checks.email && checks.message;
-      }
-
-      form.addEventListener("submit", async function (event) {
-        event.preventDefault();
-        var payload = {
-          name: fields.name.value.trim(),
-          email: fields.email.value.trim(),
-          message: fields.message.value.trim()
-        };
-
-        if (!valid(payload)) {
-          setState("Error", "Check the highlighted fields.");
-          return;
-        }
-
-        setState("Sending", "");
-        button.disabled = true;
-        try {
-          var response = await fetch("/api/contact", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload)
-          });
-          if (!response.ok) throw new Error("Request failed");
-          form.reset();
-          setState("Sent", "Message sent.");
-        } catch (error) {
-          setState("Error", "Message not sent.");
-        } finally {
-          button.disabled = false;
-        }
-      });
-    })();
-  </script>
+  <div data-include="/components/footer.html?v=hl8e"></div>
+  <script src="/js/fix-include.js?v=hl8e" defer></script>
+  <script src="/js/particles.js?v=hl8e" defer></script>
+  <script src="/js/contact-form.js?v=hl8e" defer></script>
 </body>
 </html>
