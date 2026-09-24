@@ -8,13 +8,13 @@
   <meta name="description" content="Profile and technical focus behind the HighLion cybersecurity lab.">
   <title>HighLion — About</title>
   <link rel="icon" href="/assets/icons/HighLion.ico" sizes="any">
-  <link rel="stylesheet" href="/css/style.css?v=hl8g">
+  <link rel="stylesheet" href="/css/style.css?v=hl8h">
 </head>
 <body>
   <a class="skip" href="#main">Skip to content</a>
   <div class="scanlines" aria-hidden="true"></div>
   <canvas id="fx" class="fx" aria-hidden="true"></canvas>
-  <div data-include="/components/header.html?v=hl8g"></div>
+  <div data-include="/components/header.html?v=hl8h"></div>
 
   <main id="main">
     <header class="shell page-head compact">
@@ -41,6 +41,16 @@
           <section class="profile-block">
             <div class="profile-label">Lab</div>
             <p>Segmented VLANs, Pi-hole, DMZ, and self-hosted services</p>
+          </section>
+          <section class="profile-block tor-block" id="tor-mirror">
+            <div class="profile-label">Tor mirror</div>
+            <a class="tor-link" href="http://hh7547je3hpb4hj7stuiorzwnwazamecatqn6saqkxamlmckztgr2lid.onion" target="_blank" rel="noopener noreferrer">
+              <span class="tor-badge" aria-hidden="true">TOR</span>
+              <span class="tor-copy">
+                <strong>Onion service</strong>
+                <code>hh7547je3hpb4hj7stuiorzwnwazamecatqn6saqkxamlmckztgr2lid.onion</code>
+              </span>
+            </a>
           </section>
         </div>
       </article>
@@ -93,7 +103,11 @@
           <div class="hlterm-lights" aria-hidden="true">
             <span class="red"></span><span class="amber"></span><span class="green"></span>
           </div>
-          <div class="hlterm-title">/usr/bin/hlshell</div>
+          <div class="hlterm-head-copy">
+            <span class="hlterm-kicker">kali</span>
+            <span class="hlterm-title">www-stux@highlion: ~</span>
+          </div>
+          <span class="hlterm-app">qterminal</span>
         </div>
         <div class="hlterm-body monitor-body" role="log" aria-live="polite">
           <canvas class="hlterm-matrix" aria-hidden="true"></canvas>
@@ -104,11 +118,11 @@
   </main>
 
   <!-- briefing lives off-catalog -->
-  <div data-include="/components/footer.html?v=hl8g"></div>
-  <script src="/js/fix-include.js?v=hl8g" defer></script>
-  <script src="/js/session-meta.js?v=hl8g" defer></script>
-  <script src="/js/particles.js?v=hl8g" defer></script>
-  <script src="/js/source-bay.js?v=hl8g" defer></script>
-  <script src="/js/terminal.js?v=hl8g" defer></script>
+  <div data-include="/components/footer.html?v=hl8h"></div>
+  <script src="/js/fix-include.js?v=hl8h" defer></script>
+  <script src="/js/session-meta.js?v=hl8h" defer></script>
+  <script src="/js/particles.js?v=hl8h" defer></script>
+  <script src="/js/source-bay.js?v=hl8h" defer></script>
+  <script src="/js/terminal.js?v=hl8h" defer></script>
 </body>
 </html>

@@ -9,14 +9,252 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'GET') {
 }
 
 $cacheFile = '/var/tmp/highlion-intel.json';
-$cacheTtl = 86400;
+$cacheTtl = 900;
+$thumbDirectory = '/var/tmp/highlion-thumbs';
+$thumbMapFile = '/var/tmp/highlion-thumbs.json';
+$thumbTtl = 86400;
+$articleHosts = [
+    'bleepingcomputer.com',
+    'www.bleepingcomputer.com',
+    'feeds.feedburner.com',
+    'thehackernews.com',
+    'www.thehackernews.com',
+    'krebsonsecurity.com',
+    'www.krebsonsecurity.com',
+    'cisa.gov',
+    'www.cisa.gov',
+];
+$imageHosts = array_merge($articleHosts, [
+    'cdn.bleepingcomputer.com',
+    'images.bleepingcomputer.com',
+    'bleepstatic.com',
+    'www.bleepstatic.com',
+    'cdn.thehackernews.com',
+    'blogger.googleusercontent.com',
+    'lh3.googleusercontent.com',
+    'assets.cisa.gov',
+    'media.defense.gov',
+]);
+
+function hl_intel_resolve_url(string $base, string $candidate): string
+{
+    $candidate = html_entity_decode(trim($candidate), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    if ($candidate === '') {
+        return '';
+    }
+    if (strpos($candidate, '//') === 0) {
+        return 'https:' . $candidate;
+    }
+    if (filter_var($candidate, FILTER_VALIDATE_URL) !== false) {
+        return $candidate;
+    }
+    $parts = parse_url($base);
+    if (!is_array($parts) || empty($parts['scheme']) || empty($parts['host'])) {
+        return '';
+    }
+    $origin = $parts['scheme'] . '://' . $parts['host'];
+    if (isset($parts['port'])) {
+        $origin .= ':' . (int) $parts['port'];
+    }
+    if ($candidate[0] === '/') {
+        return $origin . $candidate;
+    }
+    $basePath = (string) ($parts['path'] ?? '/');
+    $directory = preg_replace('#/[^/]*$#', '/', $basePath);
+    $path = ($directory ?: '/') . $candidate;
+    $segments = [];
+    foreach (explode('/', $path) as $segment) {
+        if ($segment === '' || $segment === '.') {
+            continue;
+        }
+        if ($segment === '..') {
+            array_pop($segments);
+            continue;
+        }
+        $segments[] = $segment;
+    }
+    return $origin . '/' . implode('/', $segments);
+}
+
+function hl_intel_fetch_limited(string $url, int $limit, array $allowedHosts): ?array
+{
+    for ($redirects = 0; $redirects <= 3; $redirects += 1) {
+        $parts = parse_url($url);
+        $scheme = strtolower((string) ($parts['scheme'] ?? ''));
+        $host = strtolower((string) ($parts['host'] ?? ''));
+        if ($scheme !== 'https' || !in_array($host, $allowedHosts, true)) {
+            return null;
+        }
+        $context = stream_context_create([
+            'http' => [
+                'method' => 'GET',
+                'timeout' => 8,
+                'follow_location' => 0,
+                'ignore_errors' => true,
+                'user_agent' => 'HighLion-Intel/1.0 (+https://www.highlion.net/)',
+                'header' => "Accept: text/html,image/avif,image/webp,image/png,image/jpeg,image/gif;q=0.9,*/*;q=0.5\r\n",
+            ],
+            'ssl' => [
+                'verify_peer' => true,
+                'verify_peer_name' => true,
+            ],
+        ]);
+        $http_response_header = [];
+        $handle = @fopen($url, 'rb', false, $context);
+        if ($handle === false) {
+            return null;
+        }
+        $status = 0;
+        $contentType = '';
+        $location = '';
+        $contentLength = null;
+        foreach ($http_response_header as $headerLine) {
+            if (preg_match('/^HTTP\/\S+\s+(\d{3})\b/i', (string) $headerLine, $match)) {
+                $status = (int) $match[1];
+            } elseif (stripos((string) $headerLine, 'Content-Type:') === 0) {
+                $contentType = strtolower(trim(explode(';', substr((string) $headerLine, 13), 2)[0]));
+            } elseif (stripos((string) $headerLine, 'Content-Length:') === 0) {
+                $lengthValue = trim(substr((string) $headerLine, 15));
+                $contentLength = ctype_digit($lengthValue) ? (int) $lengthValue : null;
+            } elseif (stripos((string) $headerLine, 'Location:') === 0) {
+                $location = trim(substr((string) $headerLine, 9));
+            }
+        }
+        if ($status >= 300 && $status < 400) {
+            fclose($handle);
+            if ($location === '' || $redirects >= 3) {
+                return null;
+            }
+            $url = hl_intel_resolve_url($url, $location);
+            if ($url === '') {
+                return null;
+            }
+            continue;
+        }
+        if ($status < 200 || $status >= 400 || ($contentLength !== null && $contentLength > $limit)) {
+            fclose($handle);
+            return null;
+        }
+        $body = '';
+        while (!feof($handle) && strlen($body) <= $limit) {
+            $chunk = fread($handle, min(8192, $limit + 1 - strlen($body)));
+            if ($chunk === false) {
+                fclose($handle);
+                return null;
+            }
+            if ($chunk === '') {
+                break;
+            }
+            $body .= $chunk;
+        }
+        fclose($handle);
+        if (strlen($body) > $limit) {
+            return null;
+        }
+        return ['body' => $body, 'ctype' => $contentType, 'url' => $url, 'status' => $status];
+    }
+    return null;
+}
+
+function hl_intel_article_image(string $articleUrl, array $articleHosts): string
+{
+    $response = hl_intel_fetch_limited($articleUrl, 256 * 1024, $articleHosts);
+    if ($response === null || $response['body'] === '') {
+        return '';
+    }
+    $document = new DOMDocument();
+    $previous = libxml_use_internal_errors(true);
+    $loaded = $document->loadHTML((string) $response['body'], LIBXML_NONET | LIBXML_NOWARNING | LIBXML_NOERROR);
+    libxml_clear_errors();
+    libxml_use_internal_errors($previous);
+    if (!$loaded) {
+        return '';
+    }
+    $xpath = new DOMXPath($document);
+    $query = '//meta['
+        . 'translate(@property,"ABCDEFGHIJKLMNOPQRSTUVWXYZ","abcdefghijklmnopqrstuvwxyz")="og:image"'
+        . ' or translate(@name,"ABCDEFGHIJKLMNOPQRSTUVWXYZ","abcdefghijklmnopqrstuvwxyz")="twitter:image"'
+        . ' or translate(@property,"ABCDEFGHIJKLMNOPQRSTUVWXYZ","abcdefghijklmnopqrstuvwxyz")="twitter:image"'
+        . ']/@content';
+    $nodes = $xpath->query($query);
+    if ($nodes === false) {
+        return '';
+    }
+    foreach ($nodes as $node) {
+        $resolved = hl_intel_resolve_url((string) $response['url'], (string) $node->nodeValue);
+        if ($resolved !== '') {
+            return $resolved;
+        }
+    }
+    return '';
+}
+
+function hl_intel_cached_payload(array $payload, string $thumbDirectory): array
+{
+    foreach ($payload['items'] as &$item) {
+        $thumb = (string) ($item['thumb'] ?? '');
+        if (preg_match('/^\/api\/thumb\.php\?id=([a-f0-9]{40})$/', $thumb, $match) !== 1
+            || !is_file($thumbDirectory . '/' . $match[1])) {
+            $item['thumb'] = '';
+        }
+    }
+    unset($item);
+    $payload['count'] = count($payload['items']);
+    return $payload;
+}
+
+function hl_intel_thumb(
+    string $imageUrl,
+    array &$thumbMap,
+    string $thumbDirectory,
+    int $thumbTtl,
+    array $imageHosts
+): string {
+    $parts = parse_url($imageUrl);
+    $host = strtolower((string) ($parts['host'] ?? ''));
+    if (strtolower((string) ($parts['scheme'] ?? '')) !== 'https' || !in_array($host, $imageHosts, true)) {
+        return '';
+    }
+    $record = $thumbMap[$imageUrl] ?? null;
+    if (is_array($record)) {
+        $id = strtolower((string) ($record['id'] ?? ''));
+        $at = (int) ($record['at'] ?? 0);
+        if (preg_match('/^[a-f0-9]{40}$/', $id) === 1 && time() - $at < $thumbTtl
+            && is_file($thumbDirectory . '/' . $id)) {
+            return $id;
+        }
+    }
+    $response = hl_intel_fetch_limited($imageUrl, 250 * 1024, $imageHosts);
+    $allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+    if ($response !== null && in_array($response['ctype'], $allowedTypes, true) && $response['body'] !== '') {
+        if (!is_dir($thumbDirectory) && !@mkdir($thumbDirectory, 0750, true) && !is_dir($thumbDirectory)) {
+            return '';
+        }
+        $finalUrl = (string) $response['url'];
+        $id = sha1($finalUrl);
+        if (@file_put_contents($thumbDirectory . '/' . $id, $response['body'], LOCK_EX) !== false) {
+            $thumbMap[$finalUrl] = ['id' => $id, 'ctype' => $response['ctype'], 'at' => time()];
+            if ($finalUrl !== $imageUrl) {
+                $thumbMap[$imageUrl] = ['id' => $id, 'ctype' => $response['ctype'], 'at' => time()];
+            }
+            return $id;
+        }
+    }
+    if (is_array($record)) {
+        $staleId = strtolower((string) ($record['id'] ?? ''));
+        if (preg_match('/^[a-f0-9]{40}$/', $staleId) === 1 && is_file($thumbDirectory . '/' . $staleId)) {
+            return $staleId;
+        }
+    }
+    return '';
+}
+
 $cached = null;
 if (is_readable($cacheFile)) {
     $decoded = json_decode((string) @file_get_contents($cacheFile), true);
     if (is_array($decoded) && isset($decoded['items']) && is_array($decoded['items'])) {
-        $cached = $decoded;
+        $cached = hl_intel_cached_payload($decoded, $thumbDirectory);
         if (filemtime($cacheFile) !== false && time() - (int) filemtime($cacheFile) < $cacheTtl) {
-            $cached['count'] = count($cached['items']);
             hl_json($cached);
         }
     }
@@ -31,12 +269,12 @@ $feeds = [
 $domAvailable = class_exists('DOMDocument') && class_exists('DOMXPath');
 if (!$domAvailable) {
     if (is_array($cached)) {
-        $cached['count'] = count($cached['items']);
         $cached['stale'] = true;
         hl_json($cached);
     }
     hl_json(['ok' => false, 'generated' => gmdate('c'), 'items' => [], 'count' => 0]);
 }
+
 $feedItems = [];
 $context = stream_context_create([
     'http' => [
@@ -105,11 +343,7 @@ foreach ($feeds as $feed) {
             continue;
         }
         $title = trim(strip_tags((string) $titleNode->textContent));
-        if (function_exists('mb_substr')) {
-            $title = mb_substr($title, 0, 180, 'UTF-8');
-        } else {
-            $title = substr($title, 0, 180);
-        }
+        $title = function_exists('mb_substr') ? mb_substr($title, 0, 180, 'UTF-8') : substr($title, 0, 180);
         $url = '';
         if ($linkNode->attributes !== null) {
             $hrefNode = $linkNode->attributes->getNamedItem('href');
@@ -126,14 +360,26 @@ foreach ($feeds as $feed) {
         }
         $dateNode = $xpath->query('./*[local-name()="pubDate" or local-name()="published" or local-name()="updated"]', $node)->item(0);
         $timestamp = $dateNode !== null ? strtotime(trim((string) $dateNode->textContent)) : false;
+        $mediaNode = $xpath->query(
+            './*[local-name()="enclosure" and @url] | .//*[local-name()="content" and @url] | .//*[local-name()="thumbnail" and @url]',
+            $node
+        )->item(0);
+        $image = '';
+        if ($mediaNode !== null && $mediaNode->attributes !== null) {
+            $imageNode = $mediaNode->attributes->getNamedItem('url');
+            if ($imageNode !== null) {
+                $image = hl_intel_resolve_url($feed, (string) $imageNode->nodeValue);
+            }
+        }
         $host = strtolower((string) parse_url($url, PHP_URL_HOST));
         $current[] = [
             'title' => $title,
             'url' => $url,
             'source' => $host,
             'date' => $timestamp === false ? '' : gmdate('Y-m-d', $timestamp),
+            'image' => $image,
         ];
-        if (count($current) >= 8) {
+        if (count($current) >= 10) {
             break;
         }
     }
@@ -142,7 +388,7 @@ foreach ($feeds as $feed) {
 
 $items = [];
 $seen = [];
-for ($round = 0; $round < 8 && count($items) < 8; $round += 1) {
+for ($round = 0; $round < 10 && count($items) < 10; $round += 1) {
     foreach ($feedItems as $current) {
         if (!isset($current[$round])) {
             continue;
@@ -154,7 +400,7 @@ for ($round = 0; $round < 8 && count($items) < 8; $round += 1) {
         }
         $seen[$url] = true;
         $items[] = $item;
-        if (count($items) >= 8) {
+        if (count($items) >= 10) {
             break;
         }
     }
@@ -162,18 +408,76 @@ for ($round = 0; $round < 8 && count($items) < 8; $round += 1) {
 
 if ($items === []) {
     if (is_array($cached)) {
-        $cached['count'] = count($cached['items']);
         $cached['stale'] = true;
         hl_json($cached);
     }
     hl_json(['ok' => false, 'generated' => gmdate('c'), 'items' => [], 'count' => 0]);
 }
 
+$thumbMap = [];
+if (is_readable($thumbMapFile)) {
+    $decodedMap = json_decode((string) @file_get_contents($thumbMapFile), true);
+    if (is_array($decodedMap)) {
+        $thumbMap = $decodedMap;
+    }
+}
+foreach ($items as &$item) {
+    $imageUrl = (string) ($item['image'] ?? '');
+    $thumbId = '';
+    if ($imageUrl === '') {
+        $articleUrl = (string) $item['url'];
+        $articleRecord = $thumbMap[$articleUrl] ?? null;
+        if (is_array($articleRecord)) {
+            $articleId = strtolower((string) ($articleRecord['id'] ?? ''));
+            $articleAt = (int) ($articleRecord['at'] ?? 0);
+            if (preg_match('/^[a-f0-9]{40}$/', $articleId) === 1
+                && time() - $articleAt < $thumbTtl
+                && is_file($thumbDirectory . '/' . $articleId)) {
+                $thumbId = $articleId;
+            }
+        }
+        if ($thumbId === '') {
+            $imageUrl = hl_intel_article_image($articleUrl, $articleHosts);
+            if ($imageUrl !== '') {
+                $thumbId = hl_intel_thumb($imageUrl, $thumbMap, $thumbDirectory, $thumbTtl, $imageHosts);
+                if ($thumbId !== '') {
+                    $imageRecord = $thumbMap[$imageUrl] ?? [];
+                    $thumbMap[$articleUrl] = [
+                        'id' => $thumbId,
+                        'ctype' => (string) ($imageRecord['ctype'] ?? 'image/jpeg'),
+                        'at' => (int) ($imageRecord['at'] ?? time()),
+                    ];
+                }
+            }
+        }
+        if ($thumbId === '' && is_array($articleRecord)) {
+            $staleId = strtolower((string) ($articleRecord['id'] ?? ''));
+            if (preg_match('/^[a-f0-9]{40}$/', $staleId) === 1 && is_file($thumbDirectory . '/' . $staleId)) {
+                $thumbId = $staleId;
+            }
+        }
+    } else {
+        $thumbId = hl_intel_thumb($imageUrl, $thumbMap, $thumbDirectory, $thumbTtl, $imageHosts);
+    }
+    $item['thumb'] = $thumbId === '' ? '' : '/api/thumb.php?id=' . $thumbId;
+    unset($item['image']);
+}
+unset($item);
+
+@file_put_contents(
+    $thumbMapFile,
+    (string) json_encode($thumbMap, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
+    LOCK_EX
+);
 $payload = [
     'ok' => true,
     'generated' => gmdate('c'),
     'items' => $items,
     'count' => count($items),
 ];
-@file_put_contents($cacheFile, (string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE), LOCK_EX);
+@file_put_contents(
+    $cacheFile,
+    (string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
+    LOCK_EX
+);
 hl_json($payload);

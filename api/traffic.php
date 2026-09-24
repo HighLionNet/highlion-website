@@ -145,9 +145,17 @@ foreach (hl_tail_lines($logFile, 4000) as $line) {
 }
 
 $codes = ['2xx' => 0, '3xx' => 0, '4xx' => 0, '5xx' => 0];
+$exactCounts = [];
 $paths = [];
 $count = 0;
 $cutoff = time() - 900;
+$probePaths = [
+    '/api/traffic.php',
+    '/api/traffic',
+    '/api/csrf.php',
+    '/api/csrf',
+    '/assets/ping.txt',
+];
 foreach ($parsed as $row) {
     if ($hasTimestamps && (!is_int($row['time']) || $row['time'] < $cutoff)) {
         continue;
@@ -157,15 +165,43 @@ foreach ($parsed as $row) {
     if (array_key_exists($family, $codes)) {
         $codes[$family] += 1;
     }
-    if ($row['path'] !== '' && !in_array($row['path'], ['/api/traffic.php', '/assets/ping.txt'], true)) {
+    $isProbe = in_array($row['path'], $probePaths, true);
+    if (!$isProbe) {
+        $status = (int) $row['status'];
+        $exactCounts[$status] = ($exactCounts[$status] ?? 0) + 1;
+    }
+    if ($row['path'] !== '' && !$isProbe) {
         $paths[$row['path']] = ($paths[$row['path']] ?? 0) + 1;
     }
 }
 
-arsort($paths);
+$pathRank = static function (string $path): int {
+    if (
+        preg_match('#^/(?:index|about|writeups|projects|contact)\.html$#', $path) === 1
+        || $path === '/'
+        || preg_match('#^/(?:writeups|lab)/#', $path) === 1
+    ) {
+        return 0;
+    }
+    return strpos($path, '/components/') === 0 ? 2 : 1;
+};
+uksort($paths, static function (string $left, string $right) use ($paths, $pathRank): int {
+    $rank = $pathRank($left) <=> $pathRank($right);
+    if ($rank !== 0) {
+        return $rank;
+    }
+    $countOrder = $paths[$right] <=> $paths[$left];
+    return $countOrder !== 0 ? $countOrder : strcmp($left, $right);
+});
 $top = [];
 foreach (array_slice($paths, 0, 5, true) as $path => $number) {
     $top[] = ['path' => $path, 'n' => $number];
+}
+
+arsort($exactCounts);
+$exact = [];
+foreach (array_slice($exactCounts, 0, 5, true) as $code => $number) {
+    $exact[] = ['code' => (int) $code, 'n' => $number];
 }
 
 $payload = [
@@ -173,6 +209,7 @@ $payload = [
     'window' => $hasTimestamps ? '15m' : 'tail',
     'count' => $count,
     'codes' => $codes,
+    'exact' => $exact,
     'top' => $top,
     'generated' => gmdate('c'),
 ];

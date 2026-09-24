@@ -3,7 +3,7 @@
 
   var COMMANDS = [
     "help", "man", "banner", "neofetch", "whoami", "hostname", "pwd", "uname", "date", "uptime", "history", "id", "groups",
-    "clear", "echo", "which", "type",
+    "clear", "echo", "which", "type", "source", "setopt",
     "ls", "cat", "head", "wc", "find", "grep", "tree", "sha256sum",
     "ps", "df", "free", "ip", "ss", "lsb_release", "hostnamectl",
     "cmatrix", "cowsay", "fortune", "sl", "figlet",
@@ -18,7 +18,8 @@
     "notes/ops.txt": "rail check: the briefing is off-catalog",
     "notes/motd.txt": "Read the rails. Follow the briefing. Keep probes local.",
     ".brief": "hex lives on the east node",
-    ".hidden": "ls -a"
+    ".hidden": "ls -a",
+    ".zshrc": "PROMPT='%n@%m:%~$ '\nCOLOR=cyan\nMATRIX=off"
   };
   var HASHES = {
     "README.txt": "965d83c01eeb0d3ad079c1250a163e70947d45e87ee26a52e6d8250c5a43a650",
@@ -34,7 +35,7 @@
   var USAGE = {
     help: "help [cmd]", man: "man CMD", banner: "banner", neofetch: "neofetch", whoami: "whoami", hostname: "hostname",
     pwd: "pwd", uname: "uname [-a]", date: "date", uptime: "uptime", history: "history", id: "id", groups: "groups",
-    clear: "clear", echo: "echo [text]", which: "which CMD", type: "type CMD",
+    clear: "clear", echo: "echo [text]", which: "which CMD", type: "type CMD", source: "source ~/.zshrc", setopt: "setopt",
     ls: "ls [-a] [-l] [path]", cat: "cat FILE", head: "head [-n N] FILE", wc: "wc [-l|-w|-c] FILE",
     find: "find [path]", grep: "grep [-n] PATTERN FILE", tree: "tree", sha256sum: "sha256sum FILE",
     ps: "ps", df: "df -h", free: "free -h", ip: "ip a", ss: "ss -tuln", lsb_release: "lsb_release -a", hostnamectl: "hostnamectl",
@@ -47,7 +48,7 @@
     neofetch: "show the local lab profile", whoami: "print the session user", hostname: "print the host name", pwd: "print the working directory",
     uname: "print kernel information", date: "print the current date", uptime: "print session uptime and load", history: "show command history",
     id: "print user and group IDs", groups: "print group memberships", clear: "clear the terminal", echo: "print text",
-    which: "show a command path", type: "identify a shell builtin", ls: "list fake filesystem entries", cat: "print a fake file",
+    which: "show a command path", type: "identify a shell builtin", source: "apply the toy ~/.zshrc", setopt: "show the toy zsh options", ls: "list fake filesystem entries", cat: "print a fake file",
     head: "print the first lines of a fake file", wc: "count lines, words, or bytes", find: "list matching fake paths",
     grep: "search a fake file", tree: "draw the fake filesystem", sha256sum: "hash a fake file",
     ps: "show the lab process snapshot", df: "show the lab filesystem snapshot", free: "show the lab memory snapshot", ip: "show the lab interface snapshot",
@@ -57,6 +58,8 @@
     open: "open a HighLion page", writeups: "list published writeups", projects: "list project titles"
   };
   var OPEN_TARGETS = ["home", "about", "projects", "writeups", "contact"];
+  var PIPE_READERS = ["grep", "head", "wc", "sha256sum", "cat"];
+  var PIPE_WRITERS = ["echo", "cat", "ls", "head", "grep", "tree", "fortune"];
   var FORTUNES = [
     "Trust the log, then verify the clock.",
     "A quiet port still belongs in the inventory.",
@@ -86,7 +89,7 @@
 
     instanceCount += 1;
     var inputId = (panelEl.id || "hlterm-" + instanceCount) + "-cli";
-    var promptText = "www-stux@highlion:~$";
+    var promptLiteral = "%n@%m:%~$ ";
     var reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
     var started = Date.now();
     var history = [];
@@ -98,12 +101,20 @@
     var matrixWanted = false;
     var pingBusy = false;
     var pingTimer = 0;
+    var captureLines = null;
+    var commandStatus = 0;
+    var stdinText = null;
+    var zshOptions = { COLOR: "cyan", MATRIX: "off" };
 
     function scrollBottom() {
       body.scrollTop = body.scrollHeight;
     }
 
     function appendLine(text, className) {
+      if (captureLines !== null) {
+        captureLines.push({ text: String(text), className: className || "hlterm-line" });
+        return null;
+      }
       var line = document.createElement("div");
       line.className = className || "hlterm-line";
       line.textContent = String(text);
@@ -112,20 +123,39 @@
       return line;
     }
 
+    function fail(text) {
+      commandStatus = 1;
+      appendLine(text, "hlterm-error");
+    }
+
     function appendLines(lines, className) {
       lines.forEach(function (line) { appendLine(line, className); });
+    }
+
+    function appendPrompt(parent) {
+      var prompt = document.createElement("span");
+      var user = document.createElement("span");
+      var host = document.createElement("span");
+      var dollar = document.createElement("span");
+      prompt.className = "hlterm-ps1";
+      user.className = "hlterm-ps1-user";
+      host.className = "hlterm-ps1-host";
+      dollar.className = "hlterm-ps1-dollar";
+      user.textContent = "www-stux";
+      host.textContent = "highlion";
+      dollar.textContent = "$";
+      prompt.append(user, document.createTextNode("@"), host, document.createTextNode(":~"), dollar);
+      parent.appendChild(prompt);
     }
 
     function freezeLive(command) {
       if (!live) return;
       var row = document.createElement("div");
-      var prompt = document.createElement("span");
       var value = document.createElement("span");
       row.className = "hlterm-command";
-      prompt.className = "hlterm-ps1";
-      prompt.textContent = promptText;
       value.textContent = command ? " " + command : "";
-      row.append(prompt, value);
+      appendPrompt(row);
+      row.appendChild(value);
       live.replaceWith(row);
       live = null;
       input = null;
@@ -137,7 +167,7 @@
       var label = document.createElement("label");
       input = document.createElement("input");
       label.htmlFor = inputId;
-      label.textContent = promptText;
+      appendPrompt(label);
       input.id = inputId;
       input.className = "hlterm-input";
       input.type = "text";
@@ -152,13 +182,14 @@
     }
 
     function showUsage(command) {
-      appendLine("usage: " + USAGE[command], "hlterm-error");
+      fail("usage: " + USAGE[command]);
     }
 
     function normalizedPath(raw) {
       return String(raw || "")
         .replace(/^https?:\/\/www\.highlion\.net\//i, "")
         .replace(/^\/home\/www-stux\//, "")
+        .replace(/^~\//, "")
         .replace(/^\.\//, "")
         .replace(/^\//, "")
         .replace(/\/$/, "");
@@ -167,7 +198,7 @@
     function getFile(raw, command) {
       var name = normalizedPath(raw);
       if (Object.prototype.hasOwnProperty.call(FILES, name)) return { name: name, text: FILES[name] };
-      appendLine(command + ": " + raw + ": No such file or directory", "hlterm-error");
+      fail(command + ": " + raw + ": No such file or directory");
       return null;
     }
 
@@ -181,7 +212,7 @@
     function showHelp(command) {
       if (command) {
         if (COMMANDS.indexOf(command) === -1) {
-          appendLine("No manual entry for " + command, "hlterm-error");
+          fail("No manual entry for " + command);
           return;
         }
         appendLine("usage: " + USAGE[command], "hlterm-ok");
@@ -191,6 +222,7 @@
       appendLines([
         "info       help man banner neofetch whoami hostname pwd",
         "           uname date uptime history id groups",
+        "shell      source setopt echo clear which type",
         "files      ls cat head wc find grep tree sha256sum",
         "system     ps df free ip ss lsb_release hostnamectl",
         "toys       cmatrix cowsay fortune sl figlet",
@@ -220,7 +252,7 @@
         else if (args[index].charAt(0) === "-" || path) { showUsage("ls"); return; }
         else path = normalizedPath(args[index]);
       }
-      if (path && path !== "notes") { appendLine("ls: " + path + ": No such directory", "hlterm-error"); return; }
+      if (path && path !== "notes") { fail("ls: " + path + ": No such directory"); return; }
       var names = visibleNames(path, all);
       if (all) names.unshift(".", "..");
       if (!long) { appendLine(names.join("  ")); return; }
@@ -235,6 +267,14 @@
     function headFile(args) {
       var count = 10;
       var name = "";
+      if (stdinText !== null && args.length === 0) {
+        appendLines(stdinText.split("\n").slice(0, count));
+        return;
+      }
+      if (stdinText !== null && args.length === 2 && args[0] === "-n" && /^\d+$/.test(args[1]) && Number(args[1]) > 0) {
+        appendLines(stdinText.split("\n").slice(0, Number(args[1])));
+        return;
+      }
       if (args.length === 1) name = args[0];
       else if (args.length === 3 && args[0] === "-n" && /^\d+$/.test(args[1]) && Number(args[1]) > 0) {
         count = Number(args[1]);
@@ -247,35 +287,99 @@
     function wordCount(args) {
       var mode = "";
       var name = "";
-      if (args.length === 1) name = args[0];
+      if (stdinText !== null && args.length === 0) {
+        name = null;
+      } else if (stdinText !== null && args.length === 1 && ["-l", "-w", "-c"].indexOf(args[0]) !== -1) {
+        mode = args[0];
+        name = null;
+      } else if (args.length === 1) name = args[0];
       else if (args.length === 2 && ["-l", "-w", "-c"].indexOf(args[0]) !== -1) { mode = args[0]; name = args[1]; }
       else { showUsage("wc"); return; }
-      var file = getFile(name, "wc");
+      var file = name === null ? { name: "", text: stdinText } : getFile(name, "wc");
       if (!file) return;
       var lines = file.text === "" ? 0 : file.text.split("\n").length;
       var words = file.text.trim() ? file.text.trim().split(/\s+/).length : 0;
       var bytes = new TextEncoder().encode(file.text).length;
       var result = mode === "-l" ? lines : mode === "-w" ? words : mode === "-c" ? bytes : lines + " " + words + " " + bytes;
-      appendLine(result + " " + file.name);
+      appendLine(String(result) + (file.name ? " " + file.name : ""));
     }
 
     function findFiles(args) {
       if (args.length > 1 || (args[0] && args[0].charAt(0) === "-")) { showUsage("find"); return; }
       var path = normalizedPath(args[0] || "");
       var matches = Object.keys(FILES).filter(function (name) { return !path || path === "." || name === path || name.indexOf(path + "/") === 0; });
-      if (!matches.length) { appendLine("find: " + (args[0] || path) + ": No such file or directory", "hlterm-error"); return; }
+      if (!matches.length) { fail("find: " + (args[0] || path) + ": No such file or directory"); return; }
       matches.sort().forEach(function (name) { appendLine("./" + name); });
     }
 
     function grepFile(args) {
       var numbered = false;
       if (args[0] === "-n") { numbered = true; args = args.slice(1); }
-      if (args.length !== 2 || args[0].charAt(0) === "-") { showUsage("grep"); return; }
-      var file = getFile(args[1], "grep");
+      var fromPipe = stdinText !== null && args.length === 1;
+      if ((!fromPipe && args.length !== 2) || !args[0] || args[0].charAt(0) === "-") { showUsage("grep"); return; }
+      var file = fromPipe ? { text: stdinText } : getFile(args[1], "grep");
       if (!file) return;
+      var found = false;
       file.text.split("\n").forEach(function (line, index) {
-        if (line.indexOf(args[0]) !== -1) appendLine((numbered ? index + 1 + ":" : "") + line);
+        if (line.indexOf(args[0]) !== -1) {
+          found = true;
+          appendLine((numbered ? index + 1 + ":" : "") + line);
+        }
       });
+      if (!found) commandStatus = 1;
+    }
+
+    function sha256Text(text) {
+      var bytes = new TextEncoder().encode(text);
+      var bitLength = bytes.length * 8;
+      var paddedLength = Math.ceil((bytes.length + 9) / 64) * 64;
+      var data = new Uint8Array(paddedLength);
+      data.set(bytes);
+      data[bytes.length] = 0x80;
+      var view = new DataView(data.buffer);
+      view.setUint32(paddedLength - 8, Math.floor(bitLength / 0x100000000), false);
+      view.setUint32(paddedLength - 4, bitLength >>> 0, false);
+      var hash = new Uint32Array([
+        0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
+        0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19
+      ]);
+      var constants = new Uint32Array([
+        0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
+        0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
+        0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
+        0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
+        0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
+        0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
+        0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
+        0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2
+      ]);
+      var words = new Uint32Array(64);
+      function rotate(value, amount) { return (value >>> amount) | (value << (32 - amount)); }
+      for (var offset = 0; offset < data.length; offset += 64) {
+        for (var index = 0; index < 16; index += 1) words[index] = view.getUint32(offset + index * 4, false);
+        for (var round = 16; round < 64; round += 1) {
+          var s0 = rotate(words[round - 15], 7) ^ rotate(words[round - 15], 18) ^ (words[round - 15] >>> 3);
+          var s1 = rotate(words[round - 2], 17) ^ rotate(words[round - 2], 19) ^ (words[round - 2] >>> 10);
+          words[round] = (words[round - 16] + s0 + words[round - 7] + s1) >>> 0;
+        }
+        var a = hash[0]; var b = hash[1]; var c = hash[2]; var d = hash[3];
+        var e = hash[4]; var f = hash[5]; var g = hash[6]; var h = hash[7];
+        for (var step = 0; step < 64; step += 1) {
+          var big1 = rotate(e, 6) ^ rotate(e, 11) ^ rotate(e, 25);
+          var choose = (e & f) ^ (~e & g);
+          var temp1 = (h + big1 + choose + constants[step] + words[step]) >>> 0;
+          var big0 = rotate(a, 2) ^ rotate(a, 13) ^ rotate(a, 22);
+          var majority = (a & b) ^ (a & c) ^ (b & c);
+          var temp2 = (big0 + majority) >>> 0;
+          h = g; g = f; f = e; e = (d + temp1) >>> 0;
+          d = c; c = b; b = a; a = (temp1 + temp2) >>> 0;
+        }
+        hash[0] = (hash[0] + a) >>> 0; hash[1] = (hash[1] + b) >>> 0;
+        hash[2] = (hash[2] + c) >>> 0; hash[3] = (hash[3] + d) >>> 0;
+        hash[4] = (hash[4] + e) >>> 0; hash[5] = (hash[5] + f) >>> 0;
+        hash[6] = (hash[6] + g) >>> 0; hash[7] = (hash[7] + h) >>> 0;
+      }
+      return Array.from(hash).map(function (word) { return word.toString(16).padStart(8, "0"); }).join("");
     }
 
     function resizeMatrix() {
@@ -410,11 +514,9 @@
       appendLine(FILES[name]);
     }
 
-    function execute(raw) {
-      if (/[|><`]|\$\(/.test(raw)) {
-        appendLine("hlshell: pipelines and redirection are disabled", "hlterm-error");
-        return;
-      }
+    function executeCommand(raw, inputText) {
+      commandStatus = 0;
+      stdinText = inputText;
       var tokens = raw.trim().split(/\s+/);
       var command = tokens.shift().toLowerCase();
       var args = tokens;
@@ -422,7 +524,19 @@
         case "help": if (args.length <= 1) showHelp((args[0] || "").toLowerCase()); else showUsage(command); break;
         case "man": if (args.length === 1) showHelp(args[0].toLowerCase()); else showUsage(command); break;
         case "clear": if (!args.length) stream.replaceChildren(); else showUsage(command); break;
-        case "echo": appendLine(args.join(" ")); break;
+        case "echo": appendLine(args.length === 1 && args[0] === "$PROMPT" ? promptLiteral : args.join(" ")); break;
+        case "source":
+          if (args.length === 1 && normalizedPath(args[0]) === ".zshrc") {
+            zshOptions.COLOR = "cyan";
+            zshOptions.MATRIX = "off";
+            panelEl.style.setProperty("--hlterm-ps1-color", "#66f7ff");
+            matrixOff(true);
+          } else showUsage(command);
+          break;
+        case "setopt":
+          if (!args.length) appendLines(["COLOR=" + zshOptions.COLOR, "MATRIX=" + zshOptions.MATRIX]);
+          else showUsage(command);
+          break;
         case "whoami": if (!args.length) appendLine("www-stux"); else showUsage(command); break;
         case "id": if (!args.length) appendLine("uid=1000(www-stux) gid=1000(www-stux) groups=1000(www-stux),27(sudo)"); else showUsage(command); break;
         case "groups": if (!args.length) appendLine("www-stux sudo"); else showUsage(command); break;
@@ -437,13 +551,23 @@
         case "banner": if (!args.length) appendLines(["H  H I GGG H  H L    I OOO N  N", "H  H I G   H  H L    I O O NN N", "HHHH I G G HHHH L    I O O N NN", "H  H I G G H  H L    I O O N  N", "H  H I GGG H  H LLLL I OOO N  N", "HLv8 / highlion.net"]); else showUsage(command); break;
         case "neofetch": if (!args.length) appendLines(["      /\\          www-stux@highlion", "     /  \\         OS: Debian GNU/Linux", "    / /\\ \\        Kernel: 6.6.0-hl1", "   / ____ \\       Shell: hlshell", "  /_/    \\_\\      Version: HLv8", "     ||           Uptime: " + elapsed(), "     ||           Viewport: " + window.innerWidth + "×" + window.innerHeight]); else showUsage(command); break;
         case "ls": listFiles(args); break;
-        case "cat": if (args.length === 1) { var catFile = getFile(args[0], command); if (catFile) appendLine(catFile.text); } else showUsage(command); break;
+        case "cat":
+          if (!args.length && stdinText !== null) appendLine(stdinText);
+          else if (args.length === 1) { var catFile = getFile(args[0], command); if (catFile) appendLine(catFile.text); }
+          else showUsage(command);
+          break;
         case "head": headFile(args); break;
         case "wc": wordCount(args); break;
         case "find": findFiles(args); break;
         case "grep": grepFile(args); break;
-        case "tree": if (!args.length) appendLines([".", "├── .brief", "├── .hidden", "├── README.txt", "├── notes", "│   ├── hashes.txt", "│   ├── motd.txt", "│   └── ops.txt", "├── ping.txt", "├── projects.md", "└── writeups.md"]); else showUsage(command); break;
-        case "sha256sum": if (args.length === 1) { var hashFile = getFile(args[0], command); if (hashFile) appendLine(HASHES[hashFile.name] + "  " + hashFile.name); } else showUsage(command); break;
+        case "tree": if (!args.length) appendLines([".", "├── .brief", "├── .hidden", "├── .zshrc", "├── README.txt", "├── notes", "│   ├── hashes.txt", "│   ├── motd.txt", "│   └── ops.txt", "├── ping.txt", "├── projects.md", "└── writeups.md"]); else showUsage(command); break;
+        case "sha256sum":
+          if (!args.length && stdinText !== null) appendLine(sha256Text(stdinText) + "  -");
+          else if (args.length === 1) {
+            var hashFile = getFile(args[0], command);
+            if (hashFile) appendLine((HASHES[hashFile.name] || sha256Text(hashFile.text)) + "  " + hashFile.name);
+          } else showUsage(command);
+          break;
         case "which": if (args.length === 1) appendLine(COMMANDS.indexOf(args[0]) !== -1 ? "/usr/bin/" + args[0] : args[0] + " not found"); else showUsage(command); break;
         case "type": if (args.length === 1) appendLine(COMMANDS.indexOf(args[0]) !== -1 ? args[0] + " is a shell builtin" : args[0] + " not found"); else showUsage(command); break;
         case "ps": if (!args.length) appendLines(["  PID TTY          TIME CMD", "  412 ?        00:00:02 nginx", "  441 ?        00:00:01 php-fpm", "  509 ?        00:00:00 sshd", " 1337 pts/0    00:00:00 hlterm"]); else showUsage(command); break;
@@ -455,25 +579,108 @@
         case "cowsay": runCowsay(args); break;
         case "fortune": if (!args.length) appendLine(FORTUNES[Math.floor(Math.random() * FORTUNES.length)]); else showUsage(command); break;
         case "sl": if (!args.length) runSl(); else showUsage(command); break;
-        case "figlet": if (args.length === 1 && FIGLETS[args[0].toLowerCase()]) appendLines(FIGLETS[args[0].toLowerCase()]); else if (args.length === 1) appendLine("figlet: word not in font", "hlterm-error"); else showUsage(command); break;
+        case "figlet": if (args.length === 1 && FIGLETS[args[0].toLowerCase()]) appendLines(FIGLETS[args[0].toLowerCase()]); else if (args.length === 1) fail("figlet: word not in font"); else showUsage(command); break;
         case "ping": runPing(args); break;
         case "curl": runCurl(args); break;
         case "open": if (args.length === 1 && OPEN_TARGETS.indexOf(args[0]) !== -1) window.location.assign(args[0] === "home" ? "/index.html" : "/" + args[0] + ".html"); else showUsage(command); break;
         case "writeups": if (!args.length) appendLines(["Exposed Pi-hole Admin Page", "CVE-2026-2441"]); else showUsage(command); break;
         case "projects": if (!args.length) appendLines(["Home Lab", "Networking", "HighLion Web", "Windows Privacy Platform"]); else showUsage(command); break;
-        default: appendLine("hlshell: command not found: " + command, "hlterm-error");
+        default: fail("hlshell: command not found: " + command);
       }
+      return commandStatus;
+    }
+
+    function capturedCommand(raw, inputText) {
+      captureLines = [];
+      var status = executeCommand(raw, inputText);
+      var lines = captureLines;
+      captureLines = null;
+      return { status: status, lines: lines };
+    }
+
+    function commandName(raw) {
+      return (raw.trim().split(/\s+/)[0] || "").toLowerCase();
+    }
+
+    function runPipeline(raw) {
+      var stages = raw.split("|").map(function (stage) { return stage.trim(); });
+      if (stages.some(function (stage) { return !stage; })) {
+        fail("hlshell: pipelines and redirection are disabled");
+        return 1;
+      }
+      if (stages.length === 1) return executeCommand(stages[0], null);
+      for (var index = 0; index < stages.length; index += 1) {
+        var name = commandName(stages[index]);
+        var canRead = index === 0 || PIPE_READERS.indexOf(name) !== -1;
+        var canWrite = index === stages.length - 1 || PIPE_WRITERS.indexOf(name) !== -1;
+        if (!canRead || !canWrite) {
+          fail("hlshell: " + name + " cannot be used in a pipeline");
+          return 1;
+        }
+      }
+      var inputText = null;
+      var status = 0;
+      stages.forEach(function (stage, index) {
+        var result = capturedCommand(stage, inputText);
+        status = result.status;
+        var stdout = result.lines.filter(function (line) { return line.className !== "hlterm-error"; });
+        var errors = result.lines.filter(function (line) { return line.className === "hlterm-error"; });
+        errors.forEach(function (line) { appendLine(line.text, line.className); });
+        inputText = stdout.map(function (line) { return line.text; }).join("\n");
+        if (index === stages.length - 1) {
+          stdout.forEach(function (line) { appendLine(line.text, line.className); });
+        }
+      });
+      return status;
+    }
+
+    function execute(raw) {
+      if (/\|\||;|>>|[><`]|\$\(\(?/.test(raw)) {
+        fail("hlshell: pipelines and redirection are disabled");
+        return 1;
+      }
+      var chains = raw.split("&&").map(function (part) { return part.trim(); });
+      if (chains.some(function (part) { return !part; })) {
+        fail("hlshell: pipelines and redirection are disabled");
+        return 1;
+      }
+      var status = 0;
+      for (var index = 0; index < chains.length; index += 1) {
+        if (index > 0 && status !== 0) break;
+        status = runPipeline(chains[index]);
+      }
+      return status;
     }
 
     function complete() {
       var value = input.value;
-      var tokens = value.split(/\s+/);
-      var current = tokens.pop() || "";
-      var source = tokens.length ? Object.keys(FILES).concat(OPEN_TARGETS) : COMMANDS;
+      var caret = input.selectionStart === null ? value.length : input.selectionStart;
+      var start = caret;
+      var end = caret;
+      while (start > 0 && !/\s/.test(value.charAt(start - 1))) start -= 1;
+      while (end < value.length && !/\s/.test(value.charAt(end))) end += 1;
+      var current = value.slice(start, end);
+      var isCommand = value.slice(0, start).trim() === "";
+      var source = COMMANDS;
+      if (!isCommand) {
+        source = Object.keys(FILES).concat(["notes/"]);
+        if (current.indexOf("~/") === 0) {
+          source = source.map(function (name) { return "~/" + name; });
+        } else if (current.charAt(0) === "/") {
+          source = source.map(function (name) { return "/" + name; });
+        }
+      }
       var matches = source.filter(function (item) { return item.toLowerCase().indexOf(current.toLowerCase()) === 0; });
       if (matches.length === 1) {
-        tokens.push(matches[0]);
-        input.value = tokens.join(" ") + " ";
+        var suffix = end === value.length ? " " : "";
+        input.value = value.slice(0, start) + matches[0] + suffix + value.slice(end);
+        var nextCaret = start + matches[0].length + suffix.length;
+        input.setSelectionRange(nextCaret, nextCaret);
+      } else if (matches.length > 1) {
+        var savedCaret = caret;
+        appendLine(matches.join("  "));
+        input.value = value;
+        input.setSelectionRange(savedCaret, savedCaret);
       }
     }
 
@@ -484,7 +691,39 @@
     }
 
     function handleKey(event) {
-      if (event.key === "Enter") {
+      var key = event.key.toLowerCase();
+      if (event.ctrlKey && key === "c") {
+        event.preventDefault();
+        freezeLive(input.value);
+        cancelPing();
+        appendLine("^C", "hlterm-muted");
+        addLive();
+      } else if (event.ctrlKey && key === "l") {
+        event.preventDefault();
+        stream.replaceChildren();
+        live = null;
+        input = null;
+        addLive();
+      } else if (event.ctrlKey && key === "a") {
+        event.preventDefault();
+        input.setSelectionRange(0, 0);
+      } else if (event.ctrlKey && key === "e") {
+        event.preventDefault();
+        input.setSelectionRange(input.value.length, input.value.length);
+      } else if (event.ctrlKey && key === "u") {
+        event.preventDefault();
+        input.value = "";
+        input.setSelectionRange(0, 0);
+      } else if (event.ctrlKey && key === "w") {
+        event.preventDefault();
+        var caret = input.selectionStart === null ? input.value.length : input.selectionStart;
+        var prefix = input.value.slice(0, caret);
+        var withoutSpace = prefix.replace(/\s+$/, "");
+        var wordStart = withoutSpace.search(/\S+$/);
+        if (wordStart < 0) wordStart = 0;
+        input.value = prefix.slice(0, wordStart) + input.value.slice(caret);
+        input.setSelectionRange(wordStart, wordStart);
+      } else if (event.key === "Enter") {
         event.preventDefault();
         var raw = input.value;
         freezeLive(raw.trim());
@@ -498,27 +737,16 @@
         event.preventDefault();
         if (historyIndex > 0) historyIndex -= 1;
         input.value = history[historyIndex] || "";
+        input.setSelectionRange(input.value.length, input.value.length);
       } else if (event.key === "ArrowDown") {
         event.preventDefault();
         if (historyIndex < history.length) historyIndex += 1;
         input.value = history[historyIndex] || "";
+        input.setSelectionRange(input.value.length, input.value.length);
       } else if (event.key === "Tab") {
         event.preventDefault();
         complete();
-      } else if (event.ctrlKey && event.key.toLowerCase() === "l") {
-        event.preventDefault();
-        stream.replaceChildren();
-        live = null;
-        input = null;
-        addLive();
-      } else if (event.ctrlKey && event.key.toLowerCase() === "c") {
-        event.preventDefault();
-        freezeLive(input.value);
-        cancelPing();
-        appendLine("^C", "hlterm-muted");
-        addLive();
       }
-      if (input) input.setSelectionRange(input.value.length, input.value.length);
     }
 
     body.addEventListener("click", function () { if (input) input.focus(); });
@@ -536,7 +764,7 @@
     });
 
     appendLine("HighLion hlshell / HLv8 / type help", "hlterm-muted");
-    appendLine("Debian GNU/Linux · lab shell · no outbound probes", "hlterm-muted");
+    appendLine("Debian GNU/Linux · lab shell · pipes | and && on the fake fs", "hlterm-muted");
     appendLine("cmatrix / cowsay / fortune / sl are local toys", "hlterm-muted");
     appendLine("", "hlterm-muted");
     addLive();

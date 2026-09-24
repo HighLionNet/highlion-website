@@ -94,14 +94,25 @@
   function renderTraffic(payload) {
     var ok = Boolean(payload && payload.ok === true);
     var total = ok && Number.isFinite(Number(payload.count)) ? Number(payload.count) : 0;
-    var codes = ok && payload.codes ? payload.codes : {};
+    var exact = ok && Array.isArray(payload.exact) ? payload.exact.filter(function (row) {
+      return row && /^\d{3}$/.test(String(row.code)) && Number(row.n) > 0;
+    }).slice(0, 5) : [];
     set(nodes.trafficCount, ok ? String(total) : "—");
     set(nodes.trafficNote, ok ? "" : "no log access");
     set(nodes.topPath, ok && payload.top && payload.top[0] && payload.top[0].path ? payload.top[0].path : "—");
     if (!nodes.trafficBars) return;
     nodes.trafficBars.replaceChildren();
-    ["2xx", "3xx", "4xx", "5xx"].forEach(function (code) {
-      var value = Number(codes[code]) || 0;
+    if (!exact.length) {
+      var empty = document.createElement("div");
+      empty.className = "traffic-empty";
+      empty.textContent = "no codes";
+      nodes.trafficBars.appendChild(empty);
+      return;
+    }
+    var exactTotal = exact.reduce(function (sum, row) { return sum + Number(row.n); }, 0);
+    exact.forEach(function (codeRow) {
+      var code = String(codeRow.code);
+      var value = Number(codeRow.n);
       var row = document.createElement("div");
       var label = document.createElement("span");
       var track = document.createElement("span");
@@ -109,10 +120,11 @@
       var number = document.createElement("span");
       row.className = "traffic-row";
       row.dataset.code = code;
+      row.dataset.family = code.charAt(0);
       label.textContent = code;
       track.className = "traffic-track";
       fill.className = "traffic-fill";
-      fill.style.width = (total > 0 ? Math.min(100, value / total * 100) : 0) + "%";
+      fill.style.width = (exactTotal > 0 ? Math.min(100, value / exactTotal * 100) : 0) + "%";
       number.textContent = String(value);
       track.appendChild(fill);
       row.append(label, track, number);
