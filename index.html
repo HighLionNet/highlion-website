@@ -17,59 +17,45 @@
   <meta name="twitter:description" content="Home lab, security projects and incident writeups by Shmuel Yermus – aspiring SOC analyst and junior penetration tester.">
   <title>HighLion — Home</title>
   <link rel="icon" href="/assets/icons/HighLion.ico" sizes="any">
-  <link rel="stylesheet" href="/css/style.css?v=hl8e">
+  <link rel="stylesheet" href="/css/style.css?v=hl9">
 </head>
 <body>
   <a class="skip" href="#main">Skip to content</a>
   <div class="scanlines" aria-hidden="true"></div>
   <canvas id="fx" class="fx" aria-hidden="true"></canvas>
-  <div data-include="/components/header.html?v=hl8e"></div>
+  <div data-include="/components/header.html?v=hl9"></div>
 
   <main id="main">
-    <section class="shell home-top">
+    <section class="shell home-stage">
       <article class="hero-copy">
-        <div class="kicker">Cybersecurity • Linux • Networking</div>
-        <h1 id="home-title" class="headline">Welcome to HighLion: The cybersecurity project made for <span class="accent">attack</span> and <span class="accent">defense</span> skill development.</h1>
-        <p class="lead">HighLion was created by an aspiring CyberSecurity professional, as a practice ground for web design and security.</p>
-        <p class="lead lead-follow"><strong>This site is used to document ongoing security work and experiments. Content is added as systems break, change, or require closer inspection.</strong></p>
+        <div class="kicker">Cybersecurity / Linux / Networking</div>
+        <h1 id="home-title" class="headline">A live cybersecurity lab built for <span class="accent attack">attack</span> and <span class="accent defense">defense</span>.</h1>
+        <p class="lead">HighLion documents practical security work across networks, self-hosted infrastructure, incident response, and vulnerability research.</p>
         <div class="actions">
-          <a class="btn" href="/projects.html">Read About Projects</a>
-          <a class="btn secondary" href="/about.html">How It’s Built</a>
-          <a class="btn" href="/writeups.html">View Security Writeups</a>
+          <a class="btn" href="/projects.html">Explore projects</a>
+          <a class="btn secondary" href="/about.html">System profile</a>
+          <a class="btn secondary" href="/writeups.html">Read writeups</a>
         </div>
       </article>
 
-      <aside class="ops-board" aria-label="Session dashboard and intel feed">
-        <header class="ops-board-head">
-          <div class="kicker">OPS BOARD</div>
-          <h2>Session dashboard</h2>
+      <aside class="news-rail" aria-label="Cyber news">
+        <header class="news-head">
+          <div>
+            <div class="kicker news-kicker">News</div>
+            <h2>External headlines</h2>
+          </div>
+          <span class="news-stamp" id="newsStamp"></span>
         </header>
-        <div class="dash-grid">
-          <div class="dash-tile"><div class="dash-label">SESSIONS</div><div class="dash-value" id="dSessions">001</div></div>
-          <div class="dash-tile"><div class="dash-label">SESSION UPTIME</div><div class="dash-value" id="dUptime">00:00:00</div></div>
-          <div class="dash-tile"><div class="dash-label">TIMEZONE</div><div class="dash-value" id="dTimezone">Local</div></div>
-          <div class="dash-tile"><div class="dash-label">USER AGENT</div><div class="dash-value" id="dUserAgent">Browser</div></div>
-          <div class="dash-tile"><div class="dash-label">HOST OS</div><div class="dash-value" id="dHostOS">Unknown</div></div>
-          <div class="dash-tile"><div class="dash-label">CPU CORES</div><div class="dash-value" id="dCpuCores">Unknown</div></div>
-          <div class="dash-tile"><div class="dash-label">VIEWPORT</div><div class="dash-value" id="dViewport">—</div></div>
-          <div class="dash-tile"><div class="dash-label">PAGE</div><div class="dash-value" id="dPage">home</div></div>
-        </div>
-        <section class="intel-feed" aria-label="Intel feed">
-          <div class="kicker">INTEL FEED</div>
-          <ol class="intel-list" id="intel-list"></ol>
-        </section>
+        <ol class="news-list" id="news-list"></ol>
       </aside>
     </section>
 
-    <div class="shell hl-divider" aria-hidden="true"></div>
+    <div class="shell rain-band" aria-hidden="true">
+      <canvas id="rain" class="rain-canvas"></canvas>
+    </div>
 
-    <section class="shell home-term" aria-label="HighLion terminal">
-      <header class="term-section-head">
-        <div class="kicker">HLSHELL</div>
-        <h2>Kali-style lab terminal</h2>
-        <p class="lead">Client-side lab shell. Type help. No outbound network.</p>
-      </header>
-      <aside class="hlterm-panel" id="hlterm-panel">
+    <section class="shell home-ops">
+      <aside class="hlterm-panel" id="hlterm-panel" data-hlshell data-matrix-default="on" aria-label="HighLion terminal">
         <div class="hlterm-head">
           <div class="hlterm-lights" aria-hidden="true">
             <span class="red"></span><span class="amber"></span><span class="green"></span>
@@ -77,7 +63,7 @@
           <div class="hlterm-title">/usr/bin/hlshell</div>
         </div>
         <div class="hlterm-body" role="log" aria-live="polite">
-          <canvas class="hlterm-matrix" aria-hidden="true" hidden></canvas>
+          <canvas class="hlterm-matrix" aria-hidden="true"></canvas>
           <div class="hlterm-out"></div>
           <div class="hlterm-prompt">
             <label for="hlterm-cli">www-stux@highlion:~$</label>
@@ -85,6 +71,30 @@
           </div>
         </div>
       </aside>
+      <div class="ops-stack">
+        <section class="ops-board" aria-label="Local session">
+          <header class="ops-board-head">
+            <div class="kicker">Session</div>
+            <h2>Local telemetry</h2>
+          </header>
+          <div class="dash-grid">
+            <div class="dash-tile"><div class="dash-label">LOCAL SESSIONS</div><div class="dash-value" id="dSessions">001</div></div>
+            <div class="dash-tile"><div class="dash-label">UPTIME</div><div class="dash-value" id="dUptime">00:00:00</div></div>
+            <div class="dash-tile"><div class="dash-label">TZ</div><div class="dash-value" id="dTimezone">Local</div></div>
+            <div class="dash-tile"><div class="dash-label">UA</div><div class="dash-value" id="dUserAgent">Browser</div></div>
+            <div class="dash-tile"><div class="dash-label">OS</div><div class="dash-value" id="dHostOS">Unknown</div></div>
+            <div class="dash-tile"><div class="dash-label">CPU</div><div class="dash-value" id="dCpuCores">Unknown</div></div>
+            <div class="dash-tile dash-tile-wide"><div class="dash-label">VIEWPORT</div><div class="dash-value" id="dViewport">—</div></div>
+          </div>
+        </section>
+        <section class="traffic-board" aria-label="Edge traffic">
+          <div class="kicker">Edge</div>
+          <div class="traffic-value" id="tCount">—</div>
+          <div class="traffic-label">requests / 15 min</div>
+          <div class="traffic-bars" id="tBars"></div>
+          <p class="traffic-note" id="tNote"></p>
+        </section>
+      </div>
     </section>
 
     <section class="shell section" aria-labelledby="latest-writeups">
@@ -123,60 +133,12 @@
     </section>
   </main>
 
-  <div data-include="/components/footer.html?v=hl8e"></div>
-  <script src="/js/fix-include.js?v=hl8e" defer></script>
-  <script src="/js/particles.js?v=hl8e" defer></script>
-  <script src="/js/intel-feed.js?v=hl8e" defer></script>
-  <script src="/js/terminal.js?v=hl8e" defer></script>
-  <script>
-    (function () {
-      var started = Date.now();
-      var sessions = document.getElementById("dSessions");
-      var uptime = document.getElementById("dUptime");
-      var timezone = document.getElementById("dTimezone");
-      var userAgent = document.getElementById("dUserAgent");
-      var hostOS = document.getElementById("dHostOS");
-      var cpuCores = document.getElementById("dCpuCores");
-      var viewport = document.getElementById("dViewport");
-
-      try {
-        var count = Number.parseInt(localStorage.getItem("highlion_visits") || "0", 10) + 1;
-        localStorage.setItem("highlion_visits", String(count));
-        sessions.textContent = String(count).padStart(3, "0");
-      } catch (error) {
-        sessions.textContent = "001";
-      }
-
-      var zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-      timezone.textContent = zone || "Local";
-      var ua = navigator.userAgent;
-      var match = ua.match(/Edg\/([\d.]+)/);
-      var browserName = "Edge";
-      if (!match) { match = ua.match(/Firefox\/([\d.]+)/); browserName = "Firefox"; }
-      if (!match) { match = ua.match(/Chrome\/([\d.]+)/); browserName = "Chrome"; }
-      if (!match && !/Chrome\//.test(ua)) { match = ua.match(/Version\/([\d.]+).*Safari\//); browserName = "Safari"; }
-      userAgent.textContent = match ? browserName + " " + match[1].split(".")[0] : "Browser";
-      userAgent.title = ua;
-      hostOS.textContent = /Android/.test(ua) ? "Android" : /iPhone|iPad|iPod/.test(ua) ? "iOS" : /Windows/.test(ua) ? "Windows" : /Mac OS/.test(ua) ? "macOS" : /Linux/.test(ua) ? "Linux" : "Unknown";
-      cpuCores.textContent = navigator.hardwareConcurrency ? navigator.hardwareConcurrency + " cores" : "Unknown";
-
-      function updateViewport() {
-        viewport.textContent = window.innerWidth + "×" + window.innerHeight;
-      }
-
-      function updateUptime() {
-        var seconds = Math.floor((Date.now() - started) / 1000);
-        var hours = Math.floor(seconds / 3600);
-        var minutes = Math.floor((seconds % 3600) / 60);
-        var remainder = seconds % 60;
-        uptime.textContent = String(hours).padStart(2, "0") + ":" + String(minutes).padStart(2, "0") + ":" + String(remainder).padStart(2, "0");
-      }
-
-      updateViewport();
-      updateUptime();
-      window.addEventListener("resize", updateViewport, { passive: true });
-      window.setInterval(updateUptime, 1000);
-    })();
-  </script>
+  <div data-include="/components/footer.html?v=hl9"></div>
+  <script src="/js/fix-include.js?v=hl9" defer></script>
+  <script src="/js/particles.js?v=hl9" defer></script>
+  <script src="/js/rain.js?v=hl9" defer></script>
+  <script src="/js/intel-feed.js?v=hl9" defer></script>
+  <script src="/js/terminal.js?v=hl9" defer></script>
+  <script src="/js/dashboard.js?v=hl9" defer></script>
 </body>
 </html>

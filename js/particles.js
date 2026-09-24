@@ -1,6 +1,18 @@
 (function () {
   "use strict";
 
+  var ATTRACT_RADIUS = 170;
+  var ATTRACT_FORCE = 0.10;
+  var DRAG = 0.96;
+  var MAX_SPEED = 2.4;
+  var ALPHA_MIN = 0.45;
+  var ALPHA_MAX = 0.88;
+  var SIZE_MIN = 1.3;
+  var SIZE_MAX = 2.6;
+  var LINK_DIST = 130;
+  var LINK_ALPHA = 0.20;
+  var COUNT_DIVISOR = 16000;
+
   var canvas = document.getElementById("fx");
   if (!canvas) return;
   var context = canvas.getContext("2d", { alpha: true });
@@ -19,19 +31,49 @@
     return Math.max(minimum, Math.min(maximum, value));
   }
 
-  function randomVelocity() {
-    return Math.random() * 0.36 - 0.18;
+  function between(minimum, maximum) {
+    return minimum + Math.random() * (maximum - minimum);
   }
 
   function makePoint() {
     return {
       x: Math.random() * width,
       y: Math.random() * height,
-      vx: randomVelocity(),
-      vy: randomVelocity(),
-      size: Math.random() * 1.2 + 0.5,
-      alpha: Math.random() * 0.12 + 0.10
+      vx: between(-0.42, 0.42),
+      vy: between(-0.42, 0.42),
+      size: between(SIZE_MIN, SIZE_MAX),
+      alpha: between(ALPHA_MIN, ALPHA_MAX)
     };
+  }
+
+  function clear() {
+    context.clearRect(0, 0, width, height);
+  }
+
+  function draw() {
+    clear();
+    for (var index = 0; index < points.length; index += 1) {
+      var point = points[index];
+      context.beginPath();
+      context.arc(point.x, point.y, point.size, 0, Math.PI * 2);
+      context.fillStyle = "rgba(102,247,255," + point.alpha.toFixed(3) + ")";
+      context.fill();
+    }
+
+    for (var left = 0; left < points.length; left += 1) {
+      for (var right = left + 1; right < points.length; right += 1) {
+        var dx = points[right].x - points[left].x;
+        var dy = points[right].y - points[left].y;
+        var distance = Math.hypot(dx, dy);
+        if (distance < LINK_DIST) {
+          context.beginPath();
+          context.moveTo(points[left].x, points[left].y);
+          context.lineTo(points[right].x, points[right].y);
+          context.strokeStyle = "rgba(61,139,255," + (LINK_ALPHA * (1 - distance / LINK_DIST)).toFixed(3) + ")";
+          context.stroke();
+        }
+      }
+    }
   }
 
   function resize() {
@@ -43,93 +85,75 @@
     canvas.style.width = width + "px";
     canvas.style.height = height + "px";
     context.setTransform(dpr, 0, 0, dpr, 0, 0);
-    var count = clamp(Math.floor(width * height / 28000), 36, 88);
+    var count = clamp(Math.floor(width * height / COUNT_DIVISOR), 70, 160);
     points = Array.from({ length: count }, makePoint);
-    draw();
-  }
-
-  function draw() {
-    context.clearRect(0, 0, width, height);
-    points.forEach(function (point) {
-      context.beginPath();
-      context.arc(point.x, point.y, point.size, 0, Math.PI * 2);
-      context.fillStyle = "rgba(102,220,231," + point.alpha.toFixed(3) + ")";
-      context.fill();
-    });
-
-    for (var i = 0; i < points.length; i += 3) {
-      for (var j = i + 1; j < points.length; j += 1) {
-        var dx = points[j].x - points[i].x;
-        var dy = points[j].y - points[i].y;
-        var distance = Math.hypot(dx, dy);
-        if (distance < 120) {
-          context.beginPath();
-          context.moveTo(points[i].x, points[i].y);
-          context.lineTo(points[j].x, points[j].y);
-          context.strokeStyle = "rgba(102,220,231," + (0.05 * (1 - distance / 120)).toFixed(4) + ")";
-          context.stroke();
-        }
-      }
-    }
+    if (motionQuery.matches) clear();
+    else draw();
   }
 
   function animate(now) {
+    if (motionQuery.matches) {
+      frame = 0;
+      clear();
+      return;
+    }
     frame = window.requestAnimationFrame(animate);
-    if (document.hidden || motionQuery.matches || now - lastFrame < 32) return;
+    if (document.hidden || now - lastFrame < 24) return;
     lastFrame = now;
 
     points.forEach(function (point) {
-      var dx = pointer.x - point.x;
-      var dy = pointer.y - point.y;
-      var distance = Math.hypot(dx, dy);
-      if (pointer.active && distance < 180 && distance > 0.01) {
-        point.vx += dx / distance * 0.022;
-        point.vy += dy / distance * 0.022;
-      } else if (pointer.active) {
-        point.x += (pointer.x - width / 2) * 0.00004;
-        point.y += (pointer.y - height / 2) * 0.00004;
+      if (pointer.active) {
+        var dx = pointer.x - point.x;
+        var dy = pointer.y - point.y;
+        var distance = Math.hypot(dx, dy);
+        if (distance < ATTRACT_RADIUS && distance > 0.01) {
+          point.vx += (dx / distance) * ATTRACT_FORCE;
+          point.vy += (dy / distance) * ATTRACT_FORCE;
+        }
       }
-
+      point.vx *= DRAG;
+      point.vy *= DRAG;
       var speed = Math.hypot(point.vx, point.vy);
-      if (speed > 1.6) {
-        point.vx = point.vx / speed * 1.6;
-        point.vy = point.vy / speed * 1.6;
+      if (speed > MAX_SPEED) {
+        point.vx = point.vx / speed * MAX_SPEED;
+        point.vy = point.vy / speed * MAX_SPEED;
       }
-
       point.x += point.vx;
       point.y += point.vy;
-      if (point.x < -6) point.x = width + 6;
-      if (point.x > width + 6) point.x = -6;
-      if (point.y < -6) point.y = height + 6;
-      if (point.y > height + 6) point.y = -6;
+      if (point.x < -8) point.x = width + 8;
+      if (point.x > width + 8) point.x = -8;
+      if (point.y < -8) point.y = height + 8;
+      if (point.y > height + 8) point.y = -8;
     });
     draw();
   }
 
-  function handlePointer(event) {
+  function start() {
+    if (!frame && !motionQuery.matches) {
+      lastFrame = 0;
+      frame = window.requestAnimationFrame(animate);
+    }
+  }
+
+  window.addEventListener("pointermove", function (event) {
     pointer.x = event.clientX;
     pointer.y = event.clientY;
     pointer.active = true;
-  }
-
-  window.addEventListener("pointermove", handlePointer, { passive: true });
+  }, { passive: true });
   window.addEventListener("pointerleave", function () { pointer.active = false; }, { passive: true });
   window.addEventListener("blur", function () { pointer.active = false; });
   window.addEventListener("resize", resize, { passive: true });
-  document.addEventListener("visibilitychange", function () {
-    if (!document.hidden && !motionQuery.matches) lastFrame = 0;
-  });
   motionQuery.addEventListener("change", function () {
     if (motionQuery.matches) {
-      window.cancelAnimationFrame(frame);
+      if (frame) window.cancelAnimationFrame(frame);
       frame = 0;
+      clear();
+    } else {
       draw();
-    } else if (!frame) {
-      lastFrame = 0;
-      frame = window.requestAnimationFrame(animate);
+      start();
     }
   });
 
   resize();
-  if (!motionQuery.matches) frame = window.requestAnimationFrame(animate);
+  start();
 })();

@@ -5,16 +5,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="dark">
   <meta name="theme-color" content="#070914">
-  <meta name="description" content="HighLion projects across networking, Linux, web infrastructure, cloud services, and Windows administration.">
+  <meta name="description" content="HighLion projects across networking, Linux, web infrastructure, and Windows privacy tooling.">
   <title>HighLion — Projects</title>
   <link rel="icon" href="/assets/icons/HighLion.ico" sizes="any">
-  <link rel="stylesheet" href="/css/style.css?v=hl8e">
+  <link rel="stylesheet" href="/css/style.css?v=hl9">
 </head>
 <body>
   <a class="skip" href="#main">Skip to content</a>
   <div class="scanlines" aria-hidden="true"></div>
   <canvas id="fx" class="fx" aria-hidden="true"></canvas>
-  <div data-include="/components/header.html?v=hl8e"></div>
+  <div data-include="/components/header.html?v=hl9"></div>
 
   <main id="main">
     <header class="shell page-head">
@@ -29,49 +29,51 @@
       </div>
       <div class="project-grid">
         <article class="panel project-card">
-          <span class="project-tag">ADMIN</span>
+          <span class="project-tag">Infrastructure</span>
           <h2>Home Lab</h2>
-          <p>VLAN segmentation, Pi-hole DNS, DMZ dividing, self-hosted servers, inter-VLAN routing.</p>
+          <p>Segmented VLANs, Pi-hole DNS, a DMZ, self-hosted services, and controlled inter-VLAN routing.</p>
         </article>
 
         <article class="panel project-card">
-          <span class="project-tag">WEB</span>
-          <h2>HighLion Web</h2>
-          <p>Nginx and Apache2, Self-hosted web servers make highlion.net</p>
-          <div class="card-actions"><a class="card-link" href="/about.html">How it’s built</a></div>
-        </article>
-
-        <article class="panel project-card">
-          <span class="project-tag">LINUX</span>
-          <h2>Kali tools</h2>
-          <p>Attack, Defence, Cleanup, Privacy toggle. Scripts to change modes quickly.</p>
-        </article>
-
-        <article class="panel project-card">
-          <span class="project-tag">CLOUD</span>
-          <h2>Nextcloud cloud Server</h2>
-          <p>File sync to ext4 SSD, headless SSH administrating.</p>
-        </article>
-
-        <article class="panel project-card">
-          <span class="project-tag">CISCO</span>
-          <h2>Networking Projects</h2>
-          <p>Packet Tracer networking projects, which I created in order to improve networking skills and knowledge of Cisco CLI.</p>
+          <span class="project-tag">Cisco</span>
+          <h2>Networking</h2>
+          <p>Cisco Packet Tracer labs covering routing, switching, segmentation, and CLI configuration.</p>
           <div class="hash-row"><span class="hash-label">MD5</span><code class="hash-value">3f5feff2880a5208a2de26f5d868c3ec</code></div>
-          <div class="card-actions"><a class="card-link" href="/assets/Packet_Tracer_Project.pkt" download>Download .pkt</a></div>
+          <div class="card-actions">
+            <a class="card-link" href="https://github.com/HighLionNet/network-labs" target="_blank" rel="noopener noreferrer">Repository</a>
+            <a class="card-link" href="/assets/Packet_Tracer_Project.pkt" download>Download .pkt</a>
+          </div>
         </article>
 
         <article class="panel project-card">
-          <span class="project-tag">IT OPS</span>
-          <h2>Windows AD</h2>
-          <p>User creating scripts, Creating GPOs, PSO, ACL templates.</p>
+          <span class="project-tag">Web</span>
+          <h2>HighLion Web</h2>
+          <p>This site: a self-hosted security portfolio served by nginx on Debian.</p>
+          <div class="card-actions">
+            <a class="card-link" href="https://github.com/HighLionNet/highlion-website" target="_blank" rel="noopener noreferrer">Repository</a>
+            <a class="card-link" href="/about.html">Architecture</a>
+          </div>
         </article>
+
+        <article class="panel project-card">
+          <div class="project-card-top">
+            <span class="project-tag">Windows</span>
+            <span class="project-version">v2.3.5</span>
+          </div>
+          <h2>Windows Privacy Platform</h2>
+          <p>A local Windows 10/11 privacy and policy hub for reviewing and applying system controls.</p>
+          <div class="card-actions">
+            <a class="card-link" href="https://github.com/HighLionNet/Windows-Privacy-Platform" target="_blank" rel="noopener noreferrer">Repository</a>
+            <a class="card-link" href="https://github.com/HighLionNet/Windows-Privacy-Platform/releases/tag/v2.3.5" target="_blank" rel="noopener noreferrer">Release</a>
+          </div>
+        </article>
+
       </div>
     </section>
   </main>
 
-  <div data-include="/components/footer.html?v=hl8e"></div>
-  <script src="/js/fix-include.js?v=hl8e" defer></script>
-  <script src="/js/particles.js?v=hl8e" defer></script>
+  <div data-include="/components/footer.html?v=hl9"></div>
+  <script src="/js/fix-include.js?v=hl9" defer></script>
+  <script src="/js/particles.js?v=hl9" defer></script>
 </body>
 </html>

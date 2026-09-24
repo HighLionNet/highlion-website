@@ -1,29 +1,64 @@
 (function () {
   "use strict";
 
-  var list = document.getElementById("intel-list");
+  var list = document.getElementById("news-list");
   if (!list) return;
+  var stamp = document.getElementById("newsStamp");
 
-  var rows = [
-    ["2026-07-17  LAB", "Exposed Pi-hole admin via reverse-proxy — patched", "/writeups/pihole.html"],
-    ["2026-01-13  LAB", "CVE-2026-2441 CSS use-after-free research", "/writeups/cve-2026-2441.html"],
-    ["STATIC  OPS", "/contact.html remains IL-only; 403 page carries the mail form", ""],
-    ["STATIC  WATCH", "Packet Tracer lab  MD5 3f5feff2880a5208a2de26f5d868c3ec", "/projects.html"],
-    ["STATIC  OPS", "Stack: Debian • nginx • static HLv8 • hlshell", ""],
-    ["STATIC  WATCH", "Resume locked until requested  admin@highlion.net", "/contact.html"]
-  ];
-
-  rows.forEach(function (row) {
+  function offline() {
+    list.replaceChildren();
     var item = document.createElement("li");
-    var meta = document.createElement("span");
-    var title = document.createElement(row[2] ? "a" : "span");
-    item.className = "intel-item";
-    meta.className = "intel-meta";
-    title.className = "intel-title";
-    meta.textContent = row[0];
-    title.textContent = row[1];
-    if (row[2]) title.setAttribute("href", row[2]);
-    item.append(meta, title);
+    item.className = "news-item news-offline";
+    item.textContent = "Feed offline.";
     list.appendChild(item);
-  });
+    if (stamp) stamp.textContent = "";
+  }
+
+  function render(payload) {
+    var items = payload && Array.isArray(payload.items) ? payload.items : [];
+    list.replaceChildren();
+    if (stamp) {
+      var generated = payload && payload.generated ? new Date(payload.generated) : null;
+      stamp.textContent = generated && !Number.isNaN(generated.getTime())
+        ? generated.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+        : "";
+    }
+    if (!items.length) {
+      offline();
+      return;
+    }
+    items.forEach(function (row) {
+      var item = document.createElement("li");
+      var meta = document.createElement("span");
+      var title = document.createElement("a");
+      item.className = "news-item";
+      meta.className = "news-meta";
+      title.className = "news-title";
+      meta.textContent = (row.date || "—") + "  " + (row.source || "SOURCE").toUpperCase();
+      title.textContent = row.title || "Untitled";
+      title.href = row.url;
+      title.target = "_blank";
+      title.rel = "noopener noreferrer";
+      item.append(meta, title);
+      list.appendChild(item);
+    });
+  }
+
+  function request(url) {
+    return fetch(url, { headers: { Accept: "application/json" }, cache: "no-store" })
+      .then(function (response) {
+        if (!response.ok) throw new Error("Feed unavailable");
+        return response.json();
+      });
+  }
+
+  function load() {
+    request("/api/intel")
+      .catch(function () { return request("/api/intel.php"); })
+      .then(render)
+      .catch(offline);
+  }
+
+  load();
+  window.setInterval(load, 15 * 60 * 1000);
 })();

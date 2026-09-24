@@ -8,51 +8,108 @@
   <meta name="description" content="Profile and technical focus behind the HighLion cybersecurity lab.">
   <title>HighLion — About</title>
   <link rel="icon" href="/assets/icons/HighLion.ico" sizes="any">
-  <link rel="stylesheet" href="/css/style.css?v=hl8e">
+  <link rel="stylesheet" href="/css/style.css?v=hl9">
 </head>
 <body>
   <a class="skip" href="#main">Skip to content</a>
   <div class="scanlines" aria-hidden="true"></div>
   <canvas id="fx" class="fx" aria-hidden="true"></canvas>
-  <div data-include="/components/header.html?v=hl8e"></div>
+  <div data-include="/components/header.html?v=hl9"></div>
 
   <main id="main">
     <header class="shell page-head compact">
-      <div class="kicker">PROFILE</div>
-      <h1 class="headline">About HighLion</h1>
-      <p class="lead">HighLion.net is a part of my home Lab, made to be a web app security hands-on project, as well as provide information about me and my projects.</p>
+      <div class="kicker">Profile</div>
+      <h1 class="headline">About</h1>
+      <p class="lead">HighLion is my working cybersecurity lab: a place to build, test, document, and understand the systems behind a public-facing service.</p>
     </header>
 
-    <section class="shell about-layout" aria-label="Profile">
+    <section class="shell about-grid">
       <article class="profile-panel">
-        <p><strong>HighLion.net</strong> was made to be a secure and intricate system — with flashy front-end webpages and a secure network that holds it together.</p>
         <div class="profile-grid">
           <section class="profile-block">
-            <div class="profile-label">My objective</div>
-            <p>Creating a secure web page system</p>
+            <div class="profile-label">Role</div>
+            <p>Aspiring SOC analyst and junior penetration tester</p>
           </section>
           <section class="profile-block">
-            <div class="profile-label">Made with</div>
-            <p>HTML/CSS/JS • Bash scripts • Self-Hosted servers</p>
+            <div class="profile-label">Focus</div>
+            <p>Network defense, incident analysis, and web security</p>
           </section>
           <section class="profile-block">
-            <div class="profile-label">Advantages</div>
-            <p>Improving my Web-app and HTML skills</p>
+            <div class="profile-label">Stack</div>
+            <p>Debian, nginx, PHP, JavaScript, and Cisco networking</p>
           </section>
           <section class="profile-block">
-            <div class="profile-label">Features</div>
-            <p>Security writeups • Contact information • Project updates</p>
+            <div class="profile-label">Lab</div>
+            <p>Segmented VLANs, Pi-hole, DMZ, and self-hosted services</p>
           </section>
         </div>
       </article>
 
+      <aside class="hlterm-panel" id="hlsrc-panel" aria-label="Site source bay">
+        <div class="hlterm-head">
+          <div class="hlterm-lights" aria-hidden="true">
+            <span class="red"></span><span class="green"></span><span class="amber"></span>
+          </div>
+          <div class="hlterm-title">/srv/highlion/source</div>
+        </div>
+        <div class="source-bay-body">
+          <div class="source-controls">
+            <label for="srcSelect">Live source</label>
+            <select id="srcSelect" aria-label="Source file">
+              <option value="index.html">index.html</option>
+              <option value="about.html">about.html</option>
+              <option value="contact.html">contact.html</option>
+              <option value="projects.html">projects.html</option>
+              <option value="writeups.html">writeups.html</option>
+              <option value="css/style.css">css/style.css</option>
+              <option value="js/terminal.js">js/terminal.js</option>
+              <option value="js/particles.js">js/particles.js</option>
+              <option value="components/header.html">components/header.html</option>
+              <option value="components/footer.html">components/footer.html</option>
+            </select>
+            <button class="btn secondary" id="srcDownload" type="button">Download</button>
+          </div>
+          <pre class="source-output" id="srcOut" tabindex="0"></pre>
+          <nav class="source-media" aria-label="Project media">
+            <span class="profile-label">Artifacts</span>
+            <a href="/assets/writeups/pdf/Incident_Audit_Pihole.pdf">Incident audit PDF</a>
+            <a href="/assets/writeups/pdf/CVE-2026-2441.pdf">CVE-2026-2441 PDF</a>
+            <a href="/assets/writeups/media/CVE-2026-2441-POC.mp4">Proof-of-concept video</a>
+            <a href="/assets/Packet_Tracer_Project.pkt">Packet Tracer project</a>
+            <a href="/assets/pihole_page_screenshot.png">Pi-hole exposure</a>
+            <a href="/assets/logs_screenshot.png">Access logs</a>
+            <a href="/assets/config_file_screenshot.png">Proxy configuration</a>
+            <a href="/assets/404_screenshot.png">Patched response</a>
+          </nav>
+        </div>
+      </aside>
     </section>
 
-    <p class="shell about-links"><a href="/writeups.html">Security writeups</a> • <a href="/projects.html">Project updates</a></p>
+    <section class="shell about-term">
+      <aside class="hlterm-panel" id="hlterm-panel" data-hlshell data-matrix-default="off" aria-label="HighLion terminal">
+        <div class="hlterm-head">
+          <div class="hlterm-lights" aria-hidden="true">
+            <span class="red"></span><span class="amber"></span><span class="green"></span>
+          </div>
+          <div class="hlterm-title">/usr/bin/hlshell</div>
+        </div>
+        <div class="hlterm-body" role="log" aria-live="polite">
+          <canvas class="hlterm-matrix" aria-hidden="true"></canvas>
+          <div class="hlterm-out"></div>
+          <div class="hlterm-prompt">
+            <label for="about-hlterm-cli">www-stux@highlion:~$</label>
+            <input class="hlterm-input" id="about-hlterm-cli" type="text" autocomplete="off" spellcheck="false" aria-label="Terminal command">
+          </div>
+        </div>
+      </aside>
+    </section>
   </main>
 
-  <div data-include="/components/footer.html?v=hl8e"></div>
-  <script src="/js/fix-include.js?v=hl8e" defer></script>
-  <script src="/js/particles.js?v=hl8e" defer></script>
+  <!-- east vlan note: HL{lab-door-on-the-east-vlan} -->
+  <div data-include="/components/footer.html?v=hl9"></div>
+  <script src="/js/fix-include.js?v=hl9" defer></script>
+  <script src="/js/particles.js?v=hl9" defer></script>
+  <script src="/js/source-bay.js?v=hl9" defer></script>
+  <script src="/js/terminal.js?v=hl9" defer></script>
 </body>
 </html>
