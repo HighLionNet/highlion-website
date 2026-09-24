@@ -8,13 +8,13 @@
   <meta name="description" content="Contact HighLion and find its public security profiles.">
   <title>HighLion — Contact</title>
   <link rel="icon" href="/assets/icons/HighLion.ico" sizes="any">
-  <link rel="stylesheet" href="/css/style.css?v=hl9">
+  <link rel="stylesheet" href="/css/style.css?v=hl8f">
 </head>
 <body>
   <a class="skip" href="#main">Skip to content</a>
   <div class="scanlines" aria-hidden="true"></div>
   <canvas id="fx" class="fx" aria-hidden="true"></canvas>
-  <div data-include="/components/header.html?v=hl9"></div>
+  <div data-include="/components/header.html?v=hl8f"></div>
 
   <main id="main">
     <header class="shell page-head">
@@ -24,7 +24,7 @@
     </header>
 
     <section class="shell contact-layout" aria-label="Contact form and public links">
-      <form class="contact-panel contact-form" id="contactForm" novalidate>
+      <form class="contact-panel contact-form monitor" id="contactForm" novalidate>
         <div class="contact-panel-head">
           <div class="profile-label">Message</div>
           <h2>Send a message</h2>
@@ -32,14 +32,17 @@
         <div class="field">
           <label for="name">Name</label>
           <input id="name" name="name" type="text" autocomplete="name" minlength="2" maxlength="80" required>
+          <span class="field-error" id="nameError"></span>
         </div>
         <div class="field">
           <label for="email">Email</label>
           <input id="email" name="email" type="email" autocomplete="email" minlength="6" maxlength="254" required>
+          <span class="field-error" id="emailError"></span>
         </div>
         <div class="field">
           <label for="message">Message</label>
           <textarea id="message" name="message" minlength="10" maxlength="4000" required></textarea>
+          <span class="field-error" id="messageError"></span>
         </div>
         <div class="honeypot" aria-hidden="true">
           <label for="company">Company</label>
@@ -47,7 +50,7 @@
         </div>
         <div class="form-row">
           <button class="btn" id="submitContact" type="submit">Send message</button>
-          <span class="form-status" id="formStatus" data-state="idle" aria-live="polite">Idle</span>
+          <span class="form-status" id="formStatus" data-state="" aria-live="polite"></span>
         </div>
         <p class="contact-copy" id="formFeedback" aria-live="polite"></p>
       </form>
@@ -79,9 +82,9 @@
     </section>
   </main>
 
-  <div data-include="/components/footer.html?v=hl9"></div>
-  <script src="/js/fix-include.js?v=hl9" defer></script>
-  <script src="/js/particles.js?v=hl9" defer></script>
-  <script src="/js/contact-form.js?v=hl9" defer></script>
+  <div data-include="/components/footer.html?v=hl8f"></div>
+  <script src="/js/fix-include.js?v=hl8f" defer></script>
+  <script src="/js/particles.js?v=hl8f" defer></script>
+  <script src="/js/contact-form.js?v=hl8f" defer></script>
 </body>
 </html>

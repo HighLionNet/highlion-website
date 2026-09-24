@@ -28,17 +28,23 @@ function hl_json($data, $code = 200): void
     exit;
 }
 
-function hl_origin_ok(): bool
+function hl_origin_ok(string $csrfToken = ''): bool
 {
-    $source = trim((string) ($_SERVER['HTTP_ORIGIN'] ?? ''));
-    if ($source === '') {
-        $source = trim((string) ($_SERVER['HTTP_REFERER'] ?? ''));
+    $origin = trim((string) ($_SERVER['HTTP_ORIGIN'] ?? ''));
+    if ($origin !== '') {
+        $originHost = strtolower((string) parse_url($origin, PHP_URL_HOST));
+        return $originHost === 'www.highlion.net' || $originHost === 'highlion.net';
     }
-    if ($source === '') {
-        return false;
+
+    $referer = trim((string) ($_SERVER['HTTP_REFERER'] ?? ''));
+    if ($referer !== '') {
+        $refererHost = strtolower((string) parse_url($referer, PHP_URL_HOST));
+        return $refererHost === 'www.highlion.net' || $refererHost === 'highlion.net';
     }
-    $host = strtolower((string) parse_url($source, PHP_URL_HOST));
-    return $host === 'www.highlion.net' || $host === 'highlion.net';
+
+    $host = strtolower(trim((string) ($_SERVER['HTTP_HOST'] ?? '')));
+    $host = preg_replace('/:\d+$/', '', $host);
+    return $host === 'www.highlion.net' && hl_csrf_check($csrfToken);
 }
 
 function hl_client_ip(): string
@@ -129,6 +135,14 @@ function hl_log($line): void
     $clean = preg_replace('/[\r\n\0]+/', ' ', (string) $line);
     $entry = gmdate('c') . ' ' . hl_client_ip() . ' ' . trim((string) $clean) . PHP_EOL;
     @file_put_contents('/var/tmp/highlion-letterbox.log', $entry, FILE_APPEND | LOCK_EX);
+}
+
+function hl_honeypot_write(array $row): void
+{
+    $encoded = json_encode($row, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    if (is_string($encoded)) {
+        @file_put_contents('/var/tmp/highlion-honeypot.log', $encoded . PHP_EOL, FILE_APPEND | LOCK_EX);
+    }
 }
 
 function hl_clean_header($s): string

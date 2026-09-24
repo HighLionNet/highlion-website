@@ -7,16 +7,16 @@
   <meta name="theme-color" content="#070914">
   <title>HighLion — 403 Forbidden</title>
   <link rel="icon" href="/assets/icons/HighLion.ico" sizes="any">
-  <link rel="stylesheet" href="/css/style.css?v=hl9">
+  <link rel="stylesheet" href="/css/style.css?v=hl8f">
 </head>
 <body>
   <a class="skip" href="#main">Skip to content</a>
   <div class="scanlines" aria-hidden="true"></div>
   <canvas id="fx" class="fx" aria-hidden="true"></canvas>
-  <div data-include="/components/header.html?v=hl9"></div>
+  <div data-include="/components/header.html?v=hl8f"></div>
 
   <main id="main" class="shell error-page">
-    <section class="panel error-panel">
+    <section class="monitor error-panel">
       <div class="error-code" aria-hidden="true">403</div>
       <h1>Access forbidden.</h1>
       <p>This resource is not available from your current connection.</p>
@@ -29,14 +29,17 @@
         <div class="field">
           <label for="name">Name</label>
           <input id="name" name="name" type="text" autocomplete="name" minlength="2" maxlength="80" required>
+          <span class="field-error" id="nameError"></span>
         </div>
         <div class="field">
           <label for="email">Email</label>
           <input id="email" name="email" type="email" autocomplete="email" minlength="6" maxlength="254" required>
+          <span class="field-error" id="emailError"></span>
         </div>
         <div class="field">
           <label for="message">Message</label>
           <textarea id="message" name="message" minlength="10" maxlength="4000" required></textarea>
+          <span class="field-error" id="messageError"></span>
         </div>
         <div class="honeypot" aria-hidden="true">
           <label for="company">Company</label>
@@ -44,16 +47,16 @@
         </div>
         <div class="form-row">
           <button class="btn" id="submitContact" type="submit">Send message</button>
-          <span class="form-status" id="formStatus" data-state="idle" aria-live="polite">Idle</span>
+          <span class="form-status" id="formStatus" data-state="" aria-live="polite"></span>
         </div>
         <p class="contact-copy" id="formFeedback" aria-live="polite"></p>
       </form>
     </section>
   </main>
 
-  <div data-include="/components/footer.html?v=hl9"></div>
-  <script src="/js/fix-include.js?v=hl9" defer></script>
-  <script src="/js/particles.js?v=hl9" defer></script>
-  <script src="/js/contact-form.js?v=hl9" defer></script>
+  <div data-include="/components/footer.html?v=hl8f"></div>
+  <script src="/js/fix-include.js?v=hl8f" defer></script>
+  <script src="/js/particles.js?v=hl8f" defer></script>
+  <script src="/js/contact-form.js?v=hl8f" defer></script>
 </body>
 </html>

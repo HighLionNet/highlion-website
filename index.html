@@ -17,13 +17,13 @@
   <meta name="twitter:description" content="Home lab, security projects and incident writeups by Shmuel Yermus – aspiring SOC analyst and junior penetration tester.">
   <title>HighLion — Home</title>
   <link rel="icon" href="/assets/icons/HighLion.ico" sizes="any">
-  <link rel="stylesheet" href="/css/style.css?v=hl9">
+  <link rel="stylesheet" href="/css/style.css?v=hl8f">
 </head>
 <body>
   <a class="skip" href="#main">Skip to content</a>
   <div class="scanlines" aria-hidden="true"></div>
   <canvas id="fx" class="fx" aria-hidden="true"></canvas>
-  <div data-include="/components/header.html?v=hl9"></div>
+  <div data-include="/components/header.html?v=hl8f"></div>
 
   <main id="main">
     <section class="shell home-stage">
@@ -38,63 +38,92 @@
         </div>
       </article>
 
-      <aside class="news-rail" aria-label="Cyber news">
-        <header class="news-head">
-          <div>
-            <div class="kicker news-kicker">News</div>
-            <h2>External headlines</h2>
+      <aside class="ops-board monitor" aria-label="Local session">
+        <header class="monitor-head">
+          <div class="hlterm-lights" aria-hidden="true">
+            <span class="red"></span><span class="amber"></span><span class="green"></span>
           </div>
-          <span class="news-stamp" id="newsStamp"></span>
+          <div class="monitor-heading">
+            <div class="kicker">Session</div>
+            <h2>Local telemetry</h2>
+          </div>
+          <span id="dClock" class="dash-clock">—</span>
         </header>
-        <ol class="news-list" id="news-list"></ol>
+        <div class="monitor-body dash-groups">
+          <section class="dash-group">
+            <h3>Client</h3>
+            <div class="dash-grid">
+              <div class="dash-tile"><div class="dash-label">USER AGENT</div><div class="dash-value dash-wrap" id="dUserAgent">—</div></div>
+              <div class="dash-tile"><div class="dash-label">HOST OS</div><div class="dash-value" id="dHostOS">—</div></div>
+              <div class="dash-tile"><div class="dash-label">CPU CORES</div><div class="dash-value" id="dCpuCores">—</div></div>
+              <div class="dash-tile"><div class="dash-label">VIEWPORT</div><div class="dash-value" id="dViewport">—</div></div>
+              <div class="dash-tile"><div class="dash-label">PIXEL RATIO</div><div class="dash-value" id="dPixelRatio">—</div></div>
+              <div class="dash-tile"><div class="dash-label">LANGUAGE</div><div class="dash-value" id="dLanguage">—</div></div>
+              <div class="dash-tile"><div class="dash-label">NETWORK</div><div class="dash-value" id="dNetwork">—</div></div>
+              <div class="dash-tile"><div class="dash-label">ONLINE</div><div class="dash-value" id="dOnline">—</div></div>
+            </div>
+          </section>
+          <section class="dash-group">
+            <h3>Session</h3>
+            <div class="dash-grid">
+              <div class="dash-tile"><div class="dash-label">LOCAL SESSIONS</div><div class="dash-value" id="dSessions">—</div></div>
+              <div class="dash-tile"><div class="dash-label">SESSION UPTIME</div><div class="dash-value" id="dUptime">—</div></div>
+              <div class="dash-tile"><div class="dash-label">TIMEZONE</div><div class="dash-value dash-wrap" id="dTimezone">—</div></div>
+              <div class="dash-tile"><div class="dash-label">LOCAL TIME</div><div class="dash-value" id="dLocalTime">—</div></div>
+              <div class="dash-tile"><div class="dash-label">UTC TIME</div><div class="dash-value" id="dUtcTime">—</div></div>
+              <div class="dash-tile"><div class="dash-label">PAGE</div><div class="dash-value" id="dPage">—</div></div>
+              <div class="dash-tile"><div class="dash-label">SITE</div><div class="dash-value" id="dSite">—</div></div>
+              <div class="dash-tile"><div class="dash-label">MOTION</div><div class="dash-value" id="dMotion">—</div></div>
+            </div>
+          </section>
+          <section class="dash-group">
+            <h3>Edge</h3>
+            <div class="dash-grid">
+              <div class="dash-tile"><div class="dash-label">LATENCY</div><div class="dash-value" id="dLatency">—</div></div>
+              <div class="dash-tile"><div class="dash-label">PROBE</div><div class="dash-value dash-wrap" id="dProbe">—</div></div>
+              <div class="dash-tile"><div class="dash-label">PROTOCOL</div><div class="dash-value" id="dProtocol">—</div></div>
+              <div class="dash-tile"><div class="dash-label">EDGE 15M</div><div class="dash-value" id="tCount">—</div></div>
+              <div class="dash-tile dash-tile-wide"><div class="dash-label">STATUS CODES</div><div class="traffic-bars" id="tBars"></div></div>
+              <div class="dash-tile dash-tile-wide"><div class="dash-label">TOP PATH</div><div class="dash-value dash-wrap" id="dTopPath">—</div></div>
+            </div>
+            <p class="traffic-note" id="tNote"></p>
+          </section>
+        </div>
       </aside>
     </section>
 
-    <div class="shell rain-band" aria-hidden="true">
+    <div class="bleed-band rain-band" id="rainWrap" aria-hidden="true">
       <canvas id="rain" class="rain-canvas"></canvas>
     </div>
 
     <section class="shell home-ops">
-      <aside class="hlterm-panel" id="hlterm-panel" data-hlshell data-matrix-default="on" aria-label="HighLion terminal">
-        <div class="hlterm-head">
+      <aside class="news-rail monitor" aria-label="Cyber news">
+        <header class="monitor-head news-head">
+          <div class="hlterm-lights" aria-hidden="true">
+            <span class="red"></span><span class="amber"></span><span class="green"></span>
+          </div>
+          <div class="monitor-heading">
+            <div class="kicker news-kicker">News</div>
+            <h2>External headlines</h2>
+          </div>
+          <span class="news-stamp" id="newsStamp">offline</span>
+        </header>
+        <div class="monitor-body news-body">
+          <ol class="news-list" id="news-list"></ol>
+        </div>
+      </aside>
+      <aside class="monitor hlterm-panel" id="hlterm-panel" data-hlshell data-matrix-default="off" aria-label="HighLion terminal">
+        <div class="hlterm-head monitor-head">
           <div class="hlterm-lights" aria-hidden="true">
             <span class="red"></span><span class="amber"></span><span class="green"></span>
           </div>
           <div class="hlterm-title">/usr/bin/hlshell</div>
         </div>
-        <div class="hlterm-body" role="log" aria-live="polite">
+        <div class="hlterm-body monitor-body" role="log" aria-live="polite">
           <canvas class="hlterm-matrix" aria-hidden="true"></canvas>
-          <div class="hlterm-out"></div>
-          <div class="hlterm-prompt">
-            <label for="hlterm-cli">www-stux@highlion:~$</label>
-            <input class="hlterm-input" id="hlterm-cli" type="text" autocomplete="off" spellcheck="false" aria-label="Terminal command">
-          </div>
+          <div class="hlterm-stream"></div>
         </div>
       </aside>
-      <div class="ops-stack">
-        <section class="ops-board" aria-label="Local session">
-          <header class="ops-board-head">
-            <div class="kicker">Session</div>
-            <h2>Local telemetry</h2>
-          </header>
-          <div class="dash-grid">
-            <div class="dash-tile"><div class="dash-label">LOCAL SESSIONS</div><div class="dash-value" id="dSessions">001</div></div>
-            <div class="dash-tile"><div class="dash-label">UPTIME</div><div class="dash-value" id="dUptime">00:00:00</div></div>
-            <div class="dash-tile"><div class="dash-label">TZ</div><div class="dash-value" id="dTimezone">Local</div></div>
-            <div class="dash-tile"><div class="dash-label">UA</div><div class="dash-value" id="dUserAgent">Browser</div></div>
-            <div class="dash-tile"><div class="dash-label">OS</div><div class="dash-value" id="dHostOS">Unknown</div></div>
-            <div class="dash-tile"><div class="dash-label">CPU</div><div class="dash-value" id="dCpuCores">Unknown</div></div>
-            <div class="dash-tile dash-tile-wide"><div class="dash-label">VIEWPORT</div><div class="dash-value" id="dViewport">—</div></div>
-          </div>
-        </section>
-        <section class="traffic-board" aria-label="Edge traffic">
-          <div class="kicker">Edge</div>
-          <div class="traffic-value" id="tCount">—</div>
-          <div class="traffic-label">requests / 15 min</div>
-          <div class="traffic-bars" id="tBars"></div>
-          <p class="traffic-note" id="tNote"></p>
-        </section>
-      </div>
     </section>
 
     <section class="shell section" aria-labelledby="latest-writeups">
@@ -107,7 +136,7 @@
       </div>
       <p class="section-intro">Beyond hands-on projects, I document issues which I encounter: reproducing problems, collecting evidence, and writing clear incident reports with root cause and remediation steps.</p>
       <div class="writeup-grid">
-        <article class="panel writeup-card">
+        <article class="monitor writeup-card">
           <div class="eyebrow">Incident audit</div>
           <h2>Exposed Pi-hole Admin Page</h2>
           <p>Home lab penetration-testing, covering a reverse-proxy misconfiguration that exposed an internal Pi-hole administration panel.</p>
@@ -118,7 +147,7 @@
             <a class="card-link" href="/assets/writeups/pdf/Incident_Audit_Pihole.pdf" target="_blank" rel="noopener">Download PDF</a>
           </div>
         </article>
-        <article class="panel writeup-card">
+        <article class="monitor writeup-card">
           <div class="eyebrow">Vulnerability research</div>
           <h2>CVE-2026-2441</h2>
           <p>SOC report of Use-After-Free in CSS - CVE-2026-2441 vulnerability.</p>
@@ -133,12 +162,12 @@
     </section>
   </main>
 
-  <div data-include="/components/footer.html?v=hl9"></div>
-  <script src="/js/fix-include.js?v=hl9" defer></script>
-  <script src="/js/particles.js?v=hl9" defer></script>
-  <script src="/js/rain.js?v=hl9" defer></script>
-  <script src="/js/intel-feed.js?v=hl9" defer></script>
-  <script src="/js/terminal.js?v=hl9" defer></script>
-  <script src="/js/dashboard.js?v=hl9" defer></script>
+  <div data-include="/components/footer.html?v=hl8f"></div>
+  <script src="/js/fix-include.js?v=hl8f" defer></script>
+  <script src="/js/particles.js?v=hl8f" defer></script>
+  <script src="/js/rain.js?v=hl8f" defer></script>
+  <script src="/js/intel-feed.js?v=hl8f" defer></script>
+  <script src="/js/terminal.js?v=hl8f" defer></script>
+  <script src="/js/dashboard.js?v=hl8f" defer></script>
 </body>
 </html>

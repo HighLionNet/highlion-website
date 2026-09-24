@@ -35,6 +35,14 @@ $value = static function (string $key) use ($payload): string {
 };
 $company = trim($value('company'));
 if ($company !== '') {
+    $page = $value('page') === '403' ? '403' : 'contact';
+    hl_honeypot_write([
+        'ts' => gmdate('c'),
+        'ip' => hl_client_ip(),
+        'ua' => hl_clean_header(substr((string) ($_SERVER['HTTP_USER_AGENT'] ?? 'unknown'), 0, 300)),
+        'page' => $page,
+    ]);
+    hl_log('honeypot trip');
     hl_json(['ok' => true]);
 }
 
@@ -56,7 +64,7 @@ $messageOk = $length($message) >= 10 && $length($message) <= 4000
     && !preg_match('/\r\n\r\nFrom:/i', $message)
     && !preg_match('/MIME-Version:/i', $message);
 
-if (!$nameOk || !$emailOk || !$messageOk || !hl_csrf_check($token) || !hl_origin_ok()) {
+if (!$nameOk || !$emailOk || !$messageOk || !hl_csrf_check($token) || !hl_origin_ok($token)) {
     hl_log('contact rejected 0');
     hl_json(['ok' => false], 400);
 }
@@ -91,7 +99,13 @@ $headers = implode("\r\n", [
     'Content-Type: text/plain; charset=UTF-8',
 ]);
 
-$sent = function_exists('mail') && @mail('admin@highlion.net', $subject, $body, $headers);
+$sent = @mail(
+    'admin@highlion.net',
+    $subject,
+    $body,
+    $headers,
+    '-f letterbox@highlion.net'
+);
 hl_log('contact ' . ($sent ? 'sent ' : 'failed ') . strlen($body));
 if (!$sent) {
     hl_json(['ok' => false], 500);

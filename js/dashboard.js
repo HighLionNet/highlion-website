@@ -3,57 +3,103 @@
 
   var sessions = document.getElementById("dSessions");
   if (!sessions) return;
+
   var started = Date.now();
-  var uptime = document.getElementById("dUptime");
-  var timezone = document.getElementById("dTimezone");
-  var userAgent = document.getElementById("dUserAgent");
-  var hostOS = document.getElementById("dHostOS");
-  var cpuCores = document.getElementById("dCpuCores");
-  var viewport = document.getElementById("dViewport");
-  var trafficCount = document.getElementById("tCount");
-  var trafficBars = document.getElementById("tBars");
-  var trafficNote = document.getElementById("tNote");
+  var motionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+  var nodes = {
+    clock: document.getElementById("dClock"),
+    uptime: document.getElementById("dUptime"),
+    timezone: document.getElementById("dTimezone"),
+    localTime: document.getElementById("dLocalTime"),
+    utcTime: document.getElementById("dUtcTime"),
+    userAgent: document.getElementById("dUserAgent"),
+    hostOS: document.getElementById("dHostOS"),
+    cpuCores: document.getElementById("dCpuCores"),
+    viewport: document.getElementById("dViewport"),
+    pixelRatio: document.getElementById("dPixelRatio"),
+    language: document.getElementById("dLanguage"),
+    network: document.getElementById("dNetwork"),
+    online: document.getElementById("dOnline"),
+    page: document.getElementById("dPage"),
+    site: document.getElementById("dSite"),
+    motion: document.getElementById("dMotion"),
+    latency: document.getElementById("dLatency"),
+    probe: document.getElementById("dProbe"),
+    protocol: document.getElementById("dProtocol"),
+    trafficCount: document.getElementById("tCount"),
+    trafficBars: document.getElementById("tBars"),
+    trafficNote: document.getElementById("tNote"),
+    topPath: document.getElementById("dTopPath")
+  };
 
-  try {
-    var count = Number.parseInt(localStorage.getItem("highlion_visits") || "0", 10) + 1;
-    localStorage.setItem("highlion_visits", String(count));
-    sessions.textContent = String(count).padStart(3, "0");
-  } catch (error) {
-    sessions.textContent = "001";
+  function set(node, value) {
+    if (node) node.textContent = value;
   }
 
-  var zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-  timezone.textContent = zone || "Local";
-  var ua = navigator.userAgent;
-  var match = ua.match(/Edg\/([\d.]+)/);
-  var browserName = "Edge";
-  if (!match) { match = ua.match(/Firefox\/([\d.]+)/); browserName = "Firefox"; }
-  if (!match) { match = ua.match(/Chrome\/([\d.]+)/); browserName = "Chrome"; }
-  if (!match && !/Chrome\//.test(ua)) { match = ua.match(/Version\/([\d.]+).*Safari\//); browserName = "Safari"; }
-  userAgent.textContent = match ? browserName + " " + match[1].split(".")[0] : "Browser";
-  userAgent.title = ua;
-  hostOS.textContent = /Android/.test(ua) ? "Android" : /iPhone|iPad|iPod/.test(ua) ? "iOS" : /Windows/.test(ua) ? "Windows" : /Mac OS/.test(ua) ? "macOS" : /Linux/.test(ua) ? "Linux" : "Unknown";
-  cpuCores.textContent = navigator.hardwareConcurrency ? navigator.hardwareConcurrency + " cores" : "Unknown";
-
-  function updateViewport() {
-    viewport.textContent = window.innerWidth + "×" + window.innerHeight;
-  }
-
-  function updateUptime() {
+  function formatElapsed() {
     var seconds = Math.floor((Date.now() - started) / 1000);
     var hours = Math.floor(seconds / 3600);
     var minutes = Math.floor((seconds % 3600) / 60);
-    var remainder = seconds % 60;
-    uptime.textContent = String(hours).padStart(2, "0") + ":" + String(minutes).padStart(2, "0") + ":" + String(remainder).padStart(2, "0");
+    return String(hours).padStart(2, "0") + ":" +
+      String(minutes).padStart(2, "0") + ":" +
+      String(seconds % 60).padStart(2, "0");
+  }
+
+  function updateClock() {
+    var now = new Date();
+    var local = now.toLocaleTimeString([], { hour12: false });
+    var utc = now.toISOString().slice(11, 19) + "Z";
+    set(nodes.uptime, formatElapsed());
+    set(nodes.localTime, local);
+    set(nodes.utcTime, utc);
+    set(nodes.clock, local);
+  }
+
+  function browserLabel(ua) {
+    var match = ua.match(/Edg\/([\d.]+)/);
+    var name = "Edge";
+    if (!match) { match = ua.match(/Firefox\/([\d.]+)/); name = "Firefox"; }
+    if (!match) { match = ua.match(/Chrome\/([\d.]+)/); name = "Chrome"; }
+    if (!match && !/Chrome\//.test(ua)) { match = ua.match(/Version\/([\d.]+).*Safari\//); name = "Safari"; }
+    return match ? name + " " + match[1].split(".")[0] : "Browser";
+  }
+
+  function hostOS(ua) {
+    if (/Android/.test(ua)) return "Android";
+    if (/iPhone|iPad|iPod/.test(ua)) return "iOS";
+    if (/Windows/.test(ua)) return "Windows";
+    if (/Mac OS/.test(ua)) return "macOS";
+    if (/Linux/.test(ua)) return "Linux";
+    return "Unknown";
+  }
+
+  function updateViewport() {
+    set(nodes.viewport, window.innerWidth + "×" + window.innerHeight);
+    set(nodes.pixelRatio, String(Math.round((window.devicePixelRatio || 1) * 100) / 100));
+  }
+
+  function updateOnline() {
+    set(nodes.online, navigator.onLine ? "online" : "offline");
+  }
+
+  function updateMotion() {
+    set(nodes.motion, motionQuery.matches ? "reduced" : "full");
+  }
+
+  function updateNetwork() {
+    var connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+    set(nodes.network, connection ? (connection.type || connection.effectiveType || "—") : "—");
   }
 
   function renderTraffic(payload) {
     var ok = Boolean(payload && payload.ok === true);
     var total = ok && Number.isFinite(Number(payload.count)) ? Number(payload.count) : 0;
     var codes = ok && payload.codes ? payload.codes : {};
-    trafficCount.textContent = String(total);
-    trafficNote.textContent = ok ? "" : "no log access";
-    trafficBars.replaceChildren();
+    set(nodes.trafficCount, ok ? String(total) : "—");
+    set(nodes.trafficNote, ok ? "" : "no log access");
+    set(nodes.topPath, ok && payload.top && payload.top[0] && payload.top[0].path ? payload.top[0].path : "—");
+    if (!nodes.trafficBars) return;
+    nodes.trafficBars.replaceChildren();
     ["2xx", "3xx", "4xx", "5xx"].forEach(function (code) {
       var value = Number(codes[code]) || 0;
       var row = document.createElement("div");
@@ -70,30 +116,100 @@
       number.textContent = String(value);
       track.appendChild(fill);
       row.append(label, track, number);
-      trafficBars.appendChild(row);
+      nodes.trafficBars.appendChild(row);
     });
   }
 
-  function requestTraffic(url) {
-    return fetch(url, { headers: { Accept: "application/json" }, cache: "no-store" })
-      .then(function (response) {
-        if (!response.ok) throw new Error("Traffic unavailable");
-        return response.json();
-      });
+  function requestJson(url) {
+    return fetch(url, {
+      credentials: "same-origin",
+      headers: { Accept: "application/json" },
+      cache: "no-store"
+    }).then(function (response) {
+      if (!response.ok) throw new Error("request unavailable");
+      return response.json();
+    });
   }
 
   function loadTraffic() {
-    requestTraffic("/api/traffic")
-      .catch(function () { return requestTraffic("/api/traffic.php"); })
+    requestJson("/api/traffic.php")
+      .catch(function () { return requestJson("/api/traffic"); })
       .then(renderTraffic)
       .catch(function () { renderTraffic({ ok: false, count: 0, codes: {} }); });
   }
 
+  function wait(milliseconds) {
+    return new Promise(function (resolve) { window.setTimeout(resolve, milliseconds); });
+  }
+
+  function probeOnce(url) {
+    var before = performance.now();
+    return fetch(url, { credentials: "same-origin", cache: "no-store" }).then(function (response) {
+      if (!response.ok) throw new Error("probe unavailable");
+      return performance.now() - before;
+    });
+  }
+
+  async function probeUrl(url) {
+    var samples = [];
+    for (var index = 0; index < 3; index += 1) {
+      samples.push(await probeOnce(url));
+      if (index < 2) await wait(200);
+    }
+    samples.sort(function (left, right) { return left - right; });
+    return Math.round(samples[1]);
+  }
+
+  async function loadLatency() {
+    var probes = ["/api/csrf.php", "/assets/ping.txt"];
+    for (var index = 0; index < probes.length; index += 1) {
+      try {
+        var median = await probeUrl(probes[index]);
+        set(nodes.latency, median + " ms");
+        set(nodes.probe, probes[index]);
+        return;
+      } catch (error) {
+        continue;
+      }
+    }
+    set(nodes.latency, "—");
+    set(nodes.probe, "—");
+  }
+
+  try {
+    var count = Number.parseInt(localStorage.getItem("highlion_sessions") || "0", 10) + 1;
+    localStorage.setItem("highlion_sessions", String(count));
+    sessions.textContent = String(count).padStart(3, "0");
+  } catch (error) {
+    sessions.textContent = "001";
+  }
+
+  var ua = navigator.userAgent;
+  set(nodes.userAgent, browserLabel(ua));
+  if (nodes.userAgent) nodes.userAgent.title = ua;
+  set(nodes.hostOS, hostOS(ua));
+  set(nodes.cpuCores, navigator.hardwareConcurrency ? navigator.hardwareConcurrency + " cores" : "—");
+  set(nodes.language, navigator.language || "—");
+  set(nodes.timezone, Intl.DateTimeFormat().resolvedOptions().timeZone || "—");
+  set(nodes.page, window.location.pathname || "/");
+  set(nodes.site, "HLv8");
+  set(nodes.protocol, window.location.protocol.replace(":", "") || "—");
+
   updateViewport();
-  updateUptime();
+  updateOnline();
+  updateMotion();
+  updateNetwork();
+  updateClock();
   renderTraffic({ ok: false, count: 0, codes: {} });
   loadTraffic();
+  loadLatency();
+
   window.addEventListener("resize", updateViewport, { passive: true });
-  window.setInterval(updateUptime, 1000);
+  window.addEventListener("online", updateOnline);
+  window.addEventListener("offline", updateOnline);
+  motionQuery.addEventListener("change", updateMotion);
+  var connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+  if (connection && typeof connection.addEventListener === "function") connection.addEventListener("change", updateNetwork);
+  window.setInterval(updateClock, 1000);
   window.setInterval(loadTraffic, 15 * 60 * 1000);
 })();

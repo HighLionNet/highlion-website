@@ -1,0 +1,36 @@
+HIGHLION DEBIAN CUT-IN
+1. rsync repo → /var/www/highlion
+2. Fonts:
+     sudo bash /var/www/highlion/assets/fonts/generate-fonts.sh
+3. PHP:
+     sudo apt-get install -y php-fpm php-xml php-mbstring
+     confirm socket: ls /run/php/php-fpm.sock
+     if the socket name differs, edit one line in nginx-api.conf
+4. nginx:
+     sudo cp /var/www/highlion/deploy/nginx-api.conf \
+             /etc/nginx/snippets/highlion-api.conf
+     inside the www.highlion.net server block:
+       include snippets/highlion-api.conf;
+     EXCLUDE ^/api/ from the IL geo map that wraps /contact.html
+     nginx -t && systemctl reload nginx
+5. Mail:
+     simplest reliable path = php mail() + local MTA
+     sudo apt-get install -y postfix   # or nullmailer
+     echo 'letterbox@highlion.net' must be accepted locally
+     test:
+       php -r 'var_export(mail("admin@highlion.net","HL test","ok","From: letterbox@highlion.net"));'
+6. Traffic board:
+     sudo usermod -aG adm www-data
+     # or a readable copy of access.log
+     sudo systemctl restart php-fpm
+7. Honeypot → Telegram (optional, later):
+     chmod +x /var/www/highlion/deploy/honeypot-watch.sh
+     export TELEGRAM_BOT_TOKEN=...
+     export TELEGRAM_CHAT_ID=...
+     run the script under systemd
+8. Tests after reload:
+     curl -sI https://www.highlion.net/api/csrf.php      → 200
+     curl -s  https://www.highlion.net/api/intel.php     → items
+     curl -s  https://www.highlion.net/api/traffic.php   → json
+     off-IL: curl -sI https://www.highlion.net/contact.html → 403
+     any-IP POST /api/contact.php is NOT geo-blocked

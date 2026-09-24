@@ -11,17 +11,17 @@
     item.className = "news-item news-offline";
     item.textContent = "Feed offline.";
     list.appendChild(item);
-    if (stamp) stamp.textContent = "";
+    if (stamp) stamp.textContent = "offline";
   }
 
   function render(payload) {
-    var items = payload && Array.isArray(payload.items) ? payload.items : [];
+    var items = payload && Array.isArray(payload.items) ? payload.items.slice(0, 8) : [];
     list.replaceChildren();
     if (stamp) {
       var generated = payload && payload.generated ? new Date(payload.generated) : null;
       stamp.textContent = generated && !Number.isNaN(generated.getTime())
-        ? generated.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-        : "";
+        ? String(items.length).padStart(2, "0") + " items · " + generated.toISOString().slice(11, 16) + " UTC"
+        : "offline";
     }
     if (!items.length) {
       offline();
@@ -53,8 +53,9 @@
   }
 
   function load() {
-    request("/api/intel")
-      .catch(function () { return request("/api/intel.php"); })
+    request("/api/intel.php")
+      .catch(function () { return request("/api/intel"); })
+      .catch(function () { return request("/api/intel/"); })
       .then(render)
       .catch(offline);
   }

@@ -13,6 +13,8 @@
     "css/style.css": "/css/style.css",
     "js/terminal.js": "/js/terminal.js",
     "js/particles.js": "/js/particles.js",
+    "js/dashboard.js": "/js/dashboard.js",
+    "api/_lib.php": "/api/_lib.php",
     "components/header.html": "/components/header.html",
     "components/footer.html": "/components/footer.html"
   };
@@ -26,8 +28,8 @@
 
   function show(name) {
     currentName = name;
-    if (name === ".door") {
-      currentText = "HL{lab-door-on-the-east-vlan}";
+    if (name === ".brief") {
+      currentText = "hex lives on the east node";
       output.textContent = currentText;
       return;
     }
@@ -69,10 +71,10 @@
       else sequenceIndex = light.classList.contains(sequence[0]) ? 1 : 0;
       if (sequenceIndex !== sequence.length) return;
       sequenceIndex = 0;
-      if (!select.querySelector('option[value=".door"]')) {
+      if (!select.querySelector('option[value=".brief"]')) {
         var option = document.createElement("option");
-        option.value = ".door";
-        option.textContent = ".door";
+        option.value = ".brief";
+        option.textContent = ".brief";
         select.appendChild(option);
       }
     });
