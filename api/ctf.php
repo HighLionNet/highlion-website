@@ -36,7 +36,7 @@ if (!hl_rate_allow('ctf', 10, 3600)) {
 }
 
 $ip = hl_client_ip();
-$userAgent = hl_clean_header(substr((string) ($_SERVER['HTTP_USER_AGENT'] ?? 'unknown'), 0, 300));
+$userAgent = hl_clean_header(substr((string) ($_SERVER['HTTP_USER_AGENT'] ?? 'unknown'), 0, 120));
 $row = [
     'ts' => gmdate('c'),
     'flag' => $flag,

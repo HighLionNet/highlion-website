@@ -29,18 +29,11 @@
   }
 
   async function runProbe() {
-    var probes = ["/api/csrf.php", "/assets/ping.txt"];
-    for (var index = 0; index < probes.length; index += 1) {
-      try {
-        latencyResult = await probeUrl(probes[index]);
-        window.__hlLatency = latencyResult;
-        window.dispatchEvent(new CustomEvent("hl:latency", { detail: latencyResult }));
-        return latencyResult;
-      } catch (error) {
-        continue;
-      }
+    try {
+      latencyResult = await probeUrl("/assets/ping.txt");
+    } catch (error) {
+      latencyResult = { ms: null, url: "/assets/ping.txt" };
     }
-    latencyResult = { ms: null, url: "" };
     window.__hlLatency = latencyResult;
     window.dispatchEvent(new CustomEvent("hl:latency", { detail: latencyResult }));
     return latencyResult;

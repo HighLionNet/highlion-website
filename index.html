@@ -18,20 +18,18 @@
   <meta name="twitter:description" content="Home lab, security projects and incident writeups by Shmuel Yermus – aspiring SOC analyst and junior penetration tester.">
   <title>HighLion — Home</title>
   <link rel="icon" href="/assets/icons/HighLion.ico" sizes="any">
-  <link rel="stylesheet" href="/css/style.css?v=hl8j">
+  <link rel="stylesheet" href="/css/style.css?v=hl8k">
 </head>
 <body><a class="skip" href="#main">Skip to content</a>
   <div class="scanlines" aria-hidden="true"></div>
   <canvas id="fx" class="fx" aria-hidden="true"></canvas>
-  <div class="station-rail station-rail-left" aria-hidden="true"></div>
-  <div class="station-rail station-rail-right" aria-hidden="true"></div>
-  <div data-include="/components/header.html?v=hl8j"></div>
+  <div data-include="/components/header.html?v=hl8k"></div>
 
   <main id="main">
     <section class="shell home-stage">
       <article class="hero-copy">
         <div class="kicker">Cybersecurity / Linux / Networking</div>
-        <h1 id="home-title" class="headline">Welcome to HighLion: </h1>
+        <h1 id="home-title" class="headline">Welcome to HighLion:</h1>
         <p class="lead headline-sub">A cybersecurity lab built for <span class="accent attack">attack</span> and <span class="accent defense">defense</span> skill development.</p>
         <p class="lead">HighLion documents my Cybersecurity works and projects. I focus on incident response and vulnerability research, while gaining valuable experience in Linux and system administration.</p>
       </article>
@@ -51,9 +49,7 @@
 
       <aside class="ops-board monitor" aria-label="Local session">
         <header class="monitor-head">
-          <div class="hlterm-lights" aria-hidden="true">
-            <span class="red"></span><span class="amber"></span><span class="green"></span>
-          </div>
+          <span class="monitor-status-pip" aria-hidden="true"></span>
           <div class="monitor-heading">
             <div class="kicker">User Local Information</div>
           </div>
@@ -64,34 +60,51 @@
             <h3>Client</h3>
             <div class="dash-grid">
               <div class="dash-tile"><div class="dash-label">USER AGENT</div><div class="dash-value dash-wrap" id="dUserAgent">—</div></div>
-              <div class="dash-tile"><div class="dash-label">HOST OS</div><div class="dash-value" id="dHostOS">—</div></div>
+              <div class="dash-tile"><div class="dash-label">PLATFORM</div><div class="dash-value" id="dPlatform">—</div></div>
+              <div class="dash-tile dash-tile-wide"><div class="dash-label">UA BRANDS</div><div class="dash-value dash-wrap" id="dUaBrands">—</div></div>
+              <div class="dash-tile"><div class="dash-label">MOBILE</div><div class="dash-value" id="dMobile">—</div></div>
+              <div class="dash-tile"><div class="dash-label">ARCH</div><div class="dash-value" id="dArch">—</div></div>
               <div class="dash-tile"><div class="dash-label">CPU CORES</div><div class="dash-value" id="dCpuCores">—</div></div>
+              <div class="dash-tile"><div class="dash-label">DEVICE MEMORY</div><div class="dash-value" id="dDeviceMemory">—</div></div>
               <div class="dash-tile"><div class="dash-label">VIEWPORT</div><div class="dash-value" id="dViewport">—</div></div>
+              <div class="dash-tile"><div class="dash-label">SCREEN</div><div class="dash-value" id="dScreen">—</div></div>
+              <div class="dash-tile"><div class="dash-label">COLOR DEPTH</div><div class="dash-value" id="dColorDepth">—</div></div>
               <div class="dash-tile"><div class="dash-label">PIXEL RATIO</div><div class="dash-value" id="dPixelRatio">—</div></div>
-              <div class="dash-tile"><div class="dash-label">LANGUAGE</div><div class="dash-value" id="dLanguage">—</div></div>
-              <div class="dash-tile"><div class="dash-label">NETWORK</div><div class="dash-value" id="dNetwork">—</div></div>
-              <div class="dash-tile"><div class="dash-label">ONLINE</div><div class="dash-value" id="dOnline">—</div></div>
+              <div class="dash-tile"><div class="dash-label">ORIENTATION</div><div class="dash-value dash-wrap" id="dOrientation">—</div></div>
+              <div class="dash-tile"><div class="dash-label">TOUCH POINTS</div><div class="dash-value" id="dTouchPoints">—</div></div>
+              <div class="dash-tile"><div class="dash-label">COOKIES</div><div class="dash-value" id="dCookies">—</div></div>
+              <div class="dash-tile"><div class="dash-label">PDF VIEW</div><div class="dash-value" id="dPdfView">—</div></div>
             </div>
           </section>
           <section class="dash-group">
             <h3>Session</h3>
             <div class="dash-grid">
-              <div class="dash-tile"><div class="dash-label">LOCAL SESSIONS</div><div class="dash-value" id="dSessions">—</div></div>
               <div class="dash-tile"><div class="dash-label">SESSION UPTIME</div><div class="dash-value" id="dUptime">—</div></div>
               <div class="dash-tile"><div class="dash-label">TIMEZONE</div><div class="dash-value dash-wrap" id="dTimezone">—</div></div>
+              <div class="dash-tile"><div class="dash-label">UTC OFFSET</div><div class="dash-value" id="dUtcOffset">—</div></div>
               <div class="dash-tile"><div class="dash-label">LOCAL TIME</div><div class="dash-value" id="dLocalTime">—</div></div>
               <div class="dash-tile"><div class="dash-label">UTC TIME</div><div class="dash-value" id="dUtcTime">—</div></div>
+              <div class="dash-tile"><div class="dash-label">LANGUAGE</div><div class="dash-value" id="dLanguage">—</div></div>
+              <div class="dash-tile dash-tile-wide"><div class="dash-label">LANGUAGES</div><div class="dash-value dash-wrap" id="dLanguages">—</div></div>
               <div class="dash-tile"><div class="dash-label">PAGE</div><div class="dash-value" id="dPage">—</div></div>
+              <div class="dash-tile"><div class="dash-label">REFERRER</div><div class="dash-value dash-wrap" id="dReferrer">—</div></div>
+              <div class="dash-tile"><div class="dash-label">PROTOCOL</div><div class="dash-value" id="dProtocol">—</div></div>
+              <div class="dash-tile"><div class="dash-label">ONLINE</div><div class="dash-value" id="dOnline">—</div></div>
               <div class="dash-tile"><div class="dash-label">SITE</div><div class="dash-value" id="dSite">—</div></div>
               <div class="dash-tile"><div class="dash-label">MOTION</div><div class="dash-value" id="dMotion">—</div></div>
+              <div class="dash-tile"><div class="dash-label">CONTRAST</div><div class="dash-value" id="dContrast">—</div></div>
+              <div class="dash-tile"><div class="dash-label">VISIBILITY</div><div class="dash-value" id="dVisibility">—</div></div>
             </div>
           </section>
           <section class="dash-group">
             <h3>Edge</h3>
             <div class="dash-grid">
+              <div class="dash-tile"><div class="dash-label">NETWORK TYPE</div><div class="dash-value" id="dNetworkType">—</div></div>
+              <div class="dash-tile"><div class="dash-label">DOWNLINK</div><div class="dash-value" id="dDownlink">—</div></div>
+              <div class="dash-tile"><div class="dash-label">RTT EST</div><div class="dash-value" id="dRtt">—</div></div>
+              <div class="dash-tile"><div class="dash-label">SAVE DATA</div><div class="dash-value" id="dSaveData">—</div></div>
               <div class="dash-tile"><div class="dash-label">LATENCY</div><div class="dash-value" id="dLatency">—</div></div>
               <div class="dash-tile"><div class="dash-label">PROBE</div><div class="dash-value dash-wrap" id="dProbe">—</div></div>
-              <div class="dash-tile"><div class="dash-label">PROTOCOL</div><div class="dash-value" id="dProtocol">—</div></div>
               <div class="dash-tile"><div class="dash-label">EDGE 15M</div><div class="dash-value" id="tCount">—</div></div>
               <div class="dash-tile dash-tile-wide"><div class="dash-label">STATUS CODES</div><div class="traffic-bars" id="tBars"></div></div>
               <div class="dash-tile dash-tile-wide"><div class="dash-label">TOP PATH</div><div class="dash-value dash-wrap" id="dTopPath">—</div></div>
@@ -165,24 +178,24 @@
     </section>
   </main>
 
-  <div data-include="/components/footer.html?v=hl8j"></div>
-  <script src="/js/fix-include.js?v=hl8j" defer></script>
-  <script src="/js/sfx.js?v=hl8j" defer></script>
-  <script src="/js/shell/kernel.js?v=hl8j" defer></script>
-  <script src="/js/shell/fs.js?v=hl8j" defer></script>
-  <script src="/js/shell/proc.js?v=hl8j" defer></script>
-  <script src="/js/shell/net.js?v=hl8j" defer></script>
-  <script src="/js/shell/sh.js?v=hl8j" defer></script>
-  <script src="/js/shell/busybox.js?v=hl8j" defer></script>
-  <script src="/js/shell/pack.js?v=hl8j" defer></script>
-  <script src="/js/shell/ctf.js?v=hl8j" defer></script>
-  <script src="/js/shell/machine.js?v=hl8j" defer></script>
-  <script src="/js/session-meta.js?v=hl8j" defer></script>
-  <script src="/js/particles.js?v=hl8j" defer></script>
-  <script src="/js/station-toggles.js?v=hl8j" defer></script>
-  <script src="/js/rain.js?v=hl8j" defer></script>
-  <script src="/js/intel-feed.js?v=hl8j" defer></script>
-  <script src="/js/terminal.js?v=hl8j" defer></script>
-  <script src="/js/dashboard.js?v=hl8j" defer></script>
+  <div data-include="/components/footer.html?v=hl8k"></div>
+  <script src="/js/fix-include.js?v=hl8k" defer></script>
+  <script src="/js/sfx.js?v=hl8k" defer></script>
+  <script src="/js/shell/kernel.js?v=hl8k" defer></script>
+  <script src="/js/shell/fs.js?v=hl8k" defer></script>
+  <script src="/js/shell/proc.js?v=hl8k" defer></script>
+  <script src="/js/shell/net.js?v=hl8k" defer></script>
+  <script src="/js/shell/sh.js?v=hl8k" defer></script>
+  <script src="/js/shell/busybox.js?v=hl8k" defer></script>
+  <script src="/js/shell/pack.js?v=hl8k" defer></script>
+  <script src="/js/shell/ctf.js?v=hl8k" defer></script>
+  <script src="/js/shell/machine.js?v=hl8k" defer></script>
+  <script src="/js/session-meta.js?v=hl8k" defer></script>
+  <script src="/js/particles.js?v=hl8k" defer></script>
+  <script src="/js/station-toggles.js?v=hl8k" defer></script>
+  <script src="/js/rain.js?v=hl8k" defer></script>
+  <script src="/js/intel-feed.js?v=hl8k" defer></script>
+  <script src="/js/terminal.js?v=hl8k" defer></script>
+  <script src="/js/dashboard.js?v=hl8k" defer></script>
 </body>
 </html>

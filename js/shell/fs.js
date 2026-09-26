@@ -198,7 +198,8 @@
     if (!node) throw new Error("no such file or directory");
     if (node.type === "dir") throw new Error("is a directory");
     if (!this.canAccess(node, "r")) throw new Error("permission denied");
-    if (node.device === "null" || node.device === "zero") return "";
+    if (node.device === "null") return "";
+    if (node.device === "zero") return "\0".repeat(64 * 1024);
     if (node.device === "random" || node.device === "urandom") {
       var bytes = new Uint8Array(32);
       if (root.crypto && root.crypto.getRandomValues) root.crypto.getRandomValues(bytes);

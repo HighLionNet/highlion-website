@@ -71,10 +71,12 @@
       return rows.join("\n");
     }
     if (path === "/proc/meminfo") return "MemTotal:       " + Number(this.config.memTotalKb || 2048000) + " kB\nMemFree:         987312 kB\nMemAvailable:   1512048 kB\nBuffers:           42120 kB\nCached:           482616 kB\n";
+    if (path === "/proc/loadavg") return "0.04 0.02 0.01 1/96 1337\n";
     if (path === "/proc/uptime") return seconds.toFixed(2) + " " + (seconds * 0.91).toFixed(2) + "\n";
     if (path === "/proc/mounts") return machine.mountText(true);
     if (path === "/proc/self/cwd") return machine.cwd + "\n";
     if (path === "/proc/self/environ") return Object.keys(machine.env).sort().map(function (name) { return name + "=" + machine.env[name]; }).join("\n") + "\n";
+    if (path === "/proc/self/status") return "Name:\tzsh\nUmask:\t" + machine.umask + "\nState:\tR (running)\nTgid:\t1337\nPid:\t1337\nPPid:\t1336\nUid:\t" + machine.identity.uid + "\t" + machine.identity.uid + "\t" + machine.identity.uid + "\t" + machine.identity.uid + "\nGid:\t" + machine.identity.gid + "\t" + machine.identity.gid + "\t" + machine.identity.gid + "\t" + machine.identity.gid + "\nThreads:\t1\n";
     if (path === "/proc/net/dev") {
       var tick = seconds * 193;
       return "Inter-|   Receive                                                |  Transmit\n face |bytes    packets errs drop fifo frame compressed multicast|bytes    packets errs drop fifo colls carrier compressed\n"
@@ -84,6 +86,7 @@
           return String(iface.name).padStart(6, " ") + ": " + String(rx).padStart(8, " ") + " 1024 0 0 0 0 0 0 " + String(tx).padStart(8, " ") + " 768 0 0 0 0 0 0";
         }).join("\n") + "\n";
     }
+    if (path === "/proc/net/tcp") return "  sl  local_address rem_address   st tx_queue rx_queue tr tm->when retrnsmt   uid  timeout inode\n   0: 0A00080A:0016 00000000:0000 0A 00000000:00000000 00:00000000 00000000     0        0 509 1 0000000000000000\n   1: 0A00080A:0050 00000000:0000 0A 00000000:00000000 00:00000000 00000000    33        0 412 1 0000000000000000\n   2: 0A00080A:01BB 00000000:0000 0A 00000000:00000000 00:00000000 00000000    33        0 413 1 0000000000000000\n";
     return null;
   };
 

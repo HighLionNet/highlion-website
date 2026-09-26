@@ -13,14 +13,13 @@
     if (!host && row.url) {
       try { host = new URL(row.url).hostname.toLowerCase().replace(/^www\./, ""); } catch (error) { host = "source"; }
     }
-    if (host === "bleepingcomputer.com") return { chip: "BC", className: "source-bc", host: host };
+    if (host === "bleepingcomputer.com") return { className: "source-bc", host: host, thumb: "/assets/thumbs/bleeping.png" };
     if (host === "thehackernews.com" || host.indexOf("feedburner.com") !== -1 || host.indexOf("thehackersnews") !== -1) {
-      return { chip: "TH", className: "source-th", host: host };
+      return { className: "source-th", host: host, thumb: "/assets/thumbs/hackernews.png" };
     }
-    if (host === "krebsonsecurity.com") return { chip: "KR", className: "source-kr", host: host };
-    if (host === "cisa.gov") return { chip: "CI", className: "source-ci", host: host };
-    var letters = host.replace(/[^a-z]/g, "").slice(0, 2).toUpperCase();
-    return { chip: letters || "--", className: "", host: host || "source" };
+    if (host === "krebsonsecurity.com") return { className: "source-kr", host: host, thumb: "/assets/thumbs/krebs.png" };
+    if (host === "cisa.gov") return { className: "source-ci", host: host, thumb: "/assets/thumbs/cisa.png" };
+    return { className: "", host: host || "source", thumb: "/assets/thumbs/highlion.png" };
   }
 
   function publishFeed(state, count) {
@@ -29,17 +28,9 @@
     window.dispatchEvent(new CustomEvent("hl:intel", { detail: detail }));
   }
 
-  function fallbackThumb(source) {
-    var fallback = document.createElement("span");
-    fallback.className = "news-thumb-fallback" + (source.className ? " " + source.className : "");
-    fallback.setAttribute("aria-hidden", "true");
-    fallback.textContent = source.chip;
-    return fallback;
-  }
-
   function thumbFor(row, source) {
     var thumb = String(row.thumb || "");
-    if (!/^\/api\/thumb\.php\?id=[a-f0-9]{40}$/i.test(thumb)) return fallbackThumb(source);
+    var fallback = source.thumb || "/assets/thumbs/highlion.png";
     var image = document.createElement("img");
     image.className = "news-thumb";
     image.alt = "";
@@ -48,9 +39,9 @@
     image.loading = "lazy";
     image.decoding = "async";
     image.addEventListener("error", function () {
-      image.replaceWith(fallbackThumb(source));
+      image.src = fallback;
     }, { once: true });
-    image.src = thumb;
+    image.src = /^\/api\/thumb\.php\?id=[a-f0-9]{40}$/.test(thumb) ? thumb : fallback;
     return image;
   }
 
@@ -101,14 +92,11 @@
     if (stamp) stamp.textContent = String(items.length) + " items · 15m headlines";
     items.forEach(function (row) {
       var item = document.createElement("li");
-      var mark = document.createElement("span");
       var copy = document.createElement("div");
       var meta = document.createElement("span");
       var title = document.createElement("a");
       var source = sourceInfo(row);
       item.className = "news-item";
-      mark.className = "news-mark" + (source.className ? " " + source.className : "");
-      mark.textContent = source.chip;
       copy.className = "news-copy";
       meta.className = "news-meta" + (source.className ? " " + source.className : "");
       title.className = "news-title";
@@ -118,7 +106,7 @@
       title.target = "_blank";
       title.rel = "noopener noreferrer";
       copy.append(meta, title);
-      item.append(thumbFor(row, source), mark, copy);
+      item.append(thumbFor(row, source), copy);
       list.appendChild(item);
     });
     rebuildTicker(items);

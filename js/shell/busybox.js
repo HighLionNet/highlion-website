@@ -104,24 +104,25 @@
       if (/^-[al]+$/.test(arg)) { all = all || arg.indexOf("a") !== -1; long = long || arg.indexOf("l") !== -1; }
       else paths.push(arg);
     });
-    if (paths.length > 1) return failure("ls", "multiple paths are not supported");
     try {
-      var target = paths[0] || ".";
-      var absolute = this.fs.resolve(target, this.machine.cwd, true);
-      var node = this.fs.stat(absolute, "/");
-      if (!node) throw new Error("no such file or directory");
-      var rows = this.fs.list(absolute, "/", all);
-      if (node.type === "dir" && all) rows = [{ name: ".", path: absolute, node: node }, { name: "..", path: HL.path.dirname(absolute), node: this.fs.stat(HL.path.dirname(absolute), "/") }].concat(rows);
-      if (!long) return result(rows.map(function (row) { return row.name; }).join("  ") + "\n");
-      var output = rows.map(function (row) {
-        var stamp = new Date(row.node.mtime || Date.now());
-        var month = stamp.toLocaleString("en", { month: "short" });
-        var day = String(stamp.getDate()).padStart(2, " ");
-        var time = stamp.toTimeString().slice(0, 5);
-        var name = row.name + (row.node.type === "symlink" ? " -> " + row.node.target : "");
-        return this.fs.modeString(row.node) + " 1 " + String(row.node.owner).padEnd(8, " ") + " " + String(row.node.group).padEnd(8, " ") + " " + String(this.fs.size(row.node)).padStart(6, " ") + " " + month + " " + day + " " + time + " " + name;
-      }, this).join("\n");
-      return result(output + (output ? "\n" : ""));
+      var targets = paths.length ? paths : ["."];
+      var blocks = targets.map(function (target) {
+        var absolute = this.fs.resolve(target, this.machine.cwd, true);
+        var node = this.fs.stat(absolute, "/");
+        if (!node) throw new Error(target + ": no such file or directory");
+        var rows = this.fs.list(absolute, "/", all);
+        if (node.type === "dir" && all) rows = [{ name: ".", path: absolute, node: node }, { name: "..", path: HL.path.dirname(absolute), node: this.fs.stat(HL.path.dirname(absolute), "/") }].concat(rows);
+        var output = !long ? rows.map(function (row) { return row.name; }).join("  ") : rows.map(function (row) {
+          var stamp = new Date(row.node.mtime || Date.now());
+          var month = stamp.toLocaleString("en", { month: "short" });
+          var day = String(stamp.getDate()).padStart(2, " ");
+          var time = stamp.toTimeString().slice(0, 5);
+          var name = row.name + (row.node.type === "symlink" ? " -> " + row.node.target : "");
+          return this.fs.modeString(row.node) + " 1 " + String(row.node.owner).padEnd(8, " ") + " " + String(row.node.group).padEnd(8, " ") + " " + String(this.fs.size(row.node)).padStart(6, " ") + " " + month + " " + day + " " + time + " " + name;
+        }, this).join("\n");
+        return (targets.length > 1 && node.type === "dir" ? target + ":\n" : "") + output;
+      }, this);
+      return result(blocks.join("\n\n") + (blocks.length ? "\n" : ""));
     } catch (error) { return failure("ls", error); }
   };
 
@@ -289,20 +290,30 @@
   };
 
   BusyBox.prototype.cmdFind = function (args) {
-    var start = "."; var pattern = null;
-    if (args[0] && args[0] !== "-name") start = args.shift();
-    if (args[0] === "-name" && args[1]) pattern = wildcard(HL.path.basename(args[1]));
-    else if (args.length) return failure("find", "usage: find [path] [-name GLOB]");
+    var start = "."; var pattern = null; var type = ""; var maxDepth = Infinity;
+    if (args[0] && args[0].charAt(0) !== "-") start = args.shift();
+    while (args.length) {
+      var flag = args.shift();
+      if (flag === "-name" && args.length) pattern = wildcard(HL.path.basename(args.shift()));
+      else if (flag === "-type" && /^[fdl]$/.test(args[0] || "")) type = args.shift();
+      else if (flag === "-maxdepth" && /^\d+$/.test(args[0] || "")) maxDepth = Number(args.shift());
+      else return failure("find", "usage: find [path] [-maxdepth N] [-type f|d|l] [-name GLOB]");
+    }
     try {
-      var rows = this.fs.walk(start, this.machine.cwd).filter(function (row) { return !pattern || pattern.test(HL.path.basename(row.path)); });
+      var base = this.fs.resolve(start, this.machine.cwd, true);
+      var rows = this.fs.walk(start, this.machine.cwd).filter(function (row) {
+        var depth = row.path === base ? 0 : row.path.slice(base === "/" ? 1 : base.length + 1).split("/").length;
+        var kind = row.node.type === "file" ? "f" : row.node.type === "dir" ? "d" : "l";
+        return depth <= maxDepth && (!type || type === kind) && (!pattern || pattern.test(HL.path.basename(row.path)));
+      });
       return result(rows.map(function (row) { return row.path; }).join("\n") + "\n");
     } catch (error) { return failure("find", error); }
   };
 
   BusyBox.prototype.cmdGrep = function (args, stdin) {
-    var numbered = false; var insensitive = false; var recursive = false;
+    var numbered = false; var insensitive = false; var recursive = false; var invert = false; var filesOnly = false; var extended = false;
     while (args[0] && /^-/.test(args[0])) {
-      var flags = args.shift(); numbered = numbered || flags.indexOf("n") !== -1; insensitive = insensitive || flags.indexOf("i") !== -1; recursive = recursive || flags.indexOf("R") !== -1;
+      var flags = args.shift(); numbered = numbered || flags.indexOf("n") !== -1; insensitive = insensitive || flags.indexOf("i") !== -1; recursive = recursive || /[Rr]/.test(flags); invert = invert || flags.indexOf("v") !== -1; filesOnly = filesOnly || flags.indexOf("l") !== -1; extended = extended || flags.indexOf("E") !== -1;
     }
     var pattern = args.shift();
     if (!pattern) return failure("grep", "missing pattern", 2);
@@ -316,12 +327,18 @@
           this.fs.walk(path, this.machine.cwd).forEach(function (row) { if (row.node.type === "file") inputs.push({ path: row.path, text: this.machine.readFile(row.path) }); }, this);
         } else inputs.push({ path: path, text: this.machine.readFile(path) });
       }, this);
-      var needle = insensitive ? pattern.toLowerCase() : pattern; var out = [];
+      var needle = insensitive ? pattern.toLowerCase() : pattern; var expression = null; var out = [];
+      if (extended) expression = new RegExp(pattern, insensitive ? "i" : "");
       inputs.forEach(function (input) {
+        var matchedFile = false;
         input.text.split("\n").forEach(function (line, index) {
           var hay = insensitive ? line.toLowerCase() : line;
-          if (hay.indexOf(needle) !== -1) out.push((inputs.length > 1 || recursive ? input.path + ":" : "") + (numbered ? (index + 1) + ":" : "") + line);
+          var matched = expression ? expression.test(line) : hay.indexOf(needle) !== -1;
+          if (invert) matched = !matched;
+          if (matched && !filesOnly) out.push((inputs.length > 1 || recursive ? input.path + ":" : "") + (numbered ? (index + 1) + ":" : "") + line);
+          if (matched) matchedFile = true;
         });
+        if (filesOnly && matchedFile) out.push(input.path);
       });
       return result(out.join("\n") + (out.length ? "\n" : ""), out.length ? 0 : 1);
     } catch (error) { return failure("grep", error, 2); }
@@ -358,7 +375,7 @@
   BusyBox.prototype.cmdHelp = function(args){
     if(args.length===1)return this.cmdMan(args);
     if(args.length)return failure("help","usage: help [command]");
-    return result("GNU bash, version 5.2\nShell commands:\n  cd pwd help history clear reset exit export unset env\n  ls cat head tail grep find mkdir touch cp mv rm chmod\n  ps kill pkill who w id groups ip ss ping curl wget nc ssh\n");
+    return result("GNU bash, version 5.3\nShell commands:\n  cd pwd help history alias clear reset exit export unset env\n  ls cat head tail grep find mkdir touch cp mv rm chmod chown\n  ps top kill pkill who w id groups df free lsblk mount\n  ip ss netstat ping nmap nc ssh traceroute dig host whois curl wget\n");
   };
 
   BusyBox.prototype.cmdWhichType = function(name,args,shell){if(args.length!==1)return failure(name,"usage: "+name+" NAME");var path=shell.resolveCommand(args[0]);if(!path)return result("",1,name+": "+args[0]+" not found\n");if(name==="type")return result(args[0]+" is "+(this.commandNames.has(args[0])?"a shell builtin":""+path)+"\n");return result(path+"\n");};
@@ -414,19 +431,53 @@
     }catch(error){return failure("sessionctl","request failed");}
   };
 
-  BusyBox.prototype.cmdPing=async function(args){var host=args[0]==="-c"?args[2]:args[0];if(!host)return failure("ping","usage: ping HOST");var address=this.machine.net.resolve(host);if(!address)return result("PING "+host+" (0.0.0.0) 56(84) bytes of data.\n\n--- "+host+" ping statistics ---\n3 packets transmitted, 0 received, 100% packet loss\n",1);var lines=["PING "+host+" ("+address+") 56(84) bytes of data."];for(var index=1;index<=3;index+=1)lines.push("64 bytes from "+address+": icmp_seq="+index+" ttl=64 time="+(7+index*1.7).toFixed(1)+" ms");lines.push("--- "+host+" ping statistics ---","3 packets transmitted, 3 received, 0% packet loss");return result(lines.join("\n")+"\n");};
+  BusyBox.prototype.cmdPing=async function(args){
+    var count=4; var host="";
+    for(var at=0;at<args.length;at+=1){
+      if(args[at]==="-c"&&/^\d+$/.test(args[at+1]||"")){count=Math.max(1,Math.min(10,Number(args[++at])));}
+      else if(args[at].charAt(0)==="-")return failure("ping","usage: ping [-c COUNT] HOST");
+      else if(!host)host=args[at];else return failure("ping","usage: ping [-c COUNT] HOST");
+    }
+    if(!host)return failure("ping","usage: ping [-c COUNT] HOST");
+    var profile=this.machine.net.profile(host);
+    var address=profile.address||"0.0.0.0";
+    var lines=["PING "+host+" ("+address+") 56(84) bytes of data."];
+    var received=0; var times=[];
+    for(var index=1;index<=count;index+=1){
+      var delivered=profile.up&&((profile.seed+index*37)%100>=profile.loss);
+      if(!delivered)continue;
+      var jitter=((profile.seed>>>index%16)%17-8)/10;
+      var timing=Math.max(0.02,profile.rtt+jitter);
+      received+=1;times.push(timing);
+      lines.push("64 bytes from "+address+": icmp_seq="+index+" ttl=64 time="+timing.toFixed(timing<1?3:1)+" ms");
+    }
+    var loss=Math.round((count-received)/count*100);
+    lines.push("","--- "+host+" ping statistics ---",count+" packets transmitted, "+received+" received, "+loss+"% packet loss, time "+(count*1000)+"ms");
+    if(times.length){var min=Math.min.apply(null,times);var max=Math.max.apply(null,times);var avg=times.reduce(function(sum,value){return sum+value;},0)/times.length;lines.push("rtt min/avg/max/mdev = "+min.toFixed(3)+"/"+avg.toFixed(3)+"/"+max.toFixed(3)+"/0.214 ms");}
+    return result(lines.join("\n")+"\n",received?0:1);
+  };
   BusyBox.prototype.cmdCurl=async function(name,args){
-    if(args.length!==1)return failure(name,"usage: "+name+" PATH");
+    var includeHeaders=false; var headOnly=false; var url="";
+    args.forEach(function(arg){if(arg==="-i")includeHeaders=true;else if(arg==="-I"||arg==="--head")headOnly=true;else if(["-s","-S","-L","--silent"].indexOf(arg)===-1&&arg.charAt(0)!=="-")url=arg;});
+    if(!url)return failure(name,"usage: "+name+" URL");
     function refused(){return result("",7,name+": (7) Failed to connect\n");}
     function allowed(path){
       return ["/","/index.html","/about.html","/projects.html","/writeups.html","/writeups/pihole.html","/writeups/cve-2026-2441.html","/css/style.css","/components/header.html","/components/footer.html","/404.html"].indexOf(path)!==-1
         || path.indexOf("/assets/icons/")===0 || path.indexOf("/assets/writeups/")===0;
     }
     var parsed;
-    try{parsed=new URL(args[0],"https://www.highlion.net/");}catch(error){return refused();}
-    if(parsed.protocol!=="https:"||["www.highlion.net","highlion.net"].indexOf(parsed.hostname.toLowerCase())===-1||!allowed(parsed.pathname))return refused();
+    try{parsed=new URL(url,"https://www.highlion.net/");}catch(error){return refused();}
+    if(["http:","https:"].indexOf(parsed.protocol)===-1||parsed.pathname.indexOf("/api/")===0)return refused();
+    var brochure=parsed.protocol==="https:"&&["www.highlion.net","highlion.net"].indexOf(parsed.hostname.toLowerCase())!==-1&&allowed(parsed.pathname);
+    if(!brochure){
+      var simulated=this.machine.net.http(parsed.href);
+      if(simulated.error==="timeout")return result("",28,name+": (28) Connection timed out after 10001 milliseconds\n");
+      if(simulated.error)return refused();
+      var headers="HTTP/1.1 "+simulated.code+" "+simulated.label+"\nServer: "+simulated.server+"\nContent-Type: text/html; charset=utf-8\nContent-Length: "+simulated.body.length+"\n"+(simulated.location?"Location: "+simulated.location+"\n":"")+"Connection: close\n\n";
+      return result((includeHeaders||headOnly?headers:"")+(headOnly?"":simulated.body)+(headOnly||simulated.body.endsWith("\n")?"":"\n"),simulated.code>=400?22:0);
+    }
     var controller=typeof AbortController!=="undefined"?new AbortController():null;
-    var timer=controller?root.setTimeout(function(){controller.abort();},175):0;
+    var timer=controller?root.setTimeout(function(){controller.abort();},8000):0;
     try{
       var response=await fetch(parsed.pathname+parsed.search,{method:"GET",credentials:"same-origin",cache:"no-store",redirect:"follow",signal:controller?controller.signal:undefined});
       var finalUrl=new URL(response.url,root.location.href);
@@ -452,13 +503,104 @@
       var decoder=new TextDecoder("utf-8");
       chunks.forEach(function(chunk,index){text+=decoder.decode(chunk,{stream:index<chunks.length-1});});
       if(timer)root.clearTimeout(timer);
-      return result(text+(text.endsWith("\n")?"":"\n"),response.ok?0:22,response.ok?"":name+": server returned "+response.status+"\n");
+      var liveHeaders="HTTP/1.1 "+response.status+" "+response.statusText+"\nContent-Type: "+(response.headers.get("content-type")||"text/plain")+"\n\n";
+      return result((includeHeaders||headOnly?liveHeaders:"")+(headOnly?"":text+(text.endsWith("\n")?"":"\n")),response.ok?0:22,response.ok?"":name+": server returned "+response.status+"\n");
     }catch(error){if(timer)root.clearTimeout(timer);return refused();}
   };
-  BusyBox.prototype.cmdNc=function(args){if(args.length!==2)return failure("nc","usage: nc HOST PORT");if(!this.machine.net.resolve(args[0]))return failure("nc","ncat: connection refused");var banner=this.machine.net.banner(args[0],Number(args[1]));return banner?result(banner+"\n"):failure("nc","ncat: connection refused");};
-  BusyBox.prototype.cmdSsh=function(args){if(args.length!==1||args[0].indexOf("@")===-1)return failure("ssh","usage: ssh user@host");var pair=args[0].split("@");if(!this.machine.net.resolve(pair[1]))return failure("ssh","Could not resolve hostname "+pair[1]);var banner=this.machine.net.banner(pair[1],22)||"SSH-2.0-OpenSSH_9.8";return result(banner+"\nConnection to "+pair[1]+" closed.\n");};
-  BusyBox.prototype.cmdIp=function(args){return args.length===1&&args[0]==="a"?result(this.machine.net.ipAddress()):failure("ip","usage: ip a");};
-  BusyBox.prototype.cmdSs=function(args){return args.length===1&&args[0]==="-tuln"?result(this.machine.net.sockets()):failure("ss","usage: ss -tuln");};
+  BusyBox.prototype.cmdNc=function(args){
+    if(args.indexOf("-l")!==-1)return failure("nc","listen mode is not supported in this sealed network");
+    var clean=args.filter(function(arg){return ["-v","-z","-n"].indexOf(arg)===-1;});
+    if(clean.length!==2||!/^\d+$/.test(clean[1]))return failure("nc","usage: nc [-vz] HOST PORT");
+    var row=this.machine.net.port(clean[0],Number(clean[1]));
+    if(row.state!=="open")return failure("nc","connect to "+clean[0]+" port "+clean[1]+" (tcp) failed: Connection "+(row.state==="filtered"?"timed out":"refused"));
+    var banner=this.machine.net.banner(clean[0],Number(clean[1]));
+    return result("Connection to "+clean[0]+" "+clean[1]+" port [tcp/"+row.service+"] succeeded!\n"+(banner?banner+"\n":""));
+  };
+  BusyBox.prototype.cmdSsh=function(args){
+    var target=args.filter(function(arg){return arg.charAt(0)!=="-";}).pop()||"";
+    if(target.indexOf("@")===-1)return failure("ssh","usage: ssh user@host");
+    var pair=target.split("@");var profile=this.machine.net.profile(pair[1]);var port=this.machine.net.port(pair[1],22);
+    if(!profile.address)return failure("ssh","Could not resolve hostname "+pair[1]+": Name or service not known",255);
+    if(port.state!=="open")return failure("ssh","connect to host "+pair[1]+" port 22: "+(port.state==="filtered"?"Connection timed out":"Connection refused"),255);
+    var banner=port.banner||"SSH-2.0-OpenSSH_9.8";
+    if(profile.className==="lab")return result(banner+"\nLinux "+(profile.name||pair[1])+" 6.12.0-hl8 x86_64\nConnection to "+pair[1]+" closed.\n");
+    return result(banner+"\n"+pair[0]+"@"+pair[1]+": Permission denied (publickey,password).\n",255);
+  };
+  BusyBox.prototype.cmdIp=function(args){if(args.length===1&&(args[0]==="a"||args[0]==="addr"))return result(this.machine.net.ipAddress());if(args.length===1&&(args[0]==="r"||args[0]==="route"))return result(this.machine.net.routes());return failure("ip","usage: ip addr|route");};
+  BusyBox.prototype.cmdSs=function(args){return !args.length||args.indexOf("-tuln")!==-1||args.indexOf("-lntup")!==-1?result(this.machine.net.sockets(false)):failure("ss","usage: ss -tuln");};
+  BusyBox.prototype.cmdNetstat=function(args){return !args.length||args.some(function(arg){return /^-[a-z]*[tuln][a-z]*$/i.test(arg);})?result(this.machine.net.sockets(true)):failure("netstat","usage: netstat -tuln");};
+
+  BusyBox.prototype.cmdNmap=async function(args){
+    var serviceScan=false;var aggressive=false;var pingless=false;var fast=false;var openOnly=false;var portSpec="";var target="";
+    for(var at=0;at<args.length;at+=1){
+      var arg=args[at];
+      if(arg==="-sV"||arg==="-sT")serviceScan=serviceScan||arg==="-sV";
+      else if(arg==="-Pn")pingless=true;
+      else if(arg==="-F")fast=true;
+      else if(arg==="-A"){aggressive=true;serviceScan=true;}
+      else if(arg==="--open")openOnly=true;
+      else if(arg==="-p"){portSpec=args[++at]||"";}
+      else if(arg.indexOf("-p")===0&&arg.length>2)portSpec=arg.slice(2);
+      else if(arg.charAt(0)==="-")return failure("nmap","unrecognized option "+arg+"\nSee the output of nmap -h for a summary of options.");
+      else if(!target)target=arg;else return failure("nmap","only one target may be scanned");
+    }
+    if(!target)return failure("nmap","usage: nmap [-sV] [-sT] [-Pn] [-p PORTS] [-F] [-A] [--open] target");
+    var profile=this.machine.net.profile(target);
+    if(!profile.address)return failure("nmap","Failed to resolve \""+target+"\".");
+    await new Promise(function(resolve){root.setTimeout(resolve,200+profile.seed%601);});
+    var lines=["Starting Nmap 7.95 ( https://nmap.org ) at "+new Date().toISOString().replace("T"," ").slice(0,19)+" UTC","Nmap scan report for "+target+" ("+profile.address+")"];
+    if(!profile.up&&!pingless){lines.push("Host seems down. If it is really up, but blocking our ping probes, try -Pn","Nmap done: 1 IP address (0 hosts up) scanned in 0.17 seconds");return result(lines.join("\n")+"\n",1);}
+    lines.push("Host is up ("+profile.rtt.toFixed(3)+"s latency).");
+    var ports=[];
+    if(portSpec){
+      var valid=true;
+      portSpec.split(",").forEach(function(part){
+        if(/^\d+$/.test(part))ports.push(Number(part));
+        else if(/^\d+-\d+$/.test(part)){var limits=part.split("-").map(Number);if(limits[1]-limits[0]>1024){valid=false;return;}for(var port=limits[0];port<=limits[1];port+=1)ports.push(port);}
+        else valid=false;
+      });
+      if(!valid||ports.some(function(port){return port<1||port>65535;}))return failure("nmap","Ports to be scanned must be between 1 and 65535");
+    }else if(fast)ports=[21,22,23,25,53,80,110,139,143,443,445,3389,5900,8080];
+    else ports=profile.ports.map(function(row){return row.port;});
+    ports=Array.from(new Set(ports)).sort(function(left,right){return left-right;});
+    var rows=ports.map(function(port){return this.machine.net.port(target,port);},this).filter(function(row){return !openOnly||row.state==="open";});
+    if(rows.length){
+      lines.push("PORT      STATE    SERVICE        "+(serviceScan?"VERSION":""));
+      rows.forEach(function(row){lines.push((row.port+"/tcp").padEnd(10," ")+row.state.padEnd(9," ")+String(row.service||"unknown").padEnd(15," ")+(serviceScan?row.version||"":""));});
+    }else lines.push("All scanned ports are closed or filtered");
+    if(aggressive){lines.push("Service Info: OS: Linux; CPE: cpe:/o:linux:linux_kernel","OS details: Linux 5.15 - 6.12","TRACEROUTE (using port 80/tcp)","HOP RTT      ADDRESS", "1   0.72 ms  gw.lab (10.8.0.1)");}
+    lines.push("Nmap done: 1 IP address (1 host up) scanned in "+(0.17+(profile.seed%64)/100).toFixed(2)+" seconds");
+    return result(lines.join("\n")+"\n");
+  };
+
+  BusyBox.prototype.cmdTrace=function(name,args){
+    var target=args.filter(function(arg){return arg.charAt(0)!=="-";}).pop()||"";
+    if(!target)return failure(name,"usage: "+name+" HOST");
+    var profile=this.machine.net.profile(target);if(!profile.address)return failure(name,"unknown host "+target);
+    var hops=this.machine.net.trace(target);var lines=name==="traceroute"?["traceroute to "+target+" ("+profile.address+"), 30 hops max, 60 byte packets"]:[" 1?: [LOCALHOST]                      pmtu 1500"];
+    hops.forEach(function(hop,index){var time=hop.rtt.toFixed(3);lines.push(String(index+1).padStart(2," ")+"  "+hop.name+" ("+hop.address+")  "+time+" ms  "+(hop.rtt+0.2).toFixed(3)+" ms  "+(hop.rtt+0.4).toFixed(3)+" ms");});
+    return result(lines.join("\n")+"\n",profile.up?0:1);
+  };
+
+  BusyBox.prototype.cmdDns=function(name,args){
+    var target=args.filter(function(arg){return arg.charAt(0)!=="@"&&arg.charAt(0)!=="-";}).pop()||"";
+    if(!target)return failure(name,"usage: "+name+" NAME");
+    var address=this.machine.net.resolve(target);
+    if(name==="host")return address?result(target+" has address "+address+"\n"):result("Host "+target+" not found: 3(NXDOMAIN)\n",1);
+    if(name==="nslookup")return address?result("Server:\t\t10.8.0.1\nAddress:\t10.8.0.1#53\n\nNon-authoritative answer:\nName:\t"+target+"\nAddress: "+address+"\n"):result("** server can't find "+target+": NXDOMAIN\n",1);
+    var status=address?"NOERROR":"NXDOMAIN";var serial=this.machine.net.sha1(target).slice(0,8);
+    var out="; <<>> DiG 9.20.4 <<>> "+target+"\n;; ->>HEADER<<- opcode: QUERY, status: "+status+", id: "+(parseInt(serial,16)%65535)+"\n;; flags: qr rd ra; QUERY: 1, ANSWER: "+(address?1:0)+", AUTHORITY: 1, ADDITIONAL: 1\n\n;; QUESTION SECTION:\n;"+target+".\t\tIN\tA\n\n";
+    if(address)out+=";; ANSWER SECTION:\n"+target+".\t300\tIN\tA\t"+address+"\n\n";
+    out+=";; AUTHORITY SECTION:\n.\t3600\tIN\tSOA\tns1.sim. hostmaster.sim. "+parseInt(serial,16)+" 7200 3600 1209600 300\n\n;; SERVER: 10.8.0.1#53(10.8.0.1)\n;; Query time: 2 msec\n";
+    return result(out,address?0:1);
+  };
+
+  BusyBox.prototype.cmdWhois=function(args){
+    if(args.length!==1)return failure("whois","usage: whois DOMAIN");
+    var target=args[0].toLowerCase();var address=this.machine.net.resolve(target);if(!address)return failure("whois","No match for "+target.toUpperCase());
+    var digest=this.machine.net.sha1(target);var year=2020+parseInt(digest.slice(0,2),16)%6;
+    return result("Domain Name: "+target.toUpperCase()+"\nRegistry Domain ID: "+digest.slice(0,16).toUpperCase()+"-SIM\nRegistrar WHOIS Server: whois.sim\nCreation Date: "+year+"-01-12T00:00:00Z\nRegistry Expiry Date: "+(year+8)+"-01-12T00:00:00Z\nName Server: NS1.SIM\nName Server: NS2.SIM\nDNSSEC: unsigned\n");
+  };
 
   BusyBox.prototype.cmdSystemctl=function(args){
     if(!args.length||args[0]==="list-units")return result("UNIT                       LOAD   ACTIVE SUB     DESCRIPTION\n"+this.machine.units.map(function(unit){return unit.name.padEnd(27," ")+unit.load.padEnd(7," ")+unit.active.padEnd(7," ")+unit.sub.padEnd(8," ")+unit.description;}).join("\n")+"\n");
@@ -491,10 +633,8 @@
   BusyBox.prototype.cmdSu=function(args){
     var target=args.filter(function(arg){return arg!=="-";})[0]||"root";
     if(target!=="root"&&target!=="admin"&&target!==this.machine.visitorName)return failure("su","user "+target+" does not exist");
-    if(this.machine.isRoot()&&target!=="root"){this.machine.switchUser(target,{persist:false});return result();}
-    if(this.machine.isRoot()&&target==="root")return result();
-    if(target===this.machine.visitorName)return result();
-    return result("",0,"",{type:"su-auth",target:target});
+    if(this.machine.su(target))return result();
+    return failure("su","Authentication failure",1);
   };
   BusyBox.prototype.cmdLogout=function(args){
     if(args.length)return failure("logout","extra operand");
@@ -502,6 +642,12 @@
   };
   BusyBox.prototype.cmdHostnamectl=function(){return result(" Static hostname: highlion\n       Icon name: computer-vm\n         Chassis: vm\nOperating System: Kali GNU/Linux Rolling\n          Kernel: Linux 6.12.0-hl8\n    Architecture: x86-64\n");};
   BusyBox.prototype.cmdLsbRelease=function(args){return args.length===1&&args[0]==="-a"?result("Distributor ID:\tKali\nDescription:\tKali GNU/Linux Rolling\nRelease:\t2026.3\nCodename:\tkali-rolling\n"):failure("lsb_release","usage: lsb_release -a");};
+  BusyBox.prototype.cmdTimedatectl=function(args){if(args.length)return failure("timedatectl","extra operand");var now=new Date();return result("               Local time: "+now.toString()+"\n           Universal time: "+now.toUTCString()+"\n                 RTC time: "+now.toISOString().replace("T"," ").slice(0,19)+"\n                Time zone: Etc/UTC (UTC, +0000)\nSystem clock synchronized: yes\n              NTP service: active\n          RTC in local TZ: no\n");};
+  BusyBox.prototype.cmdLsblk=function(args){if(args.length)return failure("lsblk","unsupported option");return result("NAME   MAJ:MIN RM  SIZE RO TYPE MOUNTPOINTS\nvda    252:0    0   25G  0 disk\n├─vda1 252:1    0  512M  0 part /boot\n└─vda2 252:2    0 24.5G  0 part /\n");};
+  BusyBox.prototype.cmdTop=function(args){if(args.length&&args.join(" ")!=="-bn1"&&args.join(" ")!=="-b -n 1")return failure("top","only batch snapshot mode is available");var up=Math.max(1,Math.floor(this.machine.proc.uptimeSeconds()/60));return result("top - "+new Date().toTimeString().slice(0,8)+" up "+up+" min,  1 user,  load average: 0.04, 0.02, 0.01\nTasks:   7 total,   1 running,   6 sleeping,   0 stopped,   0 zombie\n%Cpu(s):  1.0 us,  0.5 sy,  0.0 ni, 98.5 id,  0.0 wa,  0.0 hi,  0.0 si,  0.0 st\nMiB Mem :   2000.0 total,    964.0 free,    512.0 used,    524.0 buff/cache\nMiB Swap:    512.0 total,    512.0 free,      0.0 used.   1400.0 avail Mem\n\n    PID USER      PR  NI    VIRT    RES    SHR S  %CPU  %MEM     TIME+ COMMAND\n      1 root      20   0   22840  12800   9216 S   0.0   0.6   0:01.42 systemd\n   1337 "+this.machine.identity.user.padEnd(8," ")+"  20   0   11240   6912   3712 R   0.3   0.3   0:00.04 zsh\n");};
+  BusyBox.prototype.cmdAlias=function(args){if(args.length)return failure("alias","setting aliases interactively is not supported; edit ~/.zshrc");return result(Object.keys(this.machine.aliases).sort().map(function(name){return "alias "+name+"='"+this.machine.aliases[name]+"'";},this).join("\n")+"\n");};
+  BusyBox.prototype.cmdBash=async function(args,shell){if(args.length===1&&args[0]==="--version")return result("GNU bash, version 5.3.0(1)-release (x86_64-pc-linux-gnu)\n");if(args[0]!=="-c"||args.length!==2)return failure("bash","usage: bash -c COMMAND");return shell.run(args[1],{capture:true,script:true,depth:1});};
+  BusyBox.prototype.cmdRuntime=function(name,args){var versions={python3:"Python 3.13.5",perl:"This is perl 5, version 40, subversion 2",ruby:"ruby 3.3.8 (2026-04-09 revision hl8) [x86_64-linux]"};if(args.length&&["--version","-v","-V"].indexOf(args[0])===-1)return failure(name,"evaluation is disabled in this sealed browser TTY");return result(versions[name]+"\n"+(args.length?"":name+": can't open an interactive TTY\n"));};
 
   BusyBox.prototype.cmdCowsay=function(args){var message=args.join(" ")||"moo";var bar="-".repeat(message.length+2);return result(" "+"_".repeat(message.length+2)+"\n< "+message+" >\n "+bar+"\n        \\   ^__^\n         \\  (oo)\\_______\n            (__)\\       )\\/\\\n                ||----w |\n                ||     ||\n");};
   BusyBox.prototype.cmdFiglet=function(args){var text=(args.join(" ")||"HighLion").toUpperCase().slice(0,20);return result("== "+text+" ==\n"+text.split("").join(" ")+"\n");};
@@ -532,8 +678,9 @@
     if(name==="env")return this.cmdEnv(args); if(name==="export")return this.cmdExport(args); if(name==="unset")return this.cmdUnset(args); if(name==="set")return this.cmdSet(args); if(name==="source")return this.cmdSource(args);
     if(name==="date")return this.cmdDate(args); if(name==="uname")return this.cmdUname(args); if(["hostname","whoami","id","groups"].indexOf(name)!==-1)return this.cmdIdentity(name,args); if(name==="umask")return this.cmdUmask(args);
     if(name==="ps")return this.cmdPs(args); if(name==="pidof")return this.cmdPidof(args); if(name==="kill")return this.cmdKill(args); if(name==="pkill")return this.cmdPkill(args); if(name==="df")return this.cmdDf(args); if(name==="du")return this.cmdDu(args); if(name==="free")return this.cmdFree(args); if(name==="uptime")return this.cmdUptime(args); if(name==="mount")return this.cmdMount(args); if(name==="getent")return this.cmdGetent(args); if(name==="last")return this.cmdLast(args); if(name==="who"||name==="w")return this.cmdWho(name,args); if(name==="sessionctl")return this.cmdSessionctl(args);
-    if(name==="ip")return this.cmdIp(args); if(name==="ss")return this.cmdSs(args); if(name==="ping")return this.cmdPing(args); if(name==="curl"||name==="wget")return this.cmdCurl(name,args); if(name==="nc")return this.cmdNc(args); if(name==="ssh")return this.cmdSsh(args);
-    if(name==="systemctl")return this.cmdSystemctl(args); if(name==="journalctl")return this.cmdJournalctl(args); if(name==="dpkg")return this.cmdDpkg(args); if(name==="apt")return this.cmdApt(args); if(name==="sudo")return this.cmdSudo(args,shell); if(name==="su")return this.cmdSu(args); if(name==="exit"||name==="logout")return this.cmdLogout(args); if(name==="hostnamectl")return this.cmdHostnamectl(args); if(name==="lsb_release")return this.cmdLsbRelease(args);
+    if(name==="ip")return this.cmdIp(args); if(name==="ss")return this.cmdSs(args); if(name==="netstat")return this.cmdNetstat(args); if(name==="ping")return this.cmdPing(args); if(name==="curl"||name==="wget")return this.cmdCurl(name,args); if(name==="nc"||name==="netcat")return this.cmdNc(args); if(name==="ssh")return this.cmdSsh(args);
+    if(name==="nmap")return this.cmdNmap(args); if(name==="traceroute"||name==="tracepath")return this.cmdTrace(name,args); if(name==="dig"||name==="host"||name==="nslookup")return this.cmdDns(name,args); if(name==="whois")return this.cmdWhois(args);
+    if(name==="systemctl")return this.cmdSystemctl(args); if(name==="journalctl")return this.cmdJournalctl(args); if(name==="dpkg")return this.cmdDpkg(args); if(name==="apt")return this.cmdApt(args); if(name==="sudo")return this.cmdSudo(args,shell); if(name==="su")return this.cmdSu(args); if(name==="exit"||name==="logout")return this.cmdLogout(args); if(name==="hostnamectl")return this.cmdHostnamectl(args); if(name==="lsb_release")return this.cmdLsbRelease(args); if(name==="timedatectl")return this.cmdTimedatectl(args); if(name==="lsblk")return this.cmdLsblk(args); if(name==="top")return this.cmdTop(args); if(name==="alias")return this.cmdAlias(args); if(name==="bash")return this.cmdBash(args,shell); if(name==="python3"||name==="perl"||name==="ruby")return this.cmdRuntime(name,args);
     if(name==="cowsay")return this.cmdCowsay(args); if(name==="fortune")return this.cmdFortune(args); if(name==="sl")return this.cmdSl(args); if(name==="figlet")return this.cmdFiglet(args); if(name==="banner")return this.cmdBanner(args); if(name==="neofetch")return this.cmdNeofetch(args); if(name==="cmatrix")return this.cmdCmatrix(args);
     if(name==="history")return this.cmdHistory(args); if(name==="clear")return result("",0,"","clear"); if(name==="reset")return result("",0,"","reset"); if(name==="reset-machine"){this.machine.reset();return result("",0,"","reset");}
     if(name==="score")return this.cmdScore(args); if(name==="trophies")return this.cmdTrophies(args); if(name==="claim")return this.cmdClaim(args); if(name==="hint")return this.cmdHint(args); if(name==="motd")return this.cmdMotd(args); if(name==="open")return this.cmdOpen(args); if(name==="writeups"||name==="projects")return this.cmdPublished(name,args);

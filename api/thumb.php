@@ -11,12 +11,16 @@ if (!in_array($requestMethod, ['GET', 'HEAD'], true)) {
 
 $id = strtolower(trim((string) ($_GET['id'] ?? '')));
 if (preg_match('/^[a-f0-9]{40}$/', $id) !== 1) {
-    hl_json(['ok' => false], 404);
+    header('Location: /assets/thumbs/highlion.png', true, 302);
+    header('Cache-Control: public, max-age=300');
+    exit;
 }
 
 $path = '/var/tmp/highlion-thumbs/' . $id;
 if (!is_file($path) || !is_readable($path)) {
-    hl_json(['ok' => false], 404);
+    header('Location: /assets/thumbs/highlion.png', true, 302);
+    header('Cache-Control: public, max-age=300');
+    exit;
 }
 
 $contentType = 'image/jpeg';

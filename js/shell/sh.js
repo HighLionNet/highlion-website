@@ -300,7 +300,6 @@
       var run = await this.runPipeline(group.tokens, options);
       output.stdout += run.stdout; output.stderr += run.stderr; output.status = run.status; output.effect = run.effect || output.effect;
       this.machine.env["?"] = String(run.status);
-      if (run.effect && run.effect.type === "su-auth") break;
     }
     return output;
   };

@@ -149,15 +149,25 @@ $exactCounts = [];
 $paths = [];
 $count = 0;
 $cutoff = time() - 900;
-$probePaths = [
-    '/api/traffic.php',
-    '/api/traffic',
-    '/api/csrf.php',
-    '/api/csrf',
-    '/assets/ping.txt',
-];
+$excludedPath = static function (string $path): bool {
+    if (strpos($path, '/cdn-cgi/') === 0) {
+        return true;
+    }
+    foreach ([
+        '/api/traffic.php', '/api/traffic', '/api/csrf.php', '/api/csrf', '/assets/ping.txt',
+        '/api/shell-slot.php', '/api/shell-slot', '/api/thumb.php', '/api/thumb',
+    ] as $probe) {
+        if ($path === $probe || strpos($path, $probe . '/') === 0) {
+            return true;
+        }
+    }
+    return false;
+};
 foreach ($parsed as $row) {
     if ($hasTimestamps && (!is_int($row['time']) || $row['time'] < $cutoff)) {
+        continue;
+    }
+    if ($excludedPath((string) $row['path'])) {
         continue;
     }
     $count += 1;
@@ -165,12 +175,9 @@ foreach ($parsed as $row) {
     if (array_key_exists($family, $codes)) {
         $codes[$family] += 1;
     }
-    $isProbe = in_array($row['path'], $probePaths, true);
-    if (!$isProbe) {
-        $status = (int) $row['status'];
-        $exactCounts[$status] = ($exactCounts[$status] ?? 0) + 1;
-    }
-    if ($row['path'] !== '' && !$isProbe) {
+    $status = (int) $row['status'];
+    $exactCounts[$status] = ($exactCounts[$status] ?? 0) + 1;
+    if ($row['path'] !== '') {
         $paths[$row['path']] = ($paths[$row['path']] ?? 0) + 1;
     }
 }

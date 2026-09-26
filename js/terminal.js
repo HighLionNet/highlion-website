@@ -30,7 +30,9 @@
 
   function acquireSlot() {
     if (!acquirePromise) {
-      acquirePromise = slotPost({ op: "acquire" }).then(function (payload) {
+      acquirePromise = csrfToken().then(function (token) {
+        return slotPost({ op: "acquire" }, { "X-CSRF-Token": token });
+      }).then(function (payload) {
         slot = {
           mode: payload && payload.mode === "full" ? "full" : "fallback",
           id: payload && typeof payload.id === "string" ? payload.id : "",
@@ -167,7 +169,6 @@
     var input = null;
     var historyIndex = 0;
     var running = false;
-    var authPending = false;
     var runSerial = 0;
     var reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     var matrixFrame = 0;
@@ -223,16 +224,6 @@
       input = null;
     }
 
-    function freezeSecret() {
-      if (!live) return;
-      var row = document.createElement("div");
-      row.className = "hlterm-command hlterm-muted";
-      row.textContent = "Password: ";
-      live.replaceWith(row);
-      live = null;
-      input = null;
-    }
-
     function addLive() {
       if (running || !machine) return;
       updateTitle();
@@ -241,15 +232,14 @@
       var label = document.createElement("label");
       input = document.createElement("input");
       label.htmlFor = inputId;
-      if (authPending) label.appendChild(document.createTextNode("Password: "));
-      else appendPrompt(label);
+      appendPrompt(label);
       input.id = inputId;
       input.className = "hlterm-input";
-      input.type = authPending ? "password" : "text";
+      input.type = "text";
       input.autocomplete = "off";
       input.autocapitalize = "off";
       input.spellcheck = false;
-      input.setAttribute("aria-label", authPending ? "Password" : "Terminal command");
+      input.setAttribute("aria-label", "Terminal command");
       live.append(label, input);
       stream.appendChild(live);
       input.addEventListener("keydown", handleKey);
@@ -310,11 +300,6 @@
       else if (effect === "matrix-off") setMatrix(false);
       else if (effect === "reset") { setMatrix(false); stream.replaceChildren(); }
       else if (effect.navigate) window.location.assign(effect.navigate);
-      else if (effect.type === "su-auth") {
-        authPending = true;
-        addLive();
-        return true;
-      }
       return false;
     }
 
@@ -335,14 +320,6 @@
       if (!effectOwnsPrompt) addLive();
     }
 
-    function rejectAuthentication() {
-      running = false;
-      authPending = false;
-      appendLine("su: Authentication failure", "hlterm-error");
-      if (window.HighLionSfx) window.HighLionSfx.error();
-      addLive();
-    }
-
     function complete() {
       var caret = input.selectionStart === null ? input.value.length : input.selectionStart;
       var completion = shell.complete(input.value, caret);
@@ -361,9 +338,7 @@
       if (event.ctrlKey && key === "c") {
         event.preventDefault();
         if (matrixWanted) setMatrix(false);
-        if (authPending) freezeSecret();
-        else freeze(input.value);
-        authPending = false;
+        freeze(input.value);
         appendLine("^C", "hlterm-muted");
         addLive();
       } else if (event.ctrlKey && key === "l") {
@@ -384,27 +359,22 @@
       } else if (event.key === "Enter") {
         event.preventDefault();
         var raw = input.value;
-        if (authPending) {
-          freezeSecret();
-          rejectAuthentication();
-          return;
-        }
         freeze(raw);
         if (!raw.trim()) { addLive(); return; }
         machine.addHistory(raw);
         historyIndex = machine.history.length;
         execute(raw);
-      } else if (!authPending && event.key === "ArrowUp") {
+      } else if (event.key === "ArrowUp") {
         event.preventDefault();
         if (historyIndex > 0) historyIndex -= 1;
         input.value = machine.history[historyIndex] || "";
         input.setSelectionRange(input.value.length, input.value.length);
-      } else if (!authPending && event.key === "ArrowDown") {
+      } else if (event.key === "ArrowDown") {
         event.preventDefault();
         if (historyIndex < machine.history.length) historyIndex += 1;
         input.value = machine.history[historyIndex] || "";
         input.setSelectionRange(input.value.length, input.value.length);
-      } else if (!authPending && event.key === "Tab") {
+      } else if (event.key === "Tab") {
         event.preventDefault(); complete();
       }
     }
@@ -416,7 +386,7 @@
       appendLine("Kali GNU/Linux Rolling", "hlterm-muted");
       appendLine("highlion tty1", "hlterm-muted");
       appendLine("", "hlterm-muted");
-      appendLine("kali@highlion login: kali", "hlterm-muted");
+      appendLine(machine.identity.user + "@highlion login: " + machine.identity.user, "hlterm-muted");
       var client = "10.8.0." + String(20 + Math.floor(Math.random() * 30));
       appendLine("Last login: " + new Date().toString() + " on tty1 from " + client, "hlterm-muted");
       addLive();
@@ -425,7 +395,6 @@
     function activateFallback() {
       runSerial += 1;
       running = false;
-      authPending = false;
       setMatrix(false);
       machine = fallbackMachine();
       shell = machine.shell;

@@ -17,7 +17,7 @@
     ["/home", "0755", "root", "root"], ["/home/kali", "0755", "kali", "kali"], ["/home/kali/Desktop", "0755", "kali", "kali"], ["/home/kali/Documents", "0755", "kali", "kali"], ["/home/kali/Downloads", "0755", "kali", "kali"], ["/home/kali/.local", "0755", "kali", "kali"], ["/home/kali/.local/share", "0755", "kali", "kali"], ["/home/kali/.local/share/highlion", "0755", "kali", "kali"], ["/home/kali/.config", "0755", "kali", "kali"], ["/home/kali/notes", "0755", "kali", "kali"], ["/home/kali/mail", "0700", "kali", "kali"], ["/home/kali/.trophies", "0700", "kali", "kali"], ["/home/admin", "0750", "admin", "admin"], ["/home/admin/.config", "0750", "admin", "admin"],
     ["/root", "0700", "root", "root"], ["/root/.config", "0700", "root", "root"], ["/root/pack-drafts", "0700", "root", "root"], ["/opt", "0755", "root", "root"], ["/opt/ctf", "0755", "root", "root"],
     ["/var", "0755", "root", "root"], ["/var/log", "0755", "root", "adm"], ["/var/log/nginx", "0755", "www-data", "adm"], ["/var/tmp", "1777", "root", "root"], ["/var/lib", "0755", "root", "root"], ["/var/lib/dpkg", "0755", "root", "root"], ["/var/www", "0755", "root", "root"], ["/tmp", "1777", "root", "root"],
-    ["/proc", "0555", "root", "root"], ["/proc/self", "0555", "root", "root"], ["/proc/net", "0555", "root", "root"], ["/sys", "0555", "root", "root"], ["/sys/class", "0555", "root", "root"], ["/sys/class/net", "0555", "root", "root"], ["/sys/class/net/eth0", "0555", "root", "root"],
+    ["/proc", "0555", "root", "root"], ["/proc/self", "0555", "root", "root"], ["/proc/self/fd", "0555", "root", "root"], ["/proc/net", "0555", "root", "root"], ["/sys", "0555", "root", "root"], ["/sys/class", "0555", "root", "root"], ["/sys/class/net", "0555", "root", "root"], ["/sys/class/net/eth0", "0555", "root", "root"],
     ["/dev", "0755", "root", "root"], ["/dev/pts", "0755", "root", "root"], ["/lib", "0755", "root", "root"], ["/lib64", "0755", "root", "root"], ["/mnt", "0755", "root", "root"], ["/media", "0755", "root", "root"], ["/run", "0755", "root", "root"], ["/run/user", "0755", "root", "root"], ["/run/user/1000", "0700", "kali", "kali"], ["/run/user/1001", "0700", "admin", "admin"], ["/boot", "0755", "root", "root"], ["/srv", "0755", "root", "root"], ["/srv/highlion", "0755", "root", "root"]
   ],
   "files": {
@@ -41,10 +41,13 @@
     "/proc/version": {"mode": "0444", "owner": "root", "group": "root", "content": ""},
     "/proc/cpuinfo": {"mode": "0444", "owner": "root", "group": "root", "content": ""},
     "/proc/meminfo": {"mode": "0444", "owner": "root", "group": "root", "content": ""},
+    "/proc/loadavg": {"mode": "0444", "owner": "root", "group": "root", "content": ""},
     "/proc/uptime": {"mode": "0444", "owner": "root", "group": "root", "content": ""},
     "/proc/mounts": {"mode": "0444", "owner": "root", "group": "root", "content": ""},
     "/proc/net/dev": {"mode": "0444", "owner": "root", "group": "root", "content": ""},
+    "/proc/net/tcp": {"mode": "0444", "owner": "root", "group": "root", "content": ""},
     "/proc/self/environ": {"mode": "0400", "owner": "kali", "group": "kali", "content": ""},
+    "/proc/self/status": {"mode": "0444", "owner": "root", "group": "root", "content": ""},
     "/sys/class/net/eth0/address": {"mode": "0444", "owner": "root", "group": "root", "content": "02:68:6c:00:00:0a\n"},
     "/srv/highlion/README.txt": {"mode": "0444", "owner": "root", "group": "root", "content": "Public brochure mirror only. Server-side source is not mounted in this machine.\n"},
     "/dev/null": {"mode": "0666", "owner": "root", "group": "root", "content": "", "device": "null"},
@@ -57,9 +60,12 @@
   "symlinks": {
     "/bin/sh": "/bin/busybox",
     "/bin/zsh": "/bin/busybox",
-    "/proc/self/cwd": "/home/kali"
+    "/proc/self/cwd": "/home/kali",
+    "/proc/self/fd/0": "/dev/pts/0",
+    "/proc/self/fd/1": "/dev/pts/0",
+    "/proc/self/fd/2": "/dev/pts/0"
   },
-  "busyboxCommands": ["pwd","cd","ls","cat","head","tail","wc","tee","echo","printf","true","false","test","[","mkdir","rmdir","touch","cp","mv","rm","ln","chmod","chown","stat","file","tree","find","grep","sort","uniq","cut","tr","sha256sum","md5sum","base64","xxd","od","hexdump","less","more","man","help","which","type","command","env","export","unset","set","source","date","uname","hostname","hostnamectl","lsb_release","whoami","id","groups","umask","ps","pidof","kill","pkill","df","du","free","uptime","mount","getent","last","who","w","sessionctl","ss","ip","ping","curl","wget","nc","systemctl","journalctl","dpkg","apt","sudo","su","exit","logout","ssh","cmatrix","cowsay","fortune","sl","figlet","banner","neofetch","clear","reset","history","reset-machine","score","trophies","claim","hint","motd","open","writeups","projects"],
+  "busyboxCommands": ["pwd","cd","ls","cat","head","tail","wc","tee","echo","printf","true","false","test","[","mkdir","rmdir","touch","cp","mv","rm","ln","chmod","chown","stat","file","tree","find","grep","sort","uniq","cut","tr","sha256sum","md5sum","base64","xxd","od","hexdump","less","more","man","help","which","type","command","env","export","unset","set","source","alias","date","uname","hostname","hostnamectl","timedatectl","lsb_release","whoami","id","groups","umask","ps","top","pidof","kill","pkill","df","du","free","lsblk","uptime","mount","getent","last","who","w","sessionctl","ss","netstat","ip","ping","nmap","traceroute","tracepath","dig","host","nslookup","whois","curl","wget","nc","netcat","systemctl","journalctl","dpkg","apt","sudo","su","exit","logout","ssh","bash","python3","perl","ruby","cmatrix","cowsay","fortune","sl","figlet","banner","neofetch","clear","reset","history","reset-machine","score","trophies","claim","hint","motd","open","writeups","projects"],
   "manTemplate": "NAME\n    {command} - Kali userspace command\n\nDESCRIPTION\n    Run {command} against the mounted filesystem and local network fixtures.\n",
   "aliases": {"ll": "ls -la", "la": "ls -a", "l": "ls -l"},
   "fortunes": ["Trust the log, then verify the clock.", "Good segmentation makes boring incidents.", "Names are clues; hashes are evidence.", "The smallest reproducible case wins."],

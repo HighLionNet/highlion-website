@@ -5,14 +5,14 @@
   var imageBase = "/js/shell/image/";
 
   function fetchText(name) {
-    return fetch(imageBase + name + "?v=hl8j", { cache: "no-store", credentials: "same-origin" }).then(function (response) {
+    return fetch(imageBase + name + "?v=hl8k", { cache: "no-store", credentials: "same-origin" }).then(function (response) {
       if (!response.ok) throw new Error("machine image unavailable: " + name);
       return response.text();
     });
   }
 
   function fetchJson(name) {
-    return fetch(imageBase + name + "?v=hl8j", { cache: "no-store", credentials: "same-origin" }).then(function (response) {
+    return fetch(imageBase + name + "?v=hl8k", { cache: "no-store", credentials: "same-origin" }).then(function (response) {
       if (!response.ok) throw new Error("machine image unavailable: " + name);
       return response.json();
     });

@@ -40,6 +40,7 @@
     this.aliases = {};
     this.umask = "0022";
     this.claimed = [];
+    this.userStack = [];
     this.lease = { id: "", operator: false };
     this.sessionControl = null;
     this.proc = new HL.ProcessTable(image.proc, this.started);
@@ -121,7 +122,19 @@
     if (this.lease.operator) this.switchUser("root", { persist: false });
   };
 
+  Machine.prototype.su = function (name) {
+    if (!this.isRoot() && !this.lease.operator) return false;
+    if (name === this.identity.user) return true;
+    this.userStack.push(this.identity.user);
+    this.switchUser(name, { persist: false });
+    return true;
+  };
+
   Machine.prototype.logoutRoot = function () {
+    if (this.userStack.length) {
+      this.switchUser(this.userStack.pop(), { persist: false });
+      return true;
+    }
     if (!this.isRoot()) return false;
     this.switchUser(this.visitorName, { persist: false });
     return true;

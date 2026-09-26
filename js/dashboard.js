@@ -1,94 +1,130 @@
 (function () {
   "use strict";
 
-  var sessions = document.getElementById("dSessions");
-  if (!sessions) return;
-
+  var board = document.querySelector(".ops-board");
+  if (!board) return;
   var started = Date.now();
   var motionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
-  var nodes = {
-    clock: document.getElementById("dClock"),
-    uptime: document.getElementById("dUptime"),
-    timezone: document.getElementById("dTimezone"),
-    localTime: document.getElementById("dLocalTime"),
-    utcTime: document.getElementById("dUtcTime"),
-    userAgent: document.getElementById("dUserAgent"),
-    hostOS: document.getElementById("dHostOS"),
-    cpuCores: document.getElementById("dCpuCores"),
-    viewport: document.getElementById("dViewport"),
-    pixelRatio: document.getElementById("dPixelRatio"),
-    language: document.getElementById("dLanguage"),
-    network: document.getElementById("dNetwork"),
-    online: document.getElementById("dOnline"),
-    page: document.getElementById("dPage"),
-    site: document.getElementById("dSite"),
-    motion: document.getElementById("dMotion"),
-    latency: document.getElementById("dLatency"),
-    probe: document.getElementById("dProbe"),
-    protocol: document.getElementById("dProtocol"),
-    trafficCount: document.getElementById("tCount"),
-    trafficBars: document.getElementById("tBars"),
-    trafficNote: document.getElementById("tNote"),
-    topPath: document.getElementById("dTopPath")
-  };
+  var contrastMore = window.matchMedia("(prefers-contrast: more)");
+  var contrastLess = window.matchMedia("(prefers-contrast: less)");
+  var uaData = navigator.userAgentData || null;
+  var connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+  var ids = [
+    "dClock", "dUptime", "dTimezone", "dUtcOffset", "dLocalTime", "dUtcTime", "dUserAgent", "dUaBrands",
+    "dPlatform", "dMobile", "dArch", "dCpuCores", "dDeviceMemory", "dViewport", "dScreen", "dColorDepth",
+    "dPixelRatio", "dOrientation", "dLanguage", "dLanguages", "dPage", "dReferrer", "dProtocol", "dOnline",
+    "dNetworkType", "dDownlink", "dRtt", "dSaveData", "dMotion", "dContrast", "dTouchPoints", "dCookies",
+    "dPdfView", "dVisibility", "dLatency", "dProbe", "dSite", "tCount", "tBars", "tNote", "dTopPath"
+  ];
+  var nodes = {};
+  ids.forEach(function (id) { nodes[id] = document.getElementById(id); });
 
-  function set(node, value) {
-    if (node) node.textContent = value;
+  function set(id, value) {
+    if (nodes[id]) nodes[id].textContent = value === undefined || value === null || value === "" ? "—" : String(value);
+  }
+
+  function yesNo(value) {
+    return value === undefined || value === null ? "—" : (value ? "yes" : "no");
   }
 
   function formatElapsed() {
     var seconds = Math.floor((Date.now() - started) / 1000);
-    var hours = Math.floor(seconds / 3600);
-    var minutes = Math.floor((seconds % 3600) / 60);
-    return String(hours).padStart(2, "0") + ":" +
-      String(minutes).padStart(2, "0") + ":" +
+    return String(Math.floor(seconds / 3600)).padStart(2, "0") + ":" +
+      String(Math.floor((seconds % 3600) / 60)).padStart(2, "0") + ":" +
       String(seconds % 60).padStart(2, "0");
+  }
+
+  function utcOffset() {
+    var minutes = -new Date().getTimezoneOffset();
+    var sign = minutes >= 0 ? "+" : "-";
+    var absolute = Math.abs(minutes);
+    return "UTC" + sign + String(Math.floor(absolute / 60)).padStart(2, "0") + ":" + String(absolute % 60).padStart(2, "0");
   }
 
   function updateClock() {
     var now = new Date();
     var local = now.toLocaleTimeString([], { hour12: false });
-    var utc = now.toISOString().slice(11, 19) + "Z";
-    set(nodes.uptime, formatElapsed());
-    set(nodes.localTime, local);
-    set(nodes.utcTime, utc);
-    set(nodes.clock, local);
+    set("dUptime", formatElapsed());
+    set("dLocalTime", local);
+    set("dUtcTime", now.toISOString().slice(11, 19) + "Z");
+    set("dClock", local);
+  }
+
+  function brandsText() {
+    if (!uaData || !Array.isArray(uaData.brands)) return "—";
+    return uaData.brands.map(function (row) { return row.brand + " " + row.version; }).join(", ") || "—";
   }
 
   function browserLabel(ua) {
-    var match = ua.match(/Edg\/([\d.]+)/);
-    var name = "Edge";
-    if (!match) { match = ua.match(/Firefox\/([\d.]+)/); name = "Firefox"; }
-    if (!match) { match = ua.match(/Chrome\/([\d.]+)/); name = "Chrome"; }
-    if (!match && !/Chrome\//.test(ua)) { match = ua.match(/Version\/([\d.]+).*Safari\//); name = "Safari"; }
-    return match ? name + " " + match[1].split(".")[0] : "Browser";
+    var match;
+    if (navigator.brave) {
+      match = ua.match(/Chrome\/([\d.]+)/);
+      return "Brave " + (match ? match[1].split(".")[0] : "");
+    }
+    match = ua.match(/Edg(?:A|iOS)?\/([\d.]+)/);
+    if (match) return "Edge " + match[1].split(".")[0];
+    match = ua.match(/OPR\/([\d.]+)/);
+    if (match) return "Opera " + match[1].split(".")[0];
+    match = ua.match(/Firefox\/([\d.]+)/);
+    if (match) return "Firefox " + match[1].split(".")[0];
+    if (uaData && Array.isArray(uaData.brands)) {
+      var preferred = uaData.brands.find(function (row) { return !/not.?a.?brand/i.test(row.brand); });
+      if (preferred) return preferred.brand + " " + String(preferred.version).split(".")[0];
+    }
+    match = ua.match(/Chrome\/([\d.]+)/);
+    if (match) return "Chrome " + match[1].split(".")[0];
+    match = ua.match(/Version\/([\d.]+).*Safari\//);
+    return match ? "Safari " + match[1].split(".")[0] : "Browser";
   }
 
-  function hostOS(ua) {
+  function parsedPlatform(ua) {
+    if (/Macintosh/.test(ua) && navigator.maxTouchPoints > 0) return "iPadOS";
     if (/Android/.test(ua)) return "Android";
     if (/iPhone|iPad|iPod/.test(ua)) return "iOS";
-    if (/Windows/.test(ua)) return "Windows";
-    if (/Mac OS/.test(ua)) return "macOS";
+    if (/Windows NT/.test(ua)) return "Windows";
+    if (/Mac OS X/.test(ua)) return "macOS";
+    if (/CrOS/.test(ua)) return "ChromeOS";
     if (/Linux/.test(ua)) return "Linux";
-    return "Unknown";
+    return "—";
   }
 
   function updateViewport() {
-    set(nodes.viewport, window.innerWidth + "×" + window.innerHeight);
-    set(nodes.pixelRatio, String(Math.round((window.devicePixelRatio || 1) * 100) / 100));
+    set("dViewport", window.innerWidth + "×" + window.innerHeight);
+    set("dScreen", screen.width + "×" + screen.height);
+    set("dColorDepth", Number.isFinite(screen.colorDepth) ? screen.colorDepth + "-bit" : "—");
+    set("dPixelRatio", Math.round((window.devicePixelRatio || 1) * 100) / 100);
+    updateOrientation();
+  }
+
+  function updateOrientation() {
+    var value = screen.orientation && screen.orientation.type;
+    if (!value) value = window.innerWidth >= window.innerHeight ? "landscape" : "portrait";
+    set("dOrientation", value);
   }
 
   function updateOnline() {
-    set(nodes.online, navigator.onLine ? "online" : "offline");
+    set("dOnline", navigator.onLine ? "online" : "offline");
   }
 
-  function updateMotion() {
-    set(nodes.motion, motionQuery.matches ? "reduced" : "full");
+  function updatePreferences() {
+    set("dMotion", motionQuery.matches ? "reduced" : "full");
+    set("dContrast", contrastMore.matches ? "more" : (contrastLess.matches ? "less" : "no preference"));
+  }
+
+  function updateVisibility() {
+    set("dVisibility", document.visibilityState || "—");
   }
 
   function updateNetwork() {
-    var connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
-    set(nodes.network, connection ? (connection.type || connection.effectiveType || "—") : "—");
+    set("dNetworkType", connection && connection.effectiveType ? connection.effectiveType : "—");
+    set("dDownlink", connection && Number.isFinite(connection.downlink) ? connection.downlink + " Mb/s" : "—");
+    set("dRtt", connection && Number.isFinite(connection.rtt) ? connection.rtt + " ms" : "—");
+    set("dSaveData", connection && typeof connection.saveData === "boolean" ? yesNo(connection.saveData) : "—");
+  }
+
+  function referrerHost() {
+    if (!document.referrer) return "direct";
+    try { return new URL(document.referrer).host || "direct"; } catch (error) { return "direct"; }
   }
 
   function renderTraffic(payload) {
@@ -97,16 +133,16 @@
     var exact = ok && Array.isArray(payload.exact) ? payload.exact.filter(function (row) {
       return row && /^\d{3}$/.test(String(row.code)) && Number(row.n) > 0;
     }).slice(0, 5) : [];
-    set(nodes.trafficCount, ok ? String(total) : "—");
-    set(nodes.trafficNote, ok ? "" : "no log access");
-    set(nodes.topPath, ok && payload.top && payload.top[0] && payload.top[0].path ? payload.top[0].path : "—");
-    if (!nodes.trafficBars) return;
-    nodes.trafficBars.replaceChildren();
+    set("tCount", ok ? total : "—");
+    set("tNote", ok ? "" : "no log access");
+    set("dTopPath", ok && payload.top && payload.top[0] && payload.top[0].path ? payload.top[0].path : "—");
+    if (!nodes.tBars) return;
+    nodes.tBars.replaceChildren();
     if (!exact.length) {
       var empty = document.createElement("div");
       empty.className = "traffic-empty";
       empty.textContent = "no codes";
-      nodes.trafficBars.appendChild(empty);
+      nodes.tBars.appendChild(empty);
       return;
     }
     var exactTotal = exact.reduce(function (sum, row) { return sum + Number(row.n); }, 0);
@@ -121,6 +157,7 @@
       row.className = "traffic-row";
       row.dataset.code = code;
       row.dataset.family = code.charAt(0);
+      if (code === "499") row.title = "499 — client closed request";
       label.textContent = code;
       track.className = "traffic-track";
       fill.className = "traffic-fill";
@@ -128,78 +165,77 @@
       number.textContent = String(value);
       track.appendChild(fill);
       row.append(label, track, number);
-      nodes.trafficBars.appendChild(row);
+      nodes.tBars.appendChild(row);
     });
   }
 
-  function requestJson(url) {
-    return fetch(url, {
-      credentials: "same-origin",
-      headers: { Accept: "application/json" },
-      cache: "no-store"
-    }).then(function (response) {
-      if (!response.ok) throw new Error("request unavailable");
-      return response.json();
-    });
+  function requestTraffic(url) {
+    return fetch(url, { credentials: "same-origin", headers: { Accept: "application/json" }, cache: "no-store" })
+      .then(function (response) {
+        if (!response.ok) throw new Error("traffic unavailable");
+        return response.json();
+      });
   }
 
   function loadTraffic() {
-    requestJson("/api/traffic.php")
-      .catch(function () { return requestJson("/api/traffic"); })
+    requestTraffic("/api/traffic.php")
+      .catch(function () { return requestTraffic("/api/traffic"); })
       .then(renderTraffic)
-      .catch(function () { renderTraffic({ ok: false, count: 0, codes: {} }); });
+      .catch(function () { renderTraffic({ ok: false, count: 0 }); });
   }
 
   function loadLatency() {
     var sessionMeta = window.HighLionSessionMeta;
-    if (!sessionMeta || !sessionMeta.latency) {
-      set(nodes.latency, "—");
-      set(nodes.probe, "—");
-      return;
-    }
+    if (!sessionMeta || !sessionMeta.latency) return;
     sessionMeta.latency.then(function (result) {
-      set(nodes.latency, result && Number.isFinite(result.ms) ? result.ms + " ms" : "—");
-      set(nodes.probe, result && result.url ? result.url : "—");
-    }).catch(function () {
-      set(nodes.latency, "—");
-      set(nodes.probe, "—");
-    });
+      set("dLatency", result && Number.isFinite(result.ms) ? result.ms + " ms" : "—");
+      set("dProbe", result && result.url ? result.url : "—");
+    }).catch(function () { set("dLatency", "—"); set("dProbe", "—"); });
   }
 
-  try {
-    var count = Number.parseInt(localStorage.getItem("highlion_sessions") || "0", 10) + 1;
-    localStorage.setItem("highlion_sessions", String(count));
-    sessions.textContent = String(count).padStart(3, "0");
-  } catch (error) {
-    sessions.textContent = "001";
+  var ua = navigator.userAgent || "";
+  set("dUserAgent", browserLabel(ua).trim());
+  if (nodes.dUserAgent) nodes.dUserAgent.title = ua;
+  set("dUaBrands", brandsText());
+  set("dPlatform", (uaData && uaData.platform) || parsedPlatform(ua));
+  set("dMobile", uaData && typeof uaData.mobile === "boolean" ? yesNo(uaData.mobile) : (/Mobile|Android|iPhone|iPad/.test(ua) ? "yes" : "no"));
+  set("dArch", "—");
+  if (uaData && typeof uaData.getHighEntropyValues === "function") {
+    uaData.getHighEntropyValues(["architecture"]).then(function (values) { set("dArch", values.architecture || "—"); }).catch(function () {});
   }
-
-  var ua = navigator.userAgent;
-  set(nodes.userAgent, browserLabel(ua));
-  if (nodes.userAgent) nodes.userAgent.title = ua;
-  set(nodes.hostOS, hostOS(ua));
-  set(nodes.cpuCores, navigator.hardwareConcurrency ? navigator.hardwareConcurrency + " cores" : "—");
-  set(nodes.language, navigator.language || "—");
-  set(nodes.timezone, Intl.DateTimeFormat().resolvedOptions().timeZone || "—");
-  set(nodes.page, window.location.pathname || "/");
-  set(nodes.site, "HLv8");
-  set(nodes.protocol, window.location.protocol.replace(":", "") || "—");
+  set("dCpuCores", navigator.hardwareConcurrency ? navigator.hardwareConcurrency : "—");
+  set("dDeviceMemory", Number.isFinite(navigator.deviceMemory) ? navigator.deviceMemory + " GB" : "—");
+  set("dLanguage", navigator.language || "—");
+  set("dLanguages", Array.isArray(navigator.languages) && navigator.languages.length ? navigator.languages.join(", ") : "—");
+  set("dTimezone", Intl.DateTimeFormat().resolvedOptions().timeZone || "—");
+  set("dUtcOffset", utcOffset());
+  set("dPage", window.location.pathname || "/");
+  set("dReferrer", referrerHost());
+  set("dProtocol", window.location.protocol.replace(":", "") || "—");
+  set("dTouchPoints", Number.isFinite(navigator.maxTouchPoints) ? navigator.maxTouchPoints : "—");
+  set("dCookies", yesNo(navigator.cookieEnabled));
+  set("dPdfView", typeof navigator.pdfViewerEnabled === "boolean" ? yesNo(navigator.pdfViewerEnabled) : "—");
+  set("dSite", "HLv8");
 
   updateViewport();
   updateOnline();
-  updateMotion();
+  updatePreferences();
+  updateVisibility();
   updateNetwork();
   updateClock();
-  renderTraffic({ ok: false, count: 0, codes: {} });
+  renderTraffic({ ok: false, count: 0 });
   loadTraffic();
   loadLatency();
 
   window.addEventListener("resize", updateViewport, { passive: true });
   window.addEventListener("online", updateOnline);
   window.addEventListener("offline", updateOnline);
-  motionQuery.addEventListener("change", updateMotion);
-  var connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+  document.addEventListener("visibilitychange", updateVisibility);
+  if (screen.orientation && typeof screen.orientation.addEventListener === "function") screen.orientation.addEventListener("change", updateOrientation);
   if (connection && typeof connection.addEventListener === "function") connection.addEventListener("change", updateNetwork);
+  motionQuery.addEventListener("change", updatePreferences);
+  contrastMore.addEventListener("change", updatePreferences);
+  contrastLess.addEventListener("change", updatePreferences);
   window.setInterval(updateClock, 1000);
   window.setInterval(loadTraffic, 15 * 60 * 1000);
 })();

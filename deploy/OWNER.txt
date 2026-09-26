@@ -1,79 +1,45 @@
-HIGHLION DEBIAN CUT-IN (HLv8 / hl8j)
+HIGHLION DEBIAN CUT-IN (HLv8 / hl8k)
 
-1. Sync git to disk in this direction only:
+1. Sync the git checkout to the web root in this direction only:
      sudo rsync -a --delete --exclude '.git/' /path/to/highlion-website/ /var/www/highlion/
-   The copy is typed in git. From now on, do not edit live HTML and forget to copy it back.
+   Never edit live HTML without copying the change back to git.
 
-2. Install and include both nginx snippets:
-     sudo cp /var/www/highlion/deploy/nginx-headers.conf /etc/nginx/snippets/highlion-headers.conf
-     sudo cp /var/www/highlion/deploy/nginx-api.conf /etc/nginx/snippets/highlion-api.conf
-   Inside the www.highlion.net server block:
-     include snippets/highlion-headers.conf;
-     include snippets/highlion-api.conf;
-   Keep /api/ outside the IL geo map, then run:
+2. Keep the existing nginx snippets installed and confirm PHP-FPM serves /api/ outside the contact-page geo fence:
      sudo nginx -t && sudo systemctl reload nginx
-
-3. Purge the bare stylesheet URL from Cloudflare:
-     https://www.highlion.net/css/style.css
-   Purge both the bare URL and prior ?v=hl8i asset cache after deploying ?v=hl8j.
-   Cloudflare dashboard → Caching → Purge Custom URL.
-
-4. If the strict CSP breaks pages behind Cloudflare, disable Cloudflare Email Obfuscation and Rocket Loader for this zone. Keep script-src 'self'; do not add unsafe-eval or inline script permission.
-
-5. Create the thumbnail store as www-data:
-     sudo install -d -m 0750 -o www-data -g www-data /var/tmp/highlion-thumbs
-   Confirm www-data can write /var/tmp/highlion-intel.json and /var/tmp/highlion-thumbs.json.
-
-6. Confirm HEAD is accepted by every GET API:
      curl -sI https://www.highlion.net/api/intel.php
      curl -sI https://www.highlion.net/api/csrf.php
      curl -sI https://www.highlion.net/api/traffic.php
      curl -sI 'https://www.highlion.net/api/thumb.php?id=00'
-   The first three must return 200, not 405. The invalid thumbnail must return 404, not 405.
+   All four HEAD requests must be handled; an invalid thumbnail now redirects to /assets/thumbs/highlion.png.
 
-7. Confirm the intel payload has at least six distinct thumbnail IDs:
-     curl -s https://www.highlion.net/api/intel.php
-   At least six items must match /api/thumb.php?id=<40 lowercase hex>.
+3. Purge this Cloudflare URL after rsync, or rely on the new hl8k query token:
+     https://www.highlion.net/css/style.css
 
-8. Confirm the geo fence remains limited to the contact page:
-     off-IL: curl -sI https://www.highlion.net/contact.html  → 403
-     any-IP: /api/* remains reachable
+4. Create the writable thumbnail and shell-lease stores:
+     sudo install -d -m 0750 -o www-data -g www-data /var/tmp/highlion-thumbs
+     sudo touch /var/tmp/highlion-intel.json /var/tmp/highlion-thumbs.json /var/tmp/highlion-shell-slots.json
+     sudo chown www-data:www-data /var/tmp/highlion-intel.json /var/tmp/highlion-thumbs.json /var/tmp/highlion-shell-slots.json
+     sudo chmod 0660 /var/tmp/highlion-intel.json /var/tmp/highlion-thumbs.json /var/tmp/highlion-shell-slots.json
+   After one cold /api/intel.php request, confirm at least six items have distinct 40-character thumbnail IDs and every file in /var/tmp/highlion-thumbs is at most 204800 bytes.
 
-9. Do not rsync .git. The rsync command in step 1 excludes it.
+5. Fix and verify the operator-only simulated root session. PHP-FPM must be able to read this file; 0600 root:www-data is wrong:
+     sudo install -d -m 0750 -o root -g www-data /etc/highlion
+     sudo touch /etc/highlion/shell.env
+     sudo chown root:www-data /etc/highlion/shell.env
+     sudo chmod 0640 /etc/highlion/shell.env
+   Keep these values in that file, never in git:
+     HL_SHELL_SLOTS=8
+     HL_SHELL_TTL=90
+     HL_SHELL_HEARTBEAT=30
+     HL_OP_COOKIE=<long-random-secret>
+   In the intended Firefox container, set cookie hl_op on www.highlion.net with Path=/, Secure, and SameSite=Lax. Reload the page, open DevTools Network, and inspect the acquire POST to /api/shell-slot.php: it must return mode:"full", operator:true. The terminal must then boot as root. While that operator lease is active, `su admin`, `su kali`, and `su root` switch immediately; no simulated password prompt exists. A normal browser without hl_op boots as kali and `su` fails immediately. Remove the cookie to remove operator access.
 
-10. Leave assets/fonts/generate-fonts.sh unchanged. If local WOFF2 assets are missing, run the existing script exactly as before:
-      sudo bash /var/www/highlion/assets/fonts/generate-fonts.sh
+6. Keep /etc/highlion/letterbox.env and /etc/highlion/honeypot.env root:www-data mode 0640. Do not commit any /etc/highlion/*.env file. Re-run the existing contact, honeypot, claim, and geo-fence checks after deployment.
 
-11. Leave the Telegram secret files on the Pi and unchanged:
-      /etc/highlion/letterbox.env
-      /etc/highlion/honeypot.env
-    Keep both root:www-data mode 0640. Never copy either file into git.
+7. If local WOFF2 assets are missing, run the existing generator:
+     sudo bash /var/www/highlion/assets/fonts/generate-fonts.sh
+   Deploy 403.html and 404.html explicitly if nginx error_page routing does not already use them.
 
-12. Re-run the claim and honeypot tests:
-      curl -s -H 'Origin: https://www.highlion.net' -H 'Content-Type: application/json' \
-        --data '{"flag":"HL8{spare-field}","ts":0}' https://www.highlion.net/api/ctf.php
-      → 200 ok, a new /var/tmp/highlion-ctf.log line, and a [HL CTF] Telegram through letterbox.env
+8. Deferred owner checks: remove any legacy duplicate X-HighLion header at the nginx/Cloudflare layer; confirm /api/thumb/ is routed to its index.php rather than an nginx directory-listing 403; keep the current .ico social preview until a dedicated Open Graph image exists; review privacy/terms/cookie copy if policy requires it; harden rate-bucket filenames if shared-host threat assumptions change; verify mobile hash rows after CDN transforms. The contact-page off-IL 403 is intentional. Public lab flags remain intentional.
 
-      POST company:"bot" to /api/contact.php
-      → 200 ok, a new /var/tmp/highlion-honeypot.log line, and the existing honeypot Telegram
-
-   GET or HEAD on /api/contact.php must still take the bad-method honeypot path and return 405.
-
-13. Configure full-machine leases and the owner-only emergency session. Do not run these from Codex:
-      sudo install -m 600 -o root -g www-data /dev/null /etc/highlion/shell.env
-      # owner writes:
-      # HL_SHELL_SLOTS=8
-      # HL_SHELL_TTL=90
-      # HL_SHELL_HEARTBEAT=30
-      # HL_OP_COOKIE=<long random>
-      sudo mkdir -p /var/tmp
-      sudo touch /var/tmp/highlion-shell-slots.json
-      sudo chown www-data:www-data /var/tmp/highlion-shell-slots.json
-      sudo chmod 660 /var/tmp/highlion-shell-slots.json
-      # include deploy/nginx-shell-slot.conf next to the other
-      # /api/ location
-      # set cookie hl_op on the owner's browser only
-      # purge Cloudflare cache for /css/style.css and ?v=hl8i assets
-
-14. Raise HL_SHELL_SLOTS when hardware allows. Do not move the machine onto the host.
-    The sealed-machine and pack notes are in js/shell/README-OWNER.txt.
+9. Scope note: full-quality simulated ping, nmap, nc, traceroute/tracepath, DNS, ssh, curl, and wget are shipped. Branded offensive suites (hydra, sqlmap, msfconsole, nikto, gobuster, dirb, enum4linux, smbclient, crackmapexec) remain deliberately unavailable rather than shipping shallow emulations.
