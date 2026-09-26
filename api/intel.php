@@ -3,9 +3,13 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/_lib.php';
 
-if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'GET') {
-    header('Allow: GET');
+$requestMethod = strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? ''));
+if (!in_array($requestMethod, ['GET', 'HEAD'], true)) {
+    header('Allow: GET, HEAD');
     hl_json(['ok' => false, 'items' => []], 405);
+}
+if ($requestMethod === 'HEAD') {
+    hl_json(['ok' => true, 'items' => [], 'count' => 0]);
 }
 
 $cacheFile = '/var/tmp/highlion-intel.json';
@@ -189,14 +193,37 @@ function hl_intel_article_image(string $articleUrl, array $articleHosts): string
     return '';
 }
 
-function hl_intel_cached_payload(array $payload, string $thumbDirectory): array
+function hl_intel_cached_payload(
+    array $payload,
+    string $thumbDirectory,
+    array &$thumbMap
+): array
 {
-    foreach ($payload['items'] as &$item) {
+    foreach ($payload['items'] as $itemIndex => &$item) {
+        $articleUrl = (string) ($item['url'] ?? '');
         $thumb = (string) ($item['thumb'] ?? '');
+        $photo = false;
         if (preg_match('/^\/api\/thumb\.php\?id=([a-f0-9]{40})$/', $thumb, $match) !== 1
             || !is_file($thumbDirectory . '/' . $match[1])) {
-            $item['thumb'] = '';
+            $source = (string) ($item['source'] ?? parse_url($articleUrl, PHP_URL_HOST) ?? 'NEWS');
+            $placeholderId = $articleUrl === ''
+                ? ''
+                : hl_intel_placeholder($articleUrl, $source, $thumbMap, $thumbDirectory);
+            $item['thumb'] = $placeholderId === '' ? '' : '/api/thumb.php?id=' . $placeholderId;
+        } else {
+            $record = $thumbMap[$articleUrl] ?? null;
+            $photo = !is_array($record) || !((bool) ($record['placeholder'] ?? false));
         }
+        $item['_photo'] = $photo;
+        $item['_order'] = $itemIndex;
+    }
+    unset($item);
+    usort($payload['items'], static function (array $left, array $right): int {
+        $photoOrder = ((int) ($right['_photo'] ?? false)) <=> ((int) ($left['_photo'] ?? false));
+        return $photoOrder !== 0 ? $photoOrder : ((int) $left['_order'] <=> (int) $right['_order']);
+    });
+    foreach ($payload['items'] as &$item) {
+        unset($item['_photo'], $item['_order']);
     }
     unset($item);
     $payload['count'] = count($payload['items']);
@@ -205,6 +232,7 @@ function hl_intel_cached_payload(array $payload, string $thumbDirectory): array
 
 function hl_intel_thumb(
     string $imageUrl,
+    string $cacheKey,
     array &$thumbMap,
     string $thumbDirectory,
     int $thumbTtl,
@@ -215,11 +243,12 @@ function hl_intel_thumb(
     if (strtolower((string) ($parts['scheme'] ?? '')) !== 'https' || !in_array($host, $imageHosts, true)) {
         return '';
     }
-    $record = $thumbMap[$imageUrl] ?? null;
+    $record = $thumbMap[$cacheKey] ?? null;
     if (is_array($record)) {
         $id = strtolower((string) ($record['id'] ?? ''));
         $at = (int) ($record['at'] ?? 0);
         if (preg_match('/^[a-f0-9]{40}$/', $id) === 1 && time() - $at < $thumbTtl
+            && !((bool) ($record['placeholder'] ?? false))
             && is_file($thumbDirectory . '/' . $id)) {
             return $id;
         }
@@ -231,30 +260,147 @@ function hl_intel_thumb(
             return '';
         }
         $finalUrl = (string) $response['url'];
-        $id = sha1($finalUrl);
+        $id = sha1('article|' . $cacheKey);
         if (@file_put_contents($thumbDirectory . '/' . $id, $response['body'], LOCK_EX) !== false) {
-            $thumbMap[$finalUrl] = ['id' => $id, 'ctype' => $response['ctype'], 'at' => time()];
-            if ($finalUrl !== $imageUrl) {
-                $thumbMap[$imageUrl] = ['id' => $id, 'ctype' => $response['ctype'], 'at' => time()];
-            }
+            $thumbMap[$cacheKey] = [
+                'id' => $id,
+                'ctype' => $response['ctype'],
+                'at' => time(),
+                'placeholder' => false,
+                'source' => $finalUrl,
+            ];
             return $id;
         }
     }
     if (is_array($record)) {
         $staleId = strtolower((string) ($record['id'] ?? ''));
-        if (preg_match('/^[a-f0-9]{40}$/', $staleId) === 1 && is_file($thumbDirectory . '/' . $staleId)) {
+        if (preg_match('/^[a-f0-9]{40}$/', $staleId) === 1
+            && !((bool) ($record['placeholder'] ?? false))
+            && is_file($thumbDirectory . '/' . $staleId)) {
             return $staleId;
         }
     }
     return '';
 }
 
+function hl_intel_source_badge(string $source): array
+{
+    $host = strtolower(preg_replace('/^www\./', '', $source));
+    if ($host === 'bleepingcomputer.com') {
+        return ['BC', [141, 36, 49]];
+    }
+    if ($host === 'thehackernews.com' || strpos($host, 'feedburner.com') !== false
+        || strpos($host, 'thehackersnews') !== false) {
+        return ['TH', [154, 92, 20]];
+    }
+    if ($host === 'krebsonsecurity.com') {
+        return ['KR', [27, 111, 124]];
+    }
+    if ($host === 'cisa.gov') {
+        return ['CI', [55, 72, 135]];
+    }
+    $letters = strtoupper(substr((string) preg_replace('/[^a-z]/', '', $host), 0, 2));
+    return [$letters !== '' ? $letters : '--', [62, 76, 112]];
+}
+
+function hl_intel_png_chunk(string $type, string $data): string
+{
+    return pack('N', strlen($data)) . $type . $data . pack('H*', hash('crc32b', $type . $data));
+}
+
+function hl_intel_badge_png(string $chip, array $color): string
+{
+    if (!function_exists('gzcompress')) {
+        return '';
+    }
+    $glyphs = [
+        'B' => ['11110', '10001', '10001', '11110', '10001', '10001', '11110'],
+        'C' => ['01111', '10000', '10000', '10000', '10000', '10000', '01111'],
+        'H' => ['10001', '10001', '10001', '11111', '10001', '10001', '10001'],
+        'I' => ['11111', '00100', '00100', '00100', '00100', '00100', '11111'],
+        'K' => ['10001', '10010', '10100', '11000', '10100', '10010', '10001'],
+        'R' => ['11110', '10001', '10001', '11110', '10100', '10010', '10001'],
+        'T' => ['11111', '00100', '00100', '00100', '00100', '00100', '00100'],
+        '-' => ['00000', '00000', '00000', '11111', '00000', '00000', '00000'],
+    ];
+    $chip = str_pad(substr(strtoupper($chip), 0, 2), 2, '-');
+    $scale = 4;
+    $startX = 6;
+    $startY = 14;
+    $raw = '';
+    for ($y = 0; $y < 56; $y += 1) {
+        $raw .= "\x00";
+        for ($x = 0; $x < 56; $x += 1) {
+            $pixel = $color;
+            if ($x < 2 || $x > 53 || $y < 2 || $y > 53) {
+                $pixel = [167, 231, 240];
+            }
+            for ($letter = 0; $letter < 2; $letter += 1) {
+                $rows = $glyphs[$chip[$letter]] ?? $glyphs['-'];
+                $glyphX = $startX + ($letter * 24);
+                $gx = intdiv($x - $glyphX, $scale);
+                $gy = intdiv($y - $startY, $scale);
+                if ($x >= $glyphX && $y >= $startY && $gx >= 0 && $gx < 5 && $gy >= 0 && $gy < 7
+                    && $rows[$gy][$gx] === '1') {
+                    $pixel = [239, 250, 255];
+                }
+            }
+            $raw .= chr($pixel[0]) . chr($pixel[1]) . chr($pixel[2]);
+        }
+    }
+    $header = pack('NNCCCCC', 56, 56, 8, 2, 0, 0, 0);
+    return "\x89PNG\r\n\x1a\n"
+        . hl_intel_png_chunk('IHDR', $header)
+        . hl_intel_png_chunk('IDAT', gzcompress($raw, 9))
+        . hl_intel_png_chunk('IEND', '');
+}
+
+function hl_intel_placeholder(
+    string $articleUrl,
+    string $source,
+    array &$thumbMap,
+    string $thumbDirectory
+): string {
+    if (!is_dir($thumbDirectory) && !@mkdir($thumbDirectory, 0750, true) && !is_dir($thumbDirectory)) {
+        return '';
+    }
+    [$chip, $color] = hl_intel_source_badge($source);
+    $id = sha1('fallback|' . $articleUrl);
+    $path = $thumbDirectory . '/' . $id;
+    if (!is_file($path)) {
+        $png = hl_intel_badge_png($chip, $color);
+        if ($png === '' || @file_put_contents($path, $png, LOCK_EX) === false) {
+            return '';
+        }
+    }
+    $thumbMap[$articleUrl] = [
+        'id' => $id,
+        'ctype' => 'image/png',
+        'at' => time(),
+        'placeholder' => true,
+    ];
+    return $id;
+}
+
+$thumbMap = [];
+if (is_readable($thumbMapFile)) {
+    $decodedMap = json_decode((string) @file_get_contents($thumbMapFile), true);
+    if (is_array($decodedMap)) {
+        $thumbMap = $decodedMap;
+    }
+}
+
 $cached = null;
 if (is_readable($cacheFile)) {
     $decoded = json_decode((string) @file_get_contents($cacheFile), true);
     if (is_array($decoded) && isset($decoded['items']) && is_array($decoded['items'])) {
-        $cached = hl_intel_cached_payload($decoded, $thumbDirectory);
+        $cached = hl_intel_cached_payload($decoded, $thumbDirectory, $thumbMap);
         if (filemtime($cacheFile) !== false && time() - (int) filemtime($cacheFile) < $cacheTtl) {
+            @file_put_contents(
+                $thumbMapFile,
+                (string) json_encode($thumbMap, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
+                LOCK_EX
+            );
             hl_json($cached);
         }
     }
@@ -414,53 +560,79 @@ if ($items === []) {
     hl_json(['ok' => false, 'generated' => gmdate('c'), 'items' => [], 'count' => 0]);
 }
 
-$thumbMap = [];
-if (is_readable($thumbMapFile)) {
-    $decodedMap = json_decode((string) @file_get_contents($thumbMapFile), true);
-    if (is_array($decodedMap)) {
-        $thumbMap = $decodedMap;
-    }
-}
-foreach ($items as &$item) {
+foreach ($items as $itemIndex => &$item) {
     $imageUrl = (string) ($item['image'] ?? '');
+    $articleUrl = (string) $item['url'];
     $thumbId = '';
+    $photo = false;
     if ($imageUrl === '') {
-        $articleUrl = (string) $item['url'];
         $articleRecord = $thumbMap[$articleUrl] ?? null;
         if (is_array($articleRecord)) {
             $articleId = strtolower((string) ($articleRecord['id'] ?? ''));
             $articleAt = (int) ($articleRecord['at'] ?? 0);
             if (preg_match('/^[a-f0-9]{40}$/', $articleId) === 1
                 && time() - $articleAt < $thumbTtl
+                && !((bool) ($articleRecord['placeholder'] ?? false))
                 && is_file($thumbDirectory . '/' . $articleId)) {
                 $thumbId = $articleId;
+                $photo = true;
             }
         }
         if ($thumbId === '') {
             $imageUrl = hl_intel_article_image($articleUrl, $articleHosts);
             if ($imageUrl !== '') {
-                $thumbId = hl_intel_thumb($imageUrl, $thumbMap, $thumbDirectory, $thumbTtl, $imageHosts);
-                if ($thumbId !== '') {
-                    $imageRecord = $thumbMap[$imageUrl] ?? [];
-                    $thumbMap[$articleUrl] = [
-                        'id' => $thumbId,
-                        'ctype' => (string) ($imageRecord['ctype'] ?? 'image/jpeg'),
-                        'at' => (int) ($imageRecord['at'] ?? time()),
-                    ];
-                }
+                $thumbId = hl_intel_thumb(
+                    $imageUrl,
+                    $articleUrl,
+                    $thumbMap,
+                    $thumbDirectory,
+                    $thumbTtl,
+                    $imageHosts
+                );
+                $photo = $thumbId !== '';
             }
         }
         if ($thumbId === '' && is_array($articleRecord)) {
             $staleId = strtolower((string) ($articleRecord['id'] ?? ''));
-            if (preg_match('/^[a-f0-9]{40}$/', $staleId) === 1 && is_file($thumbDirectory . '/' . $staleId)) {
+            if (preg_match('/^[a-f0-9]{40}$/', $staleId) === 1
+                && !((bool) ($articleRecord['placeholder'] ?? false))
+                && is_file($thumbDirectory . '/' . $staleId)) {
                 $thumbId = $staleId;
+                $photo = true;
             }
         }
     } else {
-        $thumbId = hl_intel_thumb($imageUrl, $thumbMap, $thumbDirectory, $thumbTtl, $imageHosts);
+        $thumbId = hl_intel_thumb(
+            $imageUrl,
+            $articleUrl,
+            $thumbMap,
+            $thumbDirectory,
+            $thumbTtl,
+            $imageHosts
+        );
+        $photo = $thumbId !== '';
+    }
+    if ($thumbId === '') {
+        $thumbId = hl_intel_placeholder(
+            $articleUrl,
+            (string) ($item['source'] ?? ''),
+            $thumbMap,
+            $thumbDirectory
+        );
     }
     $item['thumb'] = $thumbId === '' ? '' : '/api/thumb.php?id=' . $thumbId;
+    $item['_photo'] = $photo;
+    $item['_order'] = $itemIndex;
     unset($item['image']);
+}
+unset($item);
+
+usort($items, static function (array $left, array $right): int {
+    $photoOrder = ((int) ($right['_photo'] ?? false)) <=> ((int) ($left['_photo'] ?? false));
+    return $photoOrder !== 0 ? $photoOrder : ((int) $left['_order'] <=> (int) $right['_order']);
+});
+foreach ($items as &$item) {
+    unset($item['_photo'], $item['_order']);
 }
 unset($item);
 

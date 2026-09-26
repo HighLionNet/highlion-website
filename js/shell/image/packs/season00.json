@@ -1,0 +1,26 @@
+{
+  "schema": 1,
+  "id": "season00",
+  "title": "HighLion Lab",
+  "hidden": true,
+  "mount": {
+    "/opt/ctf/season00": {"type": "dir", "mode": "0755", "owner": "root", "group": "root"},
+    "/opt/ctf/season00/README": {"type": "file", "mode": "0444", "owner": "root", "group": "root", "content": "Season 00 is mounted. Progress is tracked in ~/.trophies.\n"},
+    "/home/kali/.local/share/highlion/notice": {"type": "file", "mode": "0644", "owner": "kali", "group": "kali", "content": "The briefing is off-catalog. HL8{off-catalog}\n"},
+    "/home/kali/.local/share/highlion/east.host": {"type": "file", "mode": "0644", "owner": "kali", "group": "kali", "content": "east.lab 10.8.12.10\n"}
+  },
+  "hosts": {"east.lab": "10.8.12.10", "relay.lab": "10.8.12.20"},
+  "banners": {"east.lab:22": "OpenSSH_9.8 HL-east", "relay.lab:22": "OpenSSH_9.8 HL-relay"},
+  "flags": [
+    {"id": "notice", "flag": "HL8{off-catalog}", "prize": "Observer", "hint": "Read the quiet notice under ~/.local/share/highlion."},
+    {"id": "letterbox", "flag": "HL8{spare-field}", "prize": "Letterbox", "hint": "Bots fill every field on the letterbox."},
+    {"id": "east", "flag": ["HL{east-node-01}", "HL8{east-node-01}"], "prize": "Eastbound", "hint": "The east node speaks in pairs of hexadecimal digits."},
+    {"id": "relay", "flag": "HL8{relay-ack}", "prize": "Relay", "hint": "Inspect the relay authentication log."}
+  ],
+  "prizes": [
+    {"count": 1, "badge": "Observer", "text": "mention in a future lab note if the player emails CTF-CLAIM"},
+    {"count": 2, "badge": "Letterbox", "text": "short written feedback on a home-lab diagram attached to that email"},
+    {"count": 3, "badge": "Eastbound", "text": "a 30-minute voice walkthrough of the HighLion network diagram, scheduled by email"},
+    {"count": 4, "badge": "Relay", "text": "Operator — ask admin@highlion.net"}
+  ]
+}

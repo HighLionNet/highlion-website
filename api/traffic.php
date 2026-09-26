@@ -3,8 +3,8 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/_lib.php';
 
-if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'GET') {
-    header('Allow: GET');
+if (!in_array(strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? '')), ['GET', 'HEAD'], true)) {
+    header('Allow: GET, HEAD');
     hl_json(['ok' => false, 'reason' => 'offline', 'count' => 0], 405);
 }
 

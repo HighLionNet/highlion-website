@@ -1,0 +1,9 @@
+{
+  "mounts": [
+    {"source": "/dev/vda2", "target": "/", "type": "ext4", "options": "rw,relatime,errors=remount-ro", "dump": 0, "pass": 1},
+    {"source": "/dev/vda1", "target": "/boot", "type": "ext4", "options": "rw,relatime", "dump": 0, "pass": 2},
+    {"source": "proc", "target": "/proc", "type": "proc", "options": "rw,nosuid,nodev,noexec,relatime", "dump": 0, "pass": 0},
+    {"source": "sysfs", "target": "/sys", "type": "sysfs", "options": "rw,nosuid,nodev,noexec,relatime", "dump": 0, "pass": 0},
+    {"source": "tmpfs", "target": "/run", "type": "tmpfs", "options": "rw,nosuid,nodev,mode=755", "dump": 0, "pass": 0}
+  ]
+}

@@ -1,154 +1,71 @@
 (function () {
   "use strict";
 
-  var COMMANDS = [
-    "help", "man", "banner", "neofetch", "whoami", "hostname", "pwd", "uname", "date", "uptime", "history", "id", "groups",
-    "clear", "echo", "which", "type", "source", "setopt",
-    "ls", "cat", "head", "wc", "find", "grep", "tree", "sha256sum",
-    "ps", "df", "free", "ip", "ss", "lsb_release", "hostnamectl",
-    "cmatrix", "cowsay", "fortune", "sl", "figlet",
-    "ping", "curl", "open", "writeups", "projects"
-  ];
-  var FILES = {
-    "README.txt": "HighLion is a self-hosted cybersecurity lab for networking, Linux, web infrastructure, and security operations.",
-    "projects.md": "Home Lab\nNetworking\nHighLion Web\nWindows Privacy Platform",
-    "writeups.md": "Exposed Pi-hole Admin Page\nCVE-2026-2441",
-    "ping.txt": "pong",
-    "notes/hashes.txt": "pihole  SHA-256 25A17FC060946D52A71F53F98612964B9A16FD47EC12618435B6D0C838D89C82\ncve     SHA-256 345BD2C08A94EBEB55BD4D7D7B186921D39DD42A5941D15F170C088B29604057\npkt     MD5 3f5feff2880a5208a2de26f5d868c3ec",
-    "notes/ops.txt": "rail check: the briefing is off-catalog",
-    "notes/motd.txt": "Read the rails. Follow the briefing. Keep probes local.",
-    ".brief": "hex lives on the east node",
-    ".hidden": "ls -a",
-    ".zshrc": "PROMPT='%n@%m:%~$ '\nCOLOR=cyan\nMATRIX=off"
-  };
-  var HASHES = {
-    "README.txt": "965d83c01eeb0d3ad079c1250a163e70947d45e87ee26a52e6d8250c5a43a650",
-    "projects.md": "64703fde1bf4e2c612064a940d7f58fef5c311144635fdd25f9bdc2a8e2ddec5",
-    "writeups.md": "21e1e5d0d437322241cbd895dc7d817c2bde5410a9ff0d45abc145eb74c9d16c",
-    "ping.txt": "9795c5ff8937f23526ccb207a5684c1fc94a7854e19c021b39d944e51f5baef2",
-    "notes/hashes.txt": "4b7ef81ff791235e21b3440e59fd3c7a8bf8eb0153f11a4c5d0086630b2eb762",
-    "notes/ops.txt": "a363fb52cdb355ebae7396790a5c445e6cdc1401ff0511988ad3a5d683c0a40e",
-    "notes/motd.txt": "5c13055ee3611b4a9a8d39f9ef970fea9eeca7735b07a2c7c467aaa63fbb0871",
-    ".brief": "ff15e972689dc0d7451b0753e71c9a8be5654737b26b15adc54f645de8dfe012",
-    ".hidden": "5c1fa7f4f5a9dc65179c7eb464b22c7d8f4c2582e2f5e3d375a62474e936bfc1"
-  };
-  var USAGE = {
-    help: "help [cmd]", man: "man CMD", banner: "banner", neofetch: "neofetch", whoami: "whoami", hostname: "hostname",
-    pwd: "pwd", uname: "uname [-a]", date: "date", uptime: "uptime", history: "history", id: "id", groups: "groups",
-    clear: "clear", echo: "echo [text]", which: "which CMD", type: "type CMD", source: "source ~/.zshrc", setopt: "setopt",
-    ls: "ls [-a] [-l] [path]", cat: "cat FILE", head: "head [-n N] FILE", wc: "wc [-l|-w|-c] FILE",
-    find: "find [path]", grep: "grep [-n] PATTERN FILE", tree: "tree", sha256sum: "sha256sum FILE",
-    ps: "ps", df: "df -h", free: "free -h", ip: "ip a", ss: "ss -tuln", lsb_release: "lsb_release -a", hostnamectl: "hostnamectl",
-    cmatrix: "cmatrix [on|off]", cowsay: "cowsay [-f tux] [text]", fortune: "fortune", sl: "sl", figlet: "figlet HighLion|HLv8|help",
-    ping: "ping [-c N] HOST", curl: "curl PATH|https://www.highlion.net/PATH",
-    open: "open home|about|projects|writeups|contact", writeups: "writeups", projects: "projects"
-  };
-  var DESCRIPTIONS = {
-    help: "show grouped help or help for one command", man: "show a command manual entry", banner: "print the HighLion banner",
-    neofetch: "show the local lab profile", whoami: "print the session user", hostname: "print the host name", pwd: "print the working directory",
-    uname: "print kernel information", date: "print the current date", uptime: "print session uptime and load", history: "show command history",
-    id: "print user and group IDs", groups: "print group memberships", clear: "clear the terminal", echo: "print text",
-    which: "show a command path", type: "identify a shell builtin", source: "apply the toy ~/.zshrc", setopt: "show the toy zsh options", ls: "list fake filesystem entries", cat: "print a fake file",
-    head: "print the first lines of a fake file", wc: "count lines, words, or bytes", find: "list matching fake paths",
-    grep: "search a fake file", tree: "draw the fake filesystem", sha256sum: "hash a fake file",
-    ps: "show the lab process snapshot", df: "show the lab filesystem snapshot", free: "show the lab memory snapshot", ip: "show the lab interface snapshot",
-    ss: "show the lab socket snapshot", lsb_release: "show the lab Debian snapshot", hostnamectl: "show the lab host snapshot", cmatrix: "toggle local matrix rain",
-    cowsay: "draw a cow or tux with a message", fortune: "print a lab fortune", sl: "animate a local ASCII locomotive",
-    figlet: "print one supported block word", ping: "run a timed local simulation", curl: "read a fake local path",
-    open: "open a HighLion page", writeups: "list published writeups", projects: "list project titles"
-  };
-  var OPEN_TARGETS = ["home", "about", "projects", "writeups", "contact"];
-  var PIPE_READERS = ["grep", "head", "wc", "sha256sum", "cat"];
-  var PIPE_WRITERS = ["echo", "cat", "ls", "head", "grep", "tree", "fortune"];
-  var FORTUNES = [
-    "Trust the log, then verify the clock.",
-    "A quiet port still belongs in the inventory.",
-    "Good segmentation makes boring incidents.",
-    "Read the response headers before the source.",
-    "The smallest reproducible case wins.",
-    "Backups are a feature only after a restore test.",
-    "Names are clues; hashes are evidence.",
-    "Measure twice, expose once.",
-    "Local toys stay local.",
-    "Follow the rails, not the glow."
-  ];
-  var FIGLETS = {
-    highlion: ["H H I GGG H H L   I OOO N N", "HHH I G G HHH L   I O O NNN", "H H I GGG H H LLL I OOO N N"],
-    hlv8: ["H H L   V V 888", "HHH L   V V 8 8", "H H LLL  V  888"],
-    help: ["H H EEE L   PPP", "HHH EE  L   P P", "H H EEE LLL PPP"]
-  };
-  var instanceCount = 0;
+  var HL = window.HLShell;
+  if (!HL || !HL.boot) return;
+  var sharedMachine = HL.boot();
+  var instance = 0;
 
-  function mountTerminal(panelEl) {
-    if (!panelEl || panelEl.dataset.mounted === "true") return;
-    panelEl.dataset.mounted = "true";
-    var body = panelEl.querySelector(".hlterm-body");
-    var stream = panelEl.querySelector(".hlterm-stream");
-    var matrix = panelEl.querySelector(".hlterm-matrix");
+  function mountTerminal(panel) {
+    if (!panel || panel.dataset.mounted === "true") return;
+    panel.dataset.mounted = "true";
+    var body = panel.querySelector(".hlterm-body");
+    var stream = panel.querySelector(".hlterm-stream");
+    var matrix = panel.querySelector(".hlterm-matrix");
+    var title = panel.querySelector(".hlterm-title");
     if (!body || !stream || !matrix) return;
-
-    instanceCount += 1;
-    var inputId = (panelEl.id || "hlterm-" + instanceCount) + "-cli";
-    var promptLiteral = "%n@%m:%~$ ";
-    var reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
-    var started = Date.now();
-    var history = [];
-    var historyIndex = 0;
+    body.tabIndex = 0;
+    instance += 1;
+    var inputId = (panel.id || "hlterm-" + instance) + "-cli";
+    var machine = null;
+    var shell = null;
     var live = null;
     var input = null;
+    var historyIndex = 0;
+    var running = false;
+    var authPending = false;
+    var runSerial = 0;
+    var reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
     var matrixFrame = 0;
     var matrixDrops = [];
     var matrixWanted = false;
-    var pingBusy = false;
-    var pingTimer = 0;
-    var captureLines = null;
-    var commandStatus = 0;
-    var stdinText = null;
-    var zshOptions = { COLOR: "cyan", MATRIX: "off" };
 
     function scrollBottom() {
       body.scrollTop = body.scrollHeight;
     }
 
     function appendLine(text, className) {
-      if (captureLines !== null) {
-        captureLines.push({ text: String(text), className: className || "hlterm-line" });
-        return null;
-      }
+      if (text === "") return null;
       var line = document.createElement("div");
       line.className = className || "hlterm-line";
-      line.textContent = String(text);
+      line.textContent = String(text).replace(/\n$/, "");
       stream.insertBefore(line, live);
       scrollBottom();
       return line;
-    }
-
-    function fail(text) {
-      commandStatus = 1;
-      appendLine(text, "hlterm-error");
-    }
-
-    function appendLines(lines, className) {
-      lines.forEach(function (line) { appendLine(line, className); });
     }
 
     function appendPrompt(parent) {
       var prompt = document.createElement("span");
       var user = document.createElement("span");
       var host = document.createElement("span");
-      var dollar = document.createElement("span");
+      var suffix = document.createElement("span");
       prompt.className = "hlterm-ps1";
       user.className = "hlterm-ps1-user";
       host.className = "hlterm-ps1-host";
-      dollar.className = "hlterm-ps1-dollar";
-      user.textContent = "www-stux";
-      host.textContent = "highlion";
-      dollar.textContent = "$";
-      prompt.append(user, document.createTextNode("@"), host, document.createTextNode(":~"), dollar);
+      suffix.className = "hlterm-ps1-dollar";
+      user.textContent = machine.identity.user;
+      host.textContent = machine.identity.host;
+      suffix.textContent = machine.promptSymbol();
+      prompt.append(user, document.createTextNode("@"), host, document.createTextNode(":" + machine.promptPath()), suffix);
       parent.appendChild(prompt);
     }
 
-    function freezeLive(command) {
+    function updateTitle() {
+      if (title) title.textContent = machine.identity.user + "@" + machine.identity.host + ": " + machine.promptPath();
+      panel.dataset.shellUser = machine.identity.user;
+    }
+
+    function freeze(command) {
       if (!live) return;
       var row = document.createElement("div");
       var value = document.createElement("span");
@@ -161,225 +78,38 @@
       input = null;
     }
 
+    function freezeSecret() {
+      if (!live) return;
+      var row = document.createElement("div");
+      row.className = "hlterm-command hlterm-muted";
+      row.textContent = "Password: ";
+      live.replaceWith(row);
+      live = null;
+      input = null;
+    }
+
     function addLive() {
+      if (running || !machine) return;
+      updateTitle();
       live = document.createElement("div");
       live.className = "hlterm-live";
       var label = document.createElement("label");
       input = document.createElement("input");
       label.htmlFor = inputId;
-      appendPrompt(label);
+      if (authPending) label.appendChild(document.createTextNode("Password: "));
+      else appendPrompt(label);
       input.id = inputId;
       input.className = "hlterm-input";
-      input.type = "text";
+      input.type = authPending ? "password" : "text";
       input.autocomplete = "off";
+      input.autocapitalize = "off";
       input.spellcheck = false;
-      input.setAttribute("aria-label", "Terminal command");
+      input.setAttribute("aria-label", authPending ? "Root password" : "Terminal command");
       live.append(label, input);
       stream.appendChild(live);
       input.addEventListener("keydown", handleKey);
       input.focus({ preventScroll: true });
       scrollBottom();
-    }
-
-    function showUsage(command) {
-      fail("usage: " + USAGE[command]);
-    }
-
-    function normalizedPath(raw) {
-      return String(raw || "")
-        .replace(/^https?:\/\/www\.highlion\.net\//i, "")
-        .replace(/^\/home\/www-stux\//, "")
-        .replace(/^~\//, "")
-        .replace(/^\.\//, "")
-        .replace(/^\//, "")
-        .replace(/\/$/, "");
-    }
-
-    function getFile(raw, command) {
-      var name = normalizedPath(raw);
-      if (Object.prototype.hasOwnProperty.call(FILES, name)) return { name: name, text: FILES[name] };
-      fail(command + ": " + raw + ": No such file or directory");
-      return null;
-    }
-
-    function elapsed() {
-      var seconds = Math.floor((Date.now() - started) / 1000);
-      var hours = Math.floor(seconds / 3600);
-      var minutes = Math.floor((seconds % 3600) / 60);
-      return String(hours).padStart(2, "0") + ":" + String(minutes).padStart(2, "0") + ":" + String(seconds % 60).padStart(2, "0");
-    }
-
-    function showHelp(command) {
-      if (command) {
-        if (COMMANDS.indexOf(command) === -1) {
-          fail("No manual entry for " + command);
-          return;
-        }
-        appendLine("usage: " + USAGE[command], "hlterm-ok");
-        appendLine(DESCRIPTIONS[command]);
-        return;
-      }
-      appendLines([
-        "info       help man banner neofetch whoami hostname pwd",
-        "           uname date uptime history id groups",
-        "shell      source setopt echo clear which type",
-        "files      ls cat head wc find grep tree sha256sum",
-        "system     ps df free ip ss lsb_release hostnamectl",
-        "toys       cmatrix cowsay fortune sl figlet",
-        "net        ping curl",
-        "site       open writeups projects"
-      ]);
-    }
-
-    function visibleNames(path, all) {
-      var prefix = path === "notes" ? "notes/" : "";
-      var names = [];
-      Object.keys(FILES).forEach(function (name) {
-        if (prefix && name.indexOf(prefix) === 0 && name.slice(prefix.length).indexOf("/") === -1) names.push(name.slice(prefix.length));
-        if (!prefix && name.indexOf("/") === -1 && (all || name.charAt(0) !== ".")) names.push(name);
-      });
-      if (!prefix) names.push("notes");
-      return names.sort();
-    }
-
-    function listFiles(args) {
-      var all = false;
-      var long = false;
-      var path = "";
-      for (var index = 0; index < args.length; index += 1) {
-        if (args[index] === "-a") all = true;
-        else if (args[index] === "-l") long = true;
-        else if (args[index].charAt(0) === "-" || path) { showUsage("ls"); return; }
-        else path = normalizedPath(args[index]);
-      }
-      if (path && path !== "notes") { fail("ls: " + path + ": No such directory"); return; }
-      var names = visibleNames(path, all);
-      if (all) names.unshift(".", "..");
-      if (!long) { appendLine(names.join("  ")); return; }
-      names.forEach(function (name) {
-        var full = path === "notes" && name !== "." && name !== ".." ? "notes/" + name : name;
-        var size = FILES[full] ? new TextEncoder().encode(FILES[full]).length : 0;
-        var mode = name === "notes" || name === "." || name === ".." ? "drwxr-xr-x" : "-rw-r--r--";
-        appendLine(mode + " 1 www-stux www-stux " + String(size).padStart(4, " ") + " " + name);
-      });
-    }
-
-    function headFile(args) {
-      var count = 10;
-      var name = "";
-      if (stdinText !== null && args.length === 0) {
-        appendLines(stdinText.split("\n").slice(0, count));
-        return;
-      }
-      if (stdinText !== null && args.length === 2 && args[0] === "-n" && /^\d+$/.test(args[1]) && Number(args[1]) > 0) {
-        appendLines(stdinText.split("\n").slice(0, Number(args[1])));
-        return;
-      }
-      if (args.length === 1) name = args[0];
-      else if (args.length === 3 && args[0] === "-n" && /^\d+$/.test(args[1]) && Number(args[1]) > 0) {
-        count = Number(args[1]);
-        name = args[2];
-      } else { showUsage("head"); return; }
-      var file = getFile(name, "head");
-      if (file) appendLines(file.text.split("\n").slice(0, count));
-    }
-
-    function wordCount(args) {
-      var mode = "";
-      var name = "";
-      if (stdinText !== null && args.length === 0) {
-        name = null;
-      } else if (stdinText !== null && args.length === 1 && ["-l", "-w", "-c"].indexOf(args[0]) !== -1) {
-        mode = args[0];
-        name = null;
-      } else if (args.length === 1) name = args[0];
-      else if (args.length === 2 && ["-l", "-w", "-c"].indexOf(args[0]) !== -1) { mode = args[0]; name = args[1]; }
-      else { showUsage("wc"); return; }
-      var file = name === null ? { name: "", text: stdinText } : getFile(name, "wc");
-      if (!file) return;
-      var lines = file.text === "" ? 0 : file.text.split("\n").length;
-      var words = file.text.trim() ? file.text.trim().split(/\s+/).length : 0;
-      var bytes = new TextEncoder().encode(file.text).length;
-      var result = mode === "-l" ? lines : mode === "-w" ? words : mode === "-c" ? bytes : lines + " " + words + " " + bytes;
-      appendLine(String(result) + (file.name ? " " + file.name : ""));
-    }
-
-    function findFiles(args) {
-      if (args.length > 1 || (args[0] && args[0].charAt(0) === "-")) { showUsage("find"); return; }
-      var path = normalizedPath(args[0] || "");
-      var matches = Object.keys(FILES).filter(function (name) { return !path || path === "." || name === path || name.indexOf(path + "/") === 0; });
-      if (!matches.length) { fail("find: " + (args[0] || path) + ": No such file or directory"); return; }
-      matches.sort().forEach(function (name) { appendLine("./" + name); });
-    }
-
-    function grepFile(args) {
-      var numbered = false;
-      if (args[0] === "-n") { numbered = true; args = args.slice(1); }
-      var fromPipe = stdinText !== null && args.length === 1;
-      if ((!fromPipe && args.length !== 2) || !args[0] || args[0].charAt(0) === "-") { showUsage("grep"); return; }
-      var file = fromPipe ? { text: stdinText } : getFile(args[1], "grep");
-      if (!file) return;
-      var found = false;
-      file.text.split("\n").forEach(function (line, index) {
-        if (line.indexOf(args[0]) !== -1) {
-          found = true;
-          appendLine((numbered ? index + 1 + ":" : "") + line);
-        }
-      });
-      if (!found) commandStatus = 1;
-    }
-
-    function sha256Text(text) {
-      var bytes = new TextEncoder().encode(text);
-      var bitLength = bytes.length * 8;
-      var paddedLength = Math.ceil((bytes.length + 9) / 64) * 64;
-      var data = new Uint8Array(paddedLength);
-      data.set(bytes);
-      data[bytes.length] = 0x80;
-      var view = new DataView(data.buffer);
-      view.setUint32(paddedLength - 8, Math.floor(bitLength / 0x100000000), false);
-      view.setUint32(paddedLength - 4, bitLength >>> 0, false);
-      var hash = new Uint32Array([
-        0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
-        0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19
-      ]);
-      var constants = new Uint32Array([
-        0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
-        0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
-        0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
-        0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
-        0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
-        0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
-        0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
-        0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2
-      ]);
-      var words = new Uint32Array(64);
-      function rotate(value, amount) { return (value >>> amount) | (value << (32 - amount)); }
-      for (var offset = 0; offset < data.length; offset += 64) {
-        for (var index = 0; index < 16; index += 1) words[index] = view.getUint32(offset + index * 4, false);
-        for (var round = 16; round < 64; round += 1) {
-          var s0 = rotate(words[round - 15], 7) ^ rotate(words[round - 15], 18) ^ (words[round - 15] >>> 3);
-          var s1 = rotate(words[round - 2], 17) ^ rotate(words[round - 2], 19) ^ (words[round - 2] >>> 10);
-          words[round] = (words[round - 16] + s0 + words[round - 7] + s1) >>> 0;
-        }
-        var a = hash[0]; var b = hash[1]; var c = hash[2]; var d = hash[3];
-        var e = hash[4]; var f = hash[5]; var g = hash[6]; var h = hash[7];
-        for (var step = 0; step < 64; step += 1) {
-          var big1 = rotate(e, 6) ^ rotate(e, 11) ^ rotate(e, 25);
-          var choose = (e & f) ^ (~e & g);
-          var temp1 = (h + big1 + choose + constants[step] + words[step]) >>> 0;
-          var big0 = rotate(a, 2) ^ rotate(a, 13) ^ rotate(a, 22);
-          var majority = (a & b) ^ (a & c) ^ (b & c);
-          var temp2 = (big0 + majority) >>> 0;
-          h = g; g = f; f = e; e = (d + temp1) >>> 0;
-          d = c; c = b; b = a; a = (temp1 + temp2) >>> 0;
-        }
-        hash[0] = (hash[0] + a) >>> 0; hash[1] = (hash[1] + b) >>> 0;
-        hash[2] = (hash[2] + c) >>> 0; hash[3] = (hash[3] + d) >>> 0;
-        hash[4] = (hash[4] + e) >>> 0; hash[5] = (hash[5] + f) >>> 0;
-        hash[6] = (hash[6] + g) >>> 0; hash[7] = (hash[7] + h) >>> 0;
-      }
-      return Array.from(hash).map(function (word) { return word.toString(16).padStart(8, "0"); }).join("");
     }
 
     function resizeMatrix() {
@@ -394,7 +124,7 @@
     }
 
     function drawMatrix() {
-      if (!matrixFrame || reducedMotion.matches) return;
+      if (!matrixFrame || reduced.matches) return;
       var context = matrix.getContext("2d");
       context.fillStyle = "rgba(5,7,19,0.16)";
       context.fillRect(0, 0, body.clientWidth, body.clientHeight);
@@ -407,369 +137,160 @@
       matrixFrame = window.requestAnimationFrame(drawMatrix);
     }
 
-    function matrixOff(silent) {
-      matrixWanted = false;
+    function setMatrix(on) {
+      matrixWanted = on;
       if (matrixFrame) window.cancelAnimationFrame(matrixFrame);
       matrixFrame = 0;
-      matrix.classList.remove("is-on");
-      matrix.getContext("2d").clearRect(0, 0, matrix.width, matrix.height);
-      if (!silent) appendLine("cmatrix: off", "hlterm-muted");
-    }
-
-    function matrixOn() {
-      if (reducedMotion.matches) {
-        appendLine("cmatrix: reduced motion is enabled", "hlterm-error");
-        return;
+      matrix.classList.toggle("is-on", on && !reduced.matches);
+      if (on && !reduced.matches) {
+        resizeMatrix();
+        matrixFrame = window.requestAnimationFrame(drawMatrix);
+      } else {
+        matrix.getContext("2d").clearRect(0, 0, matrix.width, matrix.height);
       }
-      matrixWanted = true;
-      resizeMatrix();
-      matrix.classList.add("is-on");
-      if (!matrixFrame) matrixFrame = window.requestAnimationFrame(drawMatrix);
-      appendLine("cmatrix: on", "hlterm-ok");
     }
 
-    function wrapWords(text, width) {
-      var words = (text || "moo").split(/\s+/);
-      var lines = [];
-      var line = "";
-      words.forEach(function (word) {
-        if (line && (line + " " + word).length > width) { lines.push(line); line = word; }
-        else line += (line ? " " : "") + word;
-      });
-      if (line) lines.push(line);
-      return lines.length ? lines : ["moo"];
-    }
-
-    function runCowsay(args) {
-      var tux = false;
-      if (args[0] === "-f") {
-        if (args[1] !== "tux") { showUsage("cowsay"); return; }
-        tux = true;
-        args = args.slice(2);
+    function applyEffect(effect) {
+      if (!effect) return false;
+      if (effect === "clear") stream.replaceChildren();
+      else if (effect === "matrix-on") setMatrix(true);
+      else if (effect === "matrix-off") setMatrix(false);
+      else if (effect.navigate) window.location.assign(effect.navigate);
+      else if (effect.type === "root-auth") {
+        authPending = true;
+        addLive();
+        return true;
       }
-      var lines = wrapWords(args.join(" "), 32);
-      var width = Math.max.apply(null, lines.map(function (line) { return line.length; }));
-      appendLine(" " + "_".repeat(width + 2));
-      lines.forEach(function (line, index) {
-        var left = lines.length === 1 ? "<" : index === 0 ? "/" : index === lines.length - 1 ? "\\" : "|";
-        var right = lines.length === 1 ? ">" : index === 0 ? "\\" : index === lines.length - 1 ? "/" : "|";
-        appendLine(left + " " + line.padEnd(width, " ") + " " + right);
-      });
-      appendLine(" " + "-".repeat(width + 2));
-      if (tux) appendLines(["   \\", "    \\", "     .--.", "    |o_o |", "    |:_/ |", "   //   \\ \\", "  (|     | )", " /'\\_   _/`\\", " \\___)=(___/"]);
-      else appendLines(["        \\   ^__^", "         \\  (oo)\\_______", "            (__)\\       )\\/\\", "                ||----w |", "                ||     ||"]);
+      return false;
     }
 
-    function runSl() {
-      var frames = [
-        ["      ====        ________", "  _D _|  |_______/        \\__", " |(_)---  |   H\\________/ |", " /     |  |   H  |  |     |", "|      |  |   H  |__-----------------|"] ,
-        ["       ====        ________", "   _D _|  |_______/        \\__", "  |(_)---  |   H\\________/ |", "  /     |  |   H  |  |     |", " |      |  |   H  |__-----------------|"] ,
-        ["        ====        ________", "    _D _|  |_______/        \\__", "   |(_)---  |   H\\________/ |", "   /     |  |   H  |  |     |", "  |      |  |   H  |__-----------------|"] ,
-        ["         ====        ________", "     _D _|  |_______/        \\__", "    |(_)---  |   H\\________/ |", "    /     |  |   H  |  |     |", "   |      |  |   H  |__-----------------|"]
-      ];
-      var line = appendLine(frames[0].join("\n"));
-      if (reducedMotion.matches) return;
-      frames.slice(1).forEach(function (frame, index) {
-        window.setTimeout(function () { line.textContent = frame.join("\n"); scrollBottom(); }, (index + 1) * 180);
-      });
+    async function execute(raw) {
+      var serial = ++runSerial;
+      running = true;
+      body.focus({ preventScroll: true });
+      var result = await shell.run(raw, { depth: 0 });
+      if (serial !== runSerial) return;
+      running = false;
+      var effectOwnsPrompt = applyEffect(result.effect);
+      if (result.stdout) appendLine(result.stdout, "hlterm-line");
+      if (result.stderr) appendLine(result.stderr, "hlterm-error");
+      if (window.HighLionSfx) {
+        if (result.status === 0) window.HighLionSfx.ok();
+        else window.HighLionSfx.error();
+      }
+      if (!effectOwnsPrompt) addLive();
     }
 
-    function runPing(args) {
-      if (pingBusy) { appendLine("ping: previous probe still running", "hlterm-error"); return; }
-      var count = 4;
-      var host = "";
-      if (args.length === 1) host = args[0];
-      else if (args.length === 3 && args[0] === "-c" && /^\d+$/.test(args[1])) { count = Number(args[1]); host = args[2]; }
-      else { showUsage("ping"); return; }
-      if (count < 1 || count > 8 || !/^[A-Za-z0-9._:-]+$/.test(host)) { showUsage("ping"); return; }
-      pingBusy = true;
-      appendLine("PING " + host + " (127.0.0.1) 56(84) bytes of data.");
-      var sequence = [];
-      for (var index = 1; index <= count; index += 1) {
-        sequence.push("64 bytes from " + host + ": icmp_seq=" + index + " ttl=64 time=" + (12 + Math.random() * 36).toFixed(1) + " ms");
+    async function authenticate(password) {
+      running = true;
+      var valid = false;
+      try { valid = await machine.authenticateRoot(password); } catch (error) { valid = false; }
+      running = false;
+      authPending = false;
+      if (valid) {
+        appendLine("Owner console unlocked. Browser VFS only; no server privilege granted.", "hlterm-muted");
+        if (window.HighLionSfx) window.HighLionSfx.ok();
+      } else {
+        appendLine("su: Authentication failure", "hlterm-error");
+        if (window.HighLionSfx) window.HighLionSfx.error();
       }
-      sequence.push("--- " + host + " ping statistics ---");
-      sequence.push(count + " packets transmitted, " + count + " received, 0% packet loss");
-      var cursor = 0;
-      pingTimer = window.setInterval(function () {
-        appendLine(sequence[cursor]);
-        cursor += 1;
-        if (cursor >= sequence.length) {
-          window.clearInterval(pingTimer);
-          pingTimer = 0;
-          pingBusy = false;
-        }
-      }, 1000);
-    }
-
-    function runCurl(args) {
-      if (args.length !== 1) { showUsage("curl"); return; }
-      var target = args[0];
-      if (/^https?:\/\//i.test(target) && !/^https:\/\/www\.highlion\.net\//i.test(target)) {
-        appendLine("curl: (6) Could not resolve host", "hlterm-error");
-        return;
-      }
-      var name = normalizedPath(target);
-      if (!Object.prototype.hasOwnProperty.call(FILES, name)) { appendLine("curl: (6) Could not resolve host", "hlterm-error"); return; }
-      appendLine(FILES[name]);
-    }
-
-    function executeCommand(raw, inputText) {
-      commandStatus = 0;
-      stdinText = inputText;
-      var tokens = raw.trim().split(/\s+/);
-      var command = tokens.shift().toLowerCase();
-      var args = tokens;
-      switch (command) {
-        case "help": if (args.length <= 1) showHelp((args[0] || "").toLowerCase()); else showUsage(command); break;
-        case "man": if (args.length === 1) showHelp(args[0].toLowerCase()); else showUsage(command); break;
-        case "clear": if (!args.length) stream.replaceChildren(); else showUsage(command); break;
-        case "echo": appendLine(args.length === 1 && args[0] === "$PROMPT" ? promptLiteral : args.join(" ")); break;
-        case "source":
-          if (args.length === 1 && normalizedPath(args[0]) === ".zshrc") {
-            zshOptions.COLOR = "cyan";
-            zshOptions.MATRIX = "off";
-            panelEl.style.setProperty("--hlterm-ps1-color", "#66f7ff");
-            matrixOff(true);
-          } else showUsage(command);
-          break;
-        case "setopt":
-          if (!args.length) appendLines(["COLOR=" + zshOptions.COLOR, "MATRIX=" + zshOptions.MATRIX]);
-          else showUsage(command);
-          break;
-        case "whoami": if (!args.length) appendLine("www-stux"); else showUsage(command); break;
-        case "id": if (!args.length) appendLine("uid=1000(www-stux) gid=1000(www-stux) groups=1000(www-stux),27(sudo)"); else showUsage(command); break;
-        case "groups": if (!args.length) appendLine("www-stux sudo"); else showUsage(command); break;
-        case "hostname": if (!args.length) appendLine("highlion"); else showUsage(command); break;
-        case "hostnamectl": if (!args.length) appendLines(["Static hostname: highlion", "Chassis: desktop", "Operating System: Debian GNU/Linux"]); else showUsage(command); break;
-        case "lsb_release": if (args.length === 1 && args[0] === "-a") appendLines(["Distributor ID: Debian", "Description: Debian GNU/Linux 12 (bookworm)", "Release: 12", "Codename: bookworm"]); else showUsage(command); break;
-        case "pwd": if (!args.length) appendLine("/home/www-stux"); else showUsage(command); break;
-        case "uname": if (!args.length) appendLine("Linux"); else if (args.length === 1 && args[0] === "-a") appendLine("Linux highlion 6.6.0-hl1 x86_64 GNU/Linux"); else showUsage(command); break;
-        case "date": if (!args.length) appendLine(new Date().toString()); else showUsage(command); break;
-        case "uptime": if (!args.length) appendLine("up " + elapsed() + ", 1 user, load average: 0.01, 0.02, 0.00"); else showUsage(command); break;
-        case "history": if (!args.length) history.forEach(function (entry, index) { appendLine(String(index + 1).padStart(4, " ") + "  " + entry); }); else showUsage(command); break;
-        case "banner": if (!args.length) appendLines(["H  H I GGG H  H L    I OOO N  N", "H  H I G   H  H L    I O O NN N", "HHHH I G G HHHH L    I O O N NN", "H  H I G G H  H L    I O O N  N", "H  H I GGG H  H LLLL I OOO N  N", "HLv8 / highlion.net"]); else showUsage(command); break;
-        case "neofetch": if (!args.length) appendLines(["      /\\          www-stux@highlion", "     /  \\         OS: Debian GNU/Linux", "    / /\\ \\        Kernel: 6.6.0-hl1", "   / ____ \\       Shell: hlshell", "  /_/    \\_\\      Version: HLv8", "     ||           Uptime: " + elapsed(), "     ||           Viewport: " + window.innerWidth + "×" + window.innerHeight]); else showUsage(command); break;
-        case "ls": listFiles(args); break;
-        case "cat":
-          if (!args.length && stdinText !== null) appendLine(stdinText);
-          else if (args.length === 1) { var catFile = getFile(args[0], command); if (catFile) appendLine(catFile.text); }
-          else showUsage(command);
-          break;
-        case "head": headFile(args); break;
-        case "wc": wordCount(args); break;
-        case "find": findFiles(args); break;
-        case "grep": grepFile(args); break;
-        case "tree": if (!args.length) appendLines([".", "├── .brief", "├── .hidden", "├── .zshrc", "├── README.txt", "├── notes", "│   ├── hashes.txt", "│   ├── motd.txt", "│   └── ops.txt", "├── ping.txt", "├── projects.md", "└── writeups.md"]); else showUsage(command); break;
-        case "sha256sum":
-          if (!args.length && stdinText !== null) appendLine(sha256Text(stdinText) + "  -");
-          else if (args.length === 1) {
-            var hashFile = getFile(args[0], command);
-            if (hashFile) appendLine((HASHES[hashFile.name] || sha256Text(hashFile.text)) + "  " + hashFile.name);
-          } else showUsage(command);
-          break;
-        case "which": if (args.length === 1) appendLine(COMMANDS.indexOf(args[0]) !== -1 ? "/usr/bin/" + args[0] : args[0] + " not found"); else showUsage(command); break;
-        case "type": if (args.length === 1) appendLine(COMMANDS.indexOf(args[0]) !== -1 ? args[0] + " is a shell builtin" : args[0] + " not found"); else showUsage(command); break;
-        case "ps": if (!args.length) appendLines(["  PID TTY          TIME CMD", "  412 ?        00:00:02 nginx", "  441 ?        00:00:01 php-fpm", "  509 ?        00:00:00 sshd", " 1337 pts/0    00:00:00 hlterm"]); else showUsage(command); break;
-        case "df": if (args.length === 1 && args[0] === "-h") appendLines(["Filesystem      Size  Used Avail Use% Mounted on", "/dev/sda2        48G   13G   33G  29% /", "/dev/sda1       511M   68M  444M  14% /boot", "/dev/sdb1       120G   41G   73G  36% /var"]); else showUsage(command); break;
-        case "free": if (args.length === 1 && args[0] === "-h") appendLines(["              total        used        free      shared  buff/cache   available", "Mem:           7.7Gi       1.8Gi       3.9Gi       112Mi       2.0Gi       5.5Gi", "Swap:          2.0Gi          0B       2.0Gi"]); else showUsage(command); break;
-        case "ip": if (args.length === 1 && args[0] === "a") appendLines(["1: lo: <LOOPBACK,UP> mtu 65536", "    inet 127.0.0.1/8 scope host lo", "2: eth0: <BROADCAST,MULTICAST,UP> mtu 1500", "    inet 10.8.0.2/24 scope global eth0"]); else showUsage(command); break;
-        case "ss": if (args.length === 1 && args[0] === "-tuln") appendLines(["Netid State  Local Address:Port", "tcp   LISTEN 0.0.0.0:22", "tcp   LISTEN 0.0.0.0:80", "tcp   LISTEN 0.0.0.0:443", "udp   UNCONN 127.0.0.1:53"]); else showUsage(command); break;
-        case "cmatrix": if (!args.length || (args.length === 1 && args[0] === "on")) matrixOn(); else if (args.length === 1 && args[0] === "off") matrixOff(false); else showUsage(command); break;
-        case "cowsay": runCowsay(args); break;
-        case "fortune": if (!args.length) appendLine(FORTUNES[Math.floor(Math.random() * FORTUNES.length)]); else showUsage(command); break;
-        case "sl": if (!args.length) runSl(); else showUsage(command); break;
-        case "figlet": if (args.length === 1 && FIGLETS[args[0].toLowerCase()]) appendLines(FIGLETS[args[0].toLowerCase()]); else if (args.length === 1) fail("figlet: word not in font"); else showUsage(command); break;
-        case "ping": runPing(args); break;
-        case "curl": runCurl(args); break;
-        case "open": if (args.length === 1 && OPEN_TARGETS.indexOf(args[0]) !== -1) window.location.assign(args[0] === "home" ? "/index.html" : "/" + args[0] + ".html"); else showUsage(command); break;
-        case "writeups": if (!args.length) appendLines(["Exposed Pi-hole Admin Page", "CVE-2026-2441"]); else showUsage(command); break;
-        case "projects": if (!args.length) appendLines(["Home Lab", "Networking", "HighLion Web", "Windows Privacy Platform"]); else showUsage(command); break;
-        default: fail("hlshell: command not found: " + command);
-      }
-      return commandStatus;
-    }
-
-    function capturedCommand(raw, inputText) {
-      captureLines = [];
-      var status = executeCommand(raw, inputText);
-      var lines = captureLines;
-      captureLines = null;
-      return { status: status, lines: lines };
-    }
-
-    function commandName(raw) {
-      return (raw.trim().split(/\s+/)[0] || "").toLowerCase();
-    }
-
-    function runPipeline(raw) {
-      var stages = raw.split("|").map(function (stage) { return stage.trim(); });
-      if (stages.some(function (stage) { return !stage; })) {
-        fail("hlshell: pipelines and redirection are disabled");
-        return 1;
-      }
-      if (stages.length === 1) return executeCommand(stages[0], null);
-      for (var index = 0; index < stages.length; index += 1) {
-        var name = commandName(stages[index]);
-        var canRead = index === 0 || PIPE_READERS.indexOf(name) !== -1;
-        var canWrite = index === stages.length - 1 || PIPE_WRITERS.indexOf(name) !== -1;
-        if (!canRead || !canWrite) {
-          fail("hlshell: " + name + " cannot be used in a pipeline");
-          return 1;
-        }
-      }
-      var inputText = null;
-      var status = 0;
-      stages.forEach(function (stage, index) {
-        var result = capturedCommand(stage, inputText);
-        status = result.status;
-        var stdout = result.lines.filter(function (line) { return line.className !== "hlterm-error"; });
-        var errors = result.lines.filter(function (line) { return line.className === "hlterm-error"; });
-        errors.forEach(function (line) { appendLine(line.text, line.className); });
-        inputText = stdout.map(function (line) { return line.text; }).join("\n");
-        if (index === stages.length - 1) {
-          stdout.forEach(function (line) { appendLine(line.text, line.className); });
-        }
-      });
-      return status;
-    }
-
-    function execute(raw) {
-      if (/\|\||;|>>|[><`]|\$\(\(?/.test(raw)) {
-        fail("hlshell: pipelines and redirection are disabled");
-        return 1;
-      }
-      var chains = raw.split("&&").map(function (part) { return part.trim(); });
-      if (chains.some(function (part) { return !part; })) {
-        fail("hlshell: pipelines and redirection are disabled");
-        return 1;
-      }
-      var status = 0;
-      for (var index = 0; index < chains.length; index += 1) {
-        if (index > 0 && status !== 0) break;
-        status = runPipeline(chains[index]);
-      }
-      return status;
+      addLive();
     }
 
     function complete() {
-      var value = input.value;
-      var caret = input.selectionStart === null ? value.length : input.selectionStart;
-      var start = caret;
-      var end = caret;
-      while (start > 0 && !/\s/.test(value.charAt(start - 1))) start -= 1;
-      while (end < value.length && !/\s/.test(value.charAt(end))) end += 1;
-      var current = value.slice(start, end);
-      var isCommand = value.slice(0, start).trim() === "";
-      var source = COMMANDS;
-      if (!isCommand) {
-        source = Object.keys(FILES).concat(["notes/"]);
-        if (current.indexOf("~/") === 0) {
-          source = source.map(function (name) { return "~/" + name; });
-        } else if (current.charAt(0) === "/") {
-          source = source.map(function (name) { return "/" + name; });
-        }
+      var caret = input.selectionStart === null ? input.value.length : input.selectionStart;
+      var completion = shell.complete(input.value, caret);
+      if (completion.choices.length === 1) {
+        var choice = completion.choices[0];
+        var suffix = choice.endsWith("/") ? "" : " ";
+        input.value = input.value.slice(0, completion.start) + choice + suffix + input.value.slice(caret);
+        var next = completion.start + choice.length + suffix.length;
+        input.setSelectionRange(next, next);
+      } else if (completion.choices.length > 1) {
+        appendLine(completion.choices.join("  "), "hlterm-muted");
       }
-      var matches = source.filter(function (item) { return item.toLowerCase().indexOf(current.toLowerCase()) === 0; });
-      if (matches.length === 1) {
-        var suffix = end === value.length ? " " : "";
-        input.value = value.slice(0, start) + matches[0] + suffix + value.slice(end);
-        var nextCaret = start + matches[0].length + suffix.length;
-        input.setSelectionRange(nextCaret, nextCaret);
-      } else if (matches.length > 1) {
-        var savedCaret = caret;
-        appendLine(matches.join("  "));
-        input.value = value;
-        input.setSelectionRange(savedCaret, savedCaret);
-      }
-    }
-
-    function cancelPing() {
-      if (pingTimer) window.clearInterval(pingTimer);
-      pingTimer = 0;
-      pingBusy = false;
     }
 
     function handleKey(event) {
       var key = event.key.toLowerCase();
+      if (window.HighLionSfx && (event.key.length === 1 || event.key === "Backspace")) window.HighLionSfx.key();
       if (event.ctrlKey && key === "c") {
         event.preventDefault();
-        freezeLive(input.value);
-        cancelPing();
+        if (authPending) freezeSecret();
+        else freeze(input.value);
+        authPending = false;
         appendLine("^C", "hlterm-muted");
         addLive();
       } else if (event.ctrlKey && key === "l") {
-        event.preventDefault();
-        stream.replaceChildren();
-        live = null;
-        input = null;
-        addLive();
+        event.preventDefault(); stream.replaceChildren(); live = null; input = null; addLive();
       } else if (event.ctrlKey && key === "a") {
-        event.preventDefault();
-        input.setSelectionRange(0, 0);
+        event.preventDefault(); input.setSelectionRange(0, 0);
       } else if (event.ctrlKey && key === "e") {
-        event.preventDefault();
-        input.setSelectionRange(input.value.length, input.value.length);
+        event.preventDefault(); input.setSelectionRange(input.value.length, input.value.length);
       } else if (event.ctrlKey && key === "u") {
-        event.preventDefault();
-        input.value = "";
-        input.setSelectionRange(0, 0);
+        event.preventDefault(); input.value = "";
       } else if (event.ctrlKey && key === "w") {
         event.preventDefault();
         var caret = input.selectionStart === null ? input.value.length : input.selectionStart;
-        var prefix = input.value.slice(0, caret);
-        var withoutSpace = prefix.replace(/\s+$/, "");
-        var wordStart = withoutSpace.search(/\S+$/);
-        if (wordStart < 0) wordStart = 0;
-        input.value = prefix.slice(0, wordStart) + input.value.slice(caret);
-        input.setSelectionRange(wordStart, wordStart);
+        var prefix = input.value.slice(0, caret).replace(/\s+$/, "");
+        var start = Math.max(0, prefix.search(/\S+$/));
+        input.value = input.value.slice(0, start) + input.value.slice(caret);
+        input.setSelectionRange(start, start);
       } else if (event.key === "Enter") {
         event.preventDefault();
         var raw = input.value;
-        freezeLive(raw.trim());
-        if (raw.trim()) {
-          history.push(raw.trim());
-          historyIndex = history.length;
-          execute(raw);
+        if (authPending) {
+          freezeSecret();
+          authenticate(raw);
+          return;
         }
-        addLive();
-      } else if (event.key === "ArrowUp") {
+        freeze(raw);
+        if (!raw.trim()) { addLive(); return; }
+        machine.addHistory(raw);
+        historyIndex = machine.history.length;
+        execute(raw);
+      } else if (!authPending && event.key === "ArrowUp") {
         event.preventDefault();
         if (historyIndex > 0) historyIndex -= 1;
-        input.value = history[historyIndex] || "";
+        input.value = machine.history[historyIndex] || "";
         input.setSelectionRange(input.value.length, input.value.length);
-      } else if (event.key === "ArrowDown") {
+      } else if (!authPending && event.key === "ArrowDown") {
         event.preventDefault();
-        if (historyIndex < history.length) historyIndex += 1;
-        input.value = history[historyIndex] || "";
+        if (historyIndex < machine.history.length) historyIndex += 1;
+        input.value = machine.history[historyIndex] || "";
         input.setSelectionRange(input.value.length, input.value.length);
-      } else if (event.key === "Tab") {
-        event.preventDefault();
-        complete();
+      } else if (!authPending && event.key === "Tab") {
+        event.preventDefault(); complete();
       }
     }
 
-    body.addEventListener("click", function () { if (input) input.focus(); });
-    window.addEventListener("resize", function () { if (matrixFrame) resizeMatrix(); }, { passive: true });
-    reducedMotion.addEventListener("change", function () {
-      if (reducedMotion.matches && matrixWanted) {
-        if (matrixFrame) window.cancelAnimationFrame(matrixFrame);
-        matrixFrame = 0;
-        matrix.classList.remove("is-on");
-      } else if (!reducedMotion.matches && matrixWanted) {
-        resizeMatrix();
-        matrix.classList.add("is-on");
-        matrixFrame = window.requestAnimationFrame(drawMatrix);
-      }
+    body.addEventListener("keydown", function (event) {
+      if (!running || !event.ctrlKey || event.key.toLowerCase() !== "c") return;
+      event.preventDefault();
+      runSerial += 1;
+      running = false;
+      appendLine("^C", "hlterm-muted");
+      addLive();
     });
+    body.addEventListener("click", function () { if (input) input.focus(); else body.focus(); });
+    window.addEventListener("resize", function () { if (matrixFrame) resizeMatrix(); }, { passive: true });
+    reduced.addEventListener("change", function () { if (matrixWanted) setMatrix(true); });
 
-    appendLine("HighLion hlshell / HLv8 / type help", "hlterm-muted");
-    appendLine("Debian GNU/Linux · lab shell · pipes | and && on the fake fs", "hlterm-muted");
-    appendLine("cmatrix / cowsay / fortune / sl are local toys", "hlterm-muted");
-    appendLine("", "hlterm-muted");
-    addLive();
+    sharedMachine.then(function (ready) {
+      machine = ready;
+      shell = machine.shell || new HL.Shell(machine);
+      historyIndex = machine.history.length;
+      updateTitle();
+      appendLine("HighLion tty1", "hlterm-muted");
+      appendLine(machine.identity.user + "@" + machine.identity.host + " login: " + machine.identity.user, "hlterm-muted");
+      appendLine("Last login: local session", "hlterm-muted");
+      try { appendLine(machine.readFile("/etc/motd"), "hlterm-muted"); } catch (error) {}
+      addLive();
+    }).catch(function (error) {
+      appendLine("machine boot failed: " + error.message, "hlterm-error");
+    });
   }
 
   window.mountTerminal = mountTerminal;
-  document.querySelectorAll("[data-hlshell]").forEach(function (panel) { mountTerminal(panel); });
+  document.querySelectorAll("[data-hlshell]").forEach(mountTerminal);
 })();

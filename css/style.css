@@ -263,6 +263,14 @@ a.nav-chip {
   text-decoration: none;
 }
 
+.nav-sfx {
+  cursor: pointer;
+}
+
+.nav-sfx[data-state="off"] {
+  color: var(--muted);
+}
+
 .nav-pip .pip {
   width: 6px;
   height: 6px;
@@ -1182,11 +1190,20 @@ h3 {
   border-left: 1px solid var(--stroke);
 }
 
-.tor-block {
-  grid-column: 1 / -1;
-  padding-right: 0 !important;
-  padding-left: 0 !important;
-  border-left: 0 !important;
+.onion-station {
+  padding-bottom: 1rem;
+}
+
+.onion-panel {
+  width: 100%;
+}
+
+.onion-panel .monitor-body {
+  padding: 1.3rem;
+}
+
+.onion-panel h2 {
+  margin: 0.45rem 0 0.75rem;
 }
 
 .tor-link {
@@ -1197,6 +1214,13 @@ h3 {
   margin-top: 0.55rem;
   color: var(--text-soft);
   text-decoration: none;
+}
+
+.tor-link > code {
+  min-width: 0;
+  color: var(--text-soft);
+  font-size: 0.72rem;
+  overflow-wrap: anywhere;
 }
 
 .tor-badge {
@@ -1453,6 +1477,11 @@ h3 {
 
 .hlterm-ps1-dollar {
   color: #858b96;
+}
+
+[data-shell-user="root"] .hlterm-ps1-user,
+[data-shell-user="root"] .hlterm-ps1-dollar {
+  color: var(--amber, #f2b84b);
 }
 
 .hlterm-error {
@@ -1800,6 +1829,18 @@ h3 {
   border: 1px solid var(--stroke);
   color: var(--cyan-strong);
   background: #050713;
+}
+
+.lab-body .log {
+  max-width: 100%;
+  margin: 1.4rem 0 0;
+  overflow: auto;
+  padding: 1rem;
+  border: 1px solid var(--stroke);
+  color: var(--text-soft);
+  background: #050713;
+  font: 600 0.72rem/1.6 var(--mono);
+  white-space: pre-wrap;
 }
 
 .contact-form.compact {

@@ -1,0 +1,13 @@
+{
+  "packages": [
+    {"name": "base-files", "version": "14.0+kali1", "arch": "amd64", "description": "Kali base system miscellaneous files"},
+    {"name": "bash", "version": "5.3-1", "arch": "amd64", "description": "GNU Bourne Again SHell"},
+    {"name": "coreutils", "version": "9.7-1", "arch": "amd64", "description": "GNU core utilities"},
+    {"name": "curl", "version": "8.15.0-1", "arch": "amd64", "description": "command line URL transfer tool"},
+    {"name": "iproute2", "version": "6.15.0-1", "arch": "amd64", "description": "networking and traffic control tools"},
+    {"name": "nginx", "version": "1.28.0-2", "arch": "amd64", "description": "small powerful web server"},
+    {"name": "openssh-client", "version": "10.0p1-4", "arch": "amd64", "description": "secure shell client"},
+    {"name": "php-fpm", "version": "8.4.11-1", "arch": "amd64", "description": "server-side scripting FPM"},
+    {"name": "zsh", "version": "5.9-8", "arch": "amd64", "description": "shell with interactive features"}
+  ]
+}

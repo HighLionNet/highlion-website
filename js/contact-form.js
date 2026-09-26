@@ -23,6 +23,8 @@
     status.textContent = state || "";
     status.dataset.state = (state || "").toLowerCase().replace(/[^a-z]/g, "");
     feedback.textContent = detail || "";
+    if (window.HighLionSfx && state === "Sent") window.HighLionSfx.sent();
+    if (window.HighLionSfx && state === "Error") window.HighLionSfx.formError();
   }
 
   function setFieldError(name, message) {

@@ -1,0 +1,5 @@
+root:x:0:
+kali:x:1000:kali
+sudo:x:27:
+www-data:x:33:
+adm:x:4:kali

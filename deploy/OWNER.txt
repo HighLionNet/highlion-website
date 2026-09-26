@@ -1,60 +1,66 @@
-HIGHLION DEBIAN CUT-IN (HLv8 / hl8h)
-1. rsync repo → /var/www/highlion
-   do not rsync .git
-2. Delete dead disk-only junk:
-     sudo rm -f /var/www/highlion/assets/audio/ui-blip.wav
-     sudo rm -f /var/www/highlion/assets/resume.pdf
-3. Fonts:
-     sudo bash /var/www/highlion/assets/fonts/generate-fonts.sh
-4. Telegram secrets (already on the Pi — confirm mode):
-     sudo install -d -m 0750 -o root -g www-data /etc/highlion
-     sudo chmod 640 /etc/highlion/letterbox.env /etc/highlion/honeypot.env
-     sudo chown root:www-data /etc/highlion/letterbox.env /etc/highlion/honeypot.env
-     each file:
-       TELEGRAM_BOT_TOKEN=...
-       TELEGRAM_CHAT_ID=...
-     two different bots. letterbox.env = real messages.
-     honeypot.env = pot trips only.
-5. Disable the watcher and unused MTA:
-     sudo systemctl disable --now highlion-honeypot-watch.service || true
-     sudo systemctl disable --now postfix || true
-6. nginx:
-     sudo cp /var/www/highlion/deploy/nginx-api.conf \
-             /etc/nginx/snippets/highlion-api.conf
-     inside www.highlion.net server block:
-       include snippets/highlion-api.conf;
-     replace any add_header X-HighLion v6 with
-       add_header X-HighLion "HLv8" always;
-     EXCLUDE ^/api/ from the IL geo map that wraps /contact.html
-     nginx -t && sudo systemctl reload nginx
-7. Traffic board:
-     sudo usermod -aG adm www-data
-     sudo systemctl restart php-fpm
-     if count stays 0, the tunnel access log format needs a
-     one-line sample pasted into /var/tmp/nginx-access.sample
-     so the parser can be adjusted next pass. Do not fake it.
-8. Tests:
-     curl -sI https://www.highlion.net/api/csrf.php           → 200
-     curl -s  https://www.highlion.net/api/intel.php          → 10 mixed items
-     curl -s  https://www.highlion.net/api/traffic.php        → json
-     curl -sI https://www.highlion.net/css/style.css?v=hl8h   → 200
-     off-IL: curl -sI https://www.highlion.net/contact.html   → 403
-     any-IP POST /api/contact.php is NOT geo-blocked
-     POST company:"bot" → 200 ok + new line in
-       /var/tmp/highlion-honeypot.log + honeypot Telegram
-     POST a real message → letterbox Telegram, no mail() in logs
-9. Intel thumbs:
+HIGHLION DEBIAN CUT-IN (HLv8 / hl8i)
+
+1. Sync git to disk in this direction only:
+     sudo rsync -a --delete --exclude '.git/' /path/to/highlion-website/ /var/www/highlion/
+   The copy is typed in git. From now on, do not edit live HTML and forget to copy it back.
+
+2. Install and include both nginx snippets:
+     sudo cp /var/www/highlion/deploy/nginx-headers.conf /etc/nginx/snippets/highlion-headers.conf
+     sudo cp /var/www/highlion/deploy/nginx-api.conf /etc/nginx/snippets/highlion-api.conf
+   Inside the www.highlion.net server block:
+     include snippets/highlion-headers.conf;
+     include snippets/highlion-api.conf;
+   Keep /api/ outside the IL geo map, then run:
+     sudo nginx -t && sudo systemctl reload nginx
+
+3. Purge the bare stylesheet URL from Cloudflare:
+     https://www.highlion.net/css/style.css
+   The unversioned URL is still serving HLv6 from 2025-11-24. The versioned ?v=hl8i URL is fine.
+   Cloudflare dashboard → Caching → Purge Custom URL.
+
+4. If the strict CSP breaks pages behind Cloudflare, disable Cloudflare Email Obfuscation and Rocket Loader for this zone. Keep script-src 'self'; do not add unsafe-eval or inline script permission.
+
+5. Create the thumbnail store as www-data:
      sudo install -d -m 0750 -o www-data -g www-data /var/tmp/highlion-thumbs
-     confirm www-data can write /var/tmp/highlion-intel.json
-10. After rsync:
-     curl -s  https://www.highlion.net/api/intel.php | head
-     curl -sI https://www.highlion.net/api/thumb.php?id=00  → 404
-11. Alerts (honeypot.env):
-     POST company on /api/contact.php → HPOT-COMPANY
-     POST bad token → CSRF-FAIL
-     6th POST in 15m → RATE-LIMIT
-     GET  /api/contact.php → BAD-METHOD
-12. Cache token now ?v=hl8h
-13. Public surface:
-     no extra error pages in this cut; the only new public endpoint is
-     /api/thumb.php, as required by the HLv8 station specification.
+   Confirm www-data can write /var/tmp/highlion-intel.json and /var/tmp/highlion-thumbs.json.
+
+6. Confirm HEAD is accepted by every GET API:
+     curl -sI https://www.highlion.net/api/intel.php
+     curl -sI https://www.highlion.net/api/csrf.php
+     curl -sI https://www.highlion.net/api/traffic.php
+     curl -sI 'https://www.highlion.net/api/thumb.php?id=00'
+   The first three must return 200, not 405. The invalid thumbnail must return 404, not 405.
+
+7. Confirm the intel payload has at least six distinct thumbnail IDs:
+     curl -s https://www.highlion.net/api/intel.php
+   At least six items must match /api/thumb.php?id=<40 lowercase hex>.
+
+8. Confirm the geo fence remains limited to the contact page:
+     off-IL: curl -sI https://www.highlion.net/contact.html  → 403
+     any-IP: /api/* remains reachable
+
+9. Do not rsync .git. The rsync command in step 1 excludes it.
+
+10. Leave assets/fonts/generate-fonts.sh unchanged. If local WOFF2 assets are missing, run the existing script exactly as before:
+      sudo bash /var/www/highlion/assets/fonts/generate-fonts.sh
+
+11. Leave the Telegram secret files on the Pi and unchanged:
+      /etc/highlion/letterbox.env
+      /etc/highlion/honeypot.env
+    Keep both root:www-data mode 0640. Never copy either file into git.
+
+12. Re-run the claim and honeypot tests:
+      curl -s -H 'Origin: https://www.highlion.net' -H 'Content-Type: application/json' \
+        --data '{"flag":"HL8{spare-field}","ts":0}' https://www.highlion.net/api/ctf.php
+      → 200 ok, a new /var/tmp/highlion-ctf.log line, and a [HL CTF] Telegram through letterbox.env
+
+      POST company:"bot" to /api/contact.php
+      → 200 ok, a new /var/tmp/highlion-honeypot.log line, and the existing honeypot Telegram
+
+   GET or HEAD on /api/contact.php must still take the bad-method honeypot path and return 405.
+
+13. Optional simulated browser-root provisioning (never server root):
+      node deploy/generate-shell-admin.mjs
+    Copy the printed enabled/auth object into js/shell/image/admin.json, commit it, and redeploy.
+    Use a strong unique passphrase. The verifier is public and the root profile controls only the visitor's browser VFS.
+    Challenge customization and pack-manifest instructions are in js/shell/README-OWNER.txt.

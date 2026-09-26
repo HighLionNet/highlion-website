@@ -5,15 +5,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="dark">
   <meta name="theme-color" content="#070914">
+  <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
   <title>HighLion — 403 Forbidden</title>
   <link rel="icon" href="/assets/icons/HighLion.ico" sizes="any">
-  <link rel="stylesheet" href="/css/style.css?v=hl8h">
+  <link rel="stylesheet" href="/css/style.css?v=hl8i">
 </head>
 <body>
   <a class="skip" href="#main">Skip to content</a>
   <div class="scanlines" aria-hidden="true"></div>
   <canvas id="fx" class="fx" aria-hidden="true"></canvas>
-  <div data-include="/components/header.html?v=hl8h"></div>
+  <div data-include="/components/header.html?v=hl8i"></div>
 
   <main id="main" class="shell error-page">
     <section class="monitor error-panel">
@@ -27,17 +28,17 @@
       </div>
       <form class="contact-form compact" id="contactForm" novalidate>
         <div class="field">
-          <label for="name">Name</label>
+          <label for="name">Your Name</label>
           <input id="name" name="name" type="text" autocomplete="name" minlength="2" maxlength="80" required>
           <span class="field-error" id="nameError"></span>
         </div>
         <div class="field">
-          <label for="email">Email</label>
+          <label for="email">Your Email</label>
           <input id="email" name="email" type="email" autocomplete="email" minlength="6" maxlength="254" required>
           <span class="field-error" id="emailError"></span>
         </div>
         <div class="field">
-          <label for="message">Message</label>
+          <label for="message">Type Message</label>
           <textarea id="message" name="message" minlength="10" maxlength="4000" required></textarea>
           <span class="field-error" id="messageError"></span>
         </div>
@@ -46,7 +47,7 @@
           <input id="company" name="company" type="text" tabindex="-1" autocomplete="off">
         </div>
         <div class="form-row">
-          <button class="btn" id="submitContact" type="submit">Send message</button>
+          <button class="btn" id="submitContact" type="submit">Send Message</button>
           <span class="form-status" id="formStatus" data-state="" aria-live="polite"></span>
         </div>
         <p class="contact-copy" id="formFeedback" aria-live="polite"></p>
@@ -54,10 +55,11 @@
     </section>
   </main>
 
-  <div data-include="/components/footer.html?v=hl8h"></div>
-  <script src="/js/fix-include.js?v=hl8h" defer></script>
-  <script src="/js/session-meta.js?v=hl8h" defer></script>
-  <script src="/js/particles.js?v=hl8h" defer></script>
-  <script src="/js/contact-form.js?v=hl8h" defer></script>
+  <div data-include="/components/footer.html?v=hl8i"></div>
+  <script src="/js/fix-include.js?v=hl8i" defer></script>
+  <script src="/js/sfx.js?v=hl8i" defer></script>
+  <script src="/js/session-meta.js?v=hl8i" defer></script>
+  <script src="/js/particles.js?v=hl8i" defer></script>
+  <script src="/js/contact-form.js?v=hl8i" defer></script>
 </body>
 </html>

@@ -5,51 +5,50 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="dark">
   <meta name="theme-color" content="#070914">
+  <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
   <meta name="description" content="Contact HighLion and find its public security profiles.">
   <title>HighLion — Contact</title>
   <link rel="icon" href="/assets/icons/HighLion.ico" sizes="any">
-  <link rel="stylesheet" href="/css/style.css?v=hl8h">
+  <link rel="stylesheet" href="/css/style.css?v=hl8i">
 </head>
 <body>
   <a class="skip" href="#main">Skip to content</a>
   <div class="scanlines" aria-hidden="true"></div>
   <canvas id="fx" class="fx" aria-hidden="true"></canvas>
-  <div data-include="/components/header.html?v=hl8h"></div>
+  <div data-include="/components/header.html?v=hl8i"></div>
 
   <main id="main">
     <header class="shell page-head">
-      <div class="kicker">Contact</div>
       <h1 class="headline">Letterbox</h1>
-      <p class="lead">Send a direct message or connect through one of my public profiles.</p>
     </header>
 
     <section class="shell contact-layout" aria-label="Contact form and public links">
       <form class="contact-panel contact-form monitor" id="contactForm" novalidate>
         <div class="contact-panel-head">
-          <div class="profile-label">Message</div>
-          <h2>Send a message</h2>
+          <h2>Send me a message</h2>
         </div>
         <div class="field">
-          <label for="name">Name</label>
+          <label for="name">Your Name</label>
           <input id="name" name="name" type="text" autocomplete="name" minlength="2" maxlength="80" required>
           <span class="field-error" id="nameError"></span>
         </div>
         <div class="field">
-          <label for="email">Email</label>
+          <label for="email">Your Email</label>
           <input id="email" name="email" type="email" autocomplete="email" minlength="6" maxlength="254" required>
           <span class="field-error" id="emailError"></span>
         </div>
         <div class="field">
-          <label for="message">Message</label>
+          <label for="message">Type Message</label>
           <textarea id="message" name="message" minlength="10" maxlength="4000" required></textarea>
           <span class="field-error" id="messageError"></span>
         </div>
         <div class="honeypot" aria-hidden="true">
+          <!-- spare field. not for humans. HL8{spare-field} -->
           <label for="company">Company</label>
           <input id="company" name="company" type="text" tabindex="-1" autocomplete="off">
         </div>
         <div class="form-row">
-          <button class="btn" id="submitContact" type="submit">Send message</button>
+          <button class="btn" id="submitContact" type="submit">Send Message</button>
           <span class="form-status" id="formStatus" data-state="" aria-live="polite"></span>
         </div>
         <p class="contact-copy" id="formFeedback" aria-live="polite"></p>
@@ -57,8 +56,7 @@
 
       <aside class="contact-panel contact-links-panel">
         <div class="contact-panel-head">
-          <div class="profile-label">Links</div>
-          <h2>Find HighLion</h2>
+          <h2>Find Me Online</h2>
         </div>
         <div class="socials">
           <a class="social-link" href="https://github.com/HighLionNet" target="_blank" rel="noopener noreferrer">
@@ -77,15 +75,20 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="m4 7 8 6 8-6"></path></svg>
             Email
           </a>
+          <a class="social-link" href="mailto:admin@highlion.net?subject=Resume%20request" title="Resume is not published. Email to request a copy.">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M6 2.75h8l4 4V21.25H6z"></path><path d="M14 2.75v4h4M9 12h6M9 16h6"></path></svg>
+            Resume available upon request
+          </a>
         </div>
       </aside>
     </section>
   </main>
 
-  <div data-include="/components/footer.html?v=hl8h"></div>
-  <script src="/js/fix-include.js?v=hl8h" defer></script>
-  <script src="/js/session-meta.js?v=hl8h" defer></script>
-  <script src="/js/particles.js?v=hl8h" defer></script>
-  <script src="/js/contact-form.js?v=hl8h" defer></script>
+  <div data-include="/components/footer.html?v=hl8i"></div>
+  <script src="/js/fix-include.js?v=hl8i" defer></script>
+  <script src="/js/sfx.js?v=hl8i" defer></script>
+  <script src="/js/session-meta.js?v=hl8i" defer></script>
+  <script src="/js/particles.js?v=hl8i" defer></script>
+  <script src="/js/contact-form.js?v=hl8i" defer></script>
 </body>
 </html>

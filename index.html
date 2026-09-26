@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="dark">
   <meta name="theme-color" content="#070914">
+  <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
   <meta name="description" content="HighLion is a personal cyber lab and portfolio by Shmuel Yermus, focusing on Linux, networking, SOC skills and junior penetration testing. Includes home-lab projects, incident writeups and security tooling.">
   <link rel="canonical" href="https://www.highlion.net/">
   <meta property="og:title" content="HighLion – Cyber Lab &amp; Portfolio">
@@ -17,30 +18,26 @@
   <meta name="twitter:description" content="Home lab, security projects and incident writeups by Shmuel Yermus – aspiring SOC analyst and junior penetration tester.">
   <title>HighLion — Home</title>
   <link rel="icon" href="/assets/icons/HighLion.ico" sizes="any">
-  <link rel="stylesheet" href="/css/style.css?v=hl8h">
+  <link rel="stylesheet" href="/css/style.css?v=hl8i">
 </head>
 <body>
   <a class="skip" href="#main">Skip to content</a>
   <div class="scanlines" aria-hidden="true"></div>
   <canvas id="fx" class="fx" aria-hidden="true"></canvas>
-  <div data-include="/components/header.html?v=hl8h"></div>
+  <div data-include="/components/header.html?v=hl8i"></div>
 
   <main id="main">
     <section class="shell home-stage">
       <article class="hero-copy">
         <div class="kicker">Cybersecurity / Linux / Networking</div>
-        <h1 id="home-title" class="headline">A live cybersecurity lab built for <span class="accent attack">attack</span> and <span class="accent defense">defense</span>.</h1>
-        <p class="lead">HighLion documents practical security work across networks, self-hosted infrastructure, incident response, and vulnerability research.</p>
-        <div class="actions">
-          <a class="btn" href="/projects.html">Explore projects</a>
-          <a class="btn secondary" href="/about.html">System profile</a>
-          <a class="btn secondary" href="/writeups.html">Read writeups</a>
-        </div>
+        <h1 id="home-title" class="headline">Welcome to HighLion: </h1>
+        <p class="lead headline-sub">A cybersecurity lab built for <span class="accent attack">attack</span> and <span class="accent defense">defense</span> skill development.</p>
+        <p class="lead">HighLion documents my Cybersecurity works and projects. I focus on incident response and vulnerability research, while gaining valuable experience in Linux and system administration.</p>
       </article>
 
       <aside class="news-rail" id="newsRail" aria-label="Cyber news">
         <div class="news-kicker-row">
-          <span class="kicker news-kicker">Intel</span>
+          <span class="kicker news-kicker">Cyber World Newsfeed</span>
           <span class="news-stamp" id="newsStamp">offline</span>
         </div>
         <div class="news-ticker" id="newsTicker" aria-hidden="true">
@@ -57,8 +54,7 @@
             <span class="red"></span><span class="amber"></span><span class="green"></span>
           </div>
           <div class="monitor-heading">
-            <div class="kicker">Session</div>
-            <h2>Local telemetry</h2>
+            <div class="kicker">User Local Information</div>
           </div>
           <span id="dClock" class="dash-clock">—</span>
         </header>
@@ -117,7 +113,7 @@
           </div>
           <div class="hlterm-head-copy">
             <span class="hlterm-kicker">kali</span>
-            <span class="hlterm-title">www-stux@highlion: ~</span>
+            <span class="hlterm-title">kali@highlion: ~</span>
           </div>
           <span class="hlterm-app">qterminal</span>
         </div>
@@ -136,11 +132,11 @@
       <div class="section-heading">
         <div>
           <div class="kicker">Writeups</div>
-          <h2 id="latest-writeups">Security writeups &amp; incident reports</h2>
+          <h2 id="latest-writeups">Security writeups</h2>
         </div>
         <a href="/writeups.html">All writeups →</a>
       </div>
-      <p class="section-intro">Beyond hands-on projects, I document issues which I encounter: reproducing problems, collecting evidence, and writing clear incident reports with root cause and remediation steps.</p>
+      <p class="section-intro">Visit my writeups page, where I document vulnerabilities I discover and study.</p>
       <div class="writeup-grid">
         <article class="monitor writeup-card">
           <div class="eyebrow">Incident audit</div>
@@ -168,13 +164,23 @@
     </section>
   </main>
 
-  <div data-include="/components/footer.html?v=hl8h"></div>
-  <script src="/js/fix-include.js?v=hl8h" defer></script>
-  <script src="/js/session-meta.js?v=hl8h" defer></script>
-  <script src="/js/particles.js?v=hl8h" defer></script>
-  <script src="/js/rain.js?v=hl8h" defer></script>
-  <script src="/js/intel-feed.js?v=hl8h" defer></script>
-  <script src="/js/terminal.js?v=hl8h" defer></script>
-  <script src="/js/dashboard.js?v=hl8h" defer></script>
+  <div data-include="/components/footer.html?v=hl8i"></div>
+  <script src="/js/fix-include.js?v=hl8i" defer></script>
+  <script src="/js/sfx.js?v=hl8i" defer></script>
+  <script src="/js/shell/kernel.js?v=hl8i" defer></script>
+  <script src="/js/shell/fs.js?v=hl8i" defer></script>
+  <script src="/js/shell/proc.js?v=hl8i" defer></script>
+  <script src="/js/shell/net.js?v=hl8i" defer></script>
+  <script src="/js/shell/sh.js?v=hl8i" defer></script>
+  <script src="/js/shell/busybox.js?v=hl8i" defer></script>
+  <script src="/js/shell/pack.js?v=hl8i" defer></script>
+  <script src="/js/shell/ctf.js?v=hl8i" defer></script>
+  <script src="/js/shell/machine.js?v=hl8i" defer></script>
+  <script src="/js/session-meta.js?v=hl8i" defer></script>
+  <script src="/js/particles.js?v=hl8i" defer></script>
+  <script src="/js/rain.js?v=hl8i" defer></script>
+  <script src="/js/intel-feed.js?v=hl8i" defer></script>
+  <script src="/js/terminal.js?v=hl8i" defer></script>
+  <script src="/js/dashboard.js?v=hl8i" defer></script>
 </body>
 </html>

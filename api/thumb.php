@@ -3,8 +3,9 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/_lib.php';
 
-if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'GET') {
-    header('Allow: GET');
+$requestMethod = strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? ''));
+if (!in_array($requestMethod, ['GET', 'HEAD'], true)) {
+    header('Allow: GET, HEAD');
     hl_json(['ok' => false], 405);
 }
 
@@ -40,4 +41,6 @@ header('Content-Type: ' . $contentType);
 header('Content-Length: ' . (string) filesize($path));
 header('Cache-Control: public, max-age=86400');
 header('X-Content-Type-Options: nosniff');
-readfile($path);
+if ($requestMethod !== 'HEAD') {
+    readfile($path);
+}

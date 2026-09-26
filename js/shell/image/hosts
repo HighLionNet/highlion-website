@@ -1,0 +1,4 @@
+127.0.0.1 localhost highlion
+10.8.0.1 gw.lab
+10.8.12.10 east.lab
+10.8.12.20 relay.lab

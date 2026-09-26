@@ -1,0 +1,8 @@
+{
+  "units": [
+    {"name": "nginx.service", "load": "loaded", "active": "active", "sub": "running", "description": "A high performance web server", "pid": 412},
+    {"name": "php8.4-fpm.service", "load": "loaded", "active": "active", "sub": "running", "description": "The PHP FastCGI Process Manager", "pid": 441},
+    {"name": "ssh.service", "load": "loaded", "active": "active", "sub": "running", "description": "OpenBSD Secure Shell server", "pid": 509},
+    {"name": "systemd-journald.service", "load": "loaded", "active": "active", "sub": "running", "description": "Journal Service", "pid": 182}
+  ]
+}

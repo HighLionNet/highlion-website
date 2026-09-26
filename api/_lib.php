@@ -18,6 +18,10 @@ function hl_json($data, $code = 200): void
     http_response_code((int) $code);
     header('Content-Type: application/json; charset=utf-8');
     header('Cache-Control: no-store');
+    header('X-Content-Type-Options: nosniff');
+    if (strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? '')) === 'HEAD') {
+        exit;
+    }
     $encoded = json_encode($data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
     if ($encoded === false) {
         http_response_code(500);

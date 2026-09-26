@@ -7,14 +7,9 @@
   var ALLOWED = {
     "index.html": "/index.html",
     "about.html": "/about.html",
-    "contact.html": "/contact.html",
     "projects.html": "/projects.html",
     "writeups.html": "/writeups.html",
     "css/style.css": "/css/style.css",
-    "js/terminal.js": "/js/terminal.js",
-    "js/particles.js": "/js/particles.js",
-    "js/dashboard.js": "/js/dashboard.js",
-    "api/_lib.php": "/api/_lib.php",
     "components/header.html": "/components/header.html",
     "components/footer.html": "/components/footer.html"
   };

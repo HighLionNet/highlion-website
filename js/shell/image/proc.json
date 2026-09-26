@@ -1,0 +1,26 @@
+{
+  "architecture": "x86_64",
+  "kernel": "6.12.0-hl8",
+  "version": "Linux highlion 6.12.0-hl8 #1 SMP PREEMPT_DYNAMIC x86_64 GNU/Linux",
+  "cpuModel": "HighLion Virtual CPU",
+  "cores": 4,
+  "memTotalKb": 2048000,
+  "interfaces": [
+    {"name": "lo", "address": "127.0.0.1/8", "mac": "00:00:00:00:00:00", "state": "UP", "rx": 18432, "tx": 18432},
+    {"name": "eth0", "address": "10.8.0.10/24", "mac": "02:68:6c:00:00:0a", "state": "UP", "rx": 9437184, "tx": 3145728}
+  ],
+  "sockets": [
+    {"proto": "tcp", "state": "LISTEN", "address": "10.8.0.10", "port": 22},
+    {"proto": "tcp", "state": "LISTEN", "address": "10.8.0.10", "port": 80},
+    {"proto": "tcp", "state": "LISTEN", "address": "10.8.0.10", "port": 443}
+  ],
+  "processes": [
+    {"pid": 1, "user": "root", "tty": "?", "command": "systemd", "cpu": "0.0", "mem": "0.2"},
+    {"pid": 182, "user": "root", "tty": "?", "command": "systemd-journald", "cpu": "0.0", "mem": "0.1"},
+    {"pid": 412, "user": "www-data", "tty": "?", "command": "nginx", "cpu": "0.0", "mem": "0.3"},
+    {"pid": 441, "user": "www-data", "tty": "?", "command": "php-fpm", "cpu": "0.1", "mem": "0.7"},
+    {"pid": 509, "user": "root", "tty": "?", "command": "sshd", "cpu": "0.0", "mem": "0.2"},
+    {"pid": 1336, "user": "kali", "tty": "pts/0", "command": "qterminal", "cpu": "0.1", "mem": "1.0"},
+    {"pid": 1337, "user": "kali", "tty": "pts/0", "command": "zsh", "cpu": "0.0", "mem": "0.3"}
+  ]
+}
