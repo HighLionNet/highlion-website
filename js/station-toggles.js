@@ -5,7 +5,7 @@
 
   function read(key, fallback) {
     try {
-      var value = window.localStorage.getItem(key);
+      var value = window.sessionStorage.getItem(key);
       return value === "on" || value === "off" ? value : fallback;
     } catch (error) {
       return fallback;
@@ -13,7 +13,7 @@
   }
 
   function write(key, value) {
-    try { window.localStorage.setItem(key, value); } catch (error) {}
+    try { window.sessionStorage.setItem(key, value); } catch (error) {}
   }
 
   var fx = read("hl-fx", reduced.matches ? "off" : "on");
@@ -21,8 +21,8 @@
 
   function paint(button, label, value) {
     if (!button) return;
-    button.textContent = label + " · " + value;
-    button.setAttribute("aria-label", label);
+    button.textContent = label;
+    button.setAttribute("aria-label", label + " " + value);
     button.setAttribute("aria-pressed", value === "on" ? "true" : "false");
     button.dataset.state = value;
   }
@@ -61,11 +61,26 @@
     return true;
   }
 
+  function bindCli() {
+    var button = document.getElementById("navCli");
+    if (!button) return false;
+    var path = window.location.pathname;
+    var isHome = path === "/" || path === "/index.html";
+    button.hidden = !isHome;
+    if (!isHome || button.dataset.bound === "true") return true;
+    button.dataset.bound = "true";
+    button.addEventListener("click", function () {
+      var terminal = document.getElementById("hlterm") || document.getElementById("hlterm-panel");
+      if (terminal) terminal.scrollIntoView({ block: "start", behavior: reduced.matches ? "auto" : "smooth" });
+    });
+    return true;
+  }
+
   applyFx();
   applyScan();
-  if (!bind()) {
+  if (!bind() || !bindCli()) {
     var observer = new MutationObserver(function () {
-      if (!bind()) return;
+      if (!bind() || !bindCli()) return;
       observer.disconnect();
     });
     observer.observe(document.documentElement, { childList: true, subtree: true });

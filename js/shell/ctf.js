@@ -43,13 +43,13 @@
     }
     if (this.isClaimed(row.id)) return { status: 0, stdout: "already claimed: " + row.id + "\n", stderr: "" };
     this.machine.claimed.push(row.id);
-    var trophy = "/home/kali/.trophies/" + row.id + ".flag";
+    var trophy = "/home/kali/highlion/.trophies/" + row.id + ".flag";
     try { this.machine.fs.writeFile(trophy, String(value).trim() + "\n", "/", false, false); } catch (error) {}
     if (row.id === "notice") {
-      this.machine.fs.writeFile("/home/kali/mail/draft.txt", "bots fill every field on the letterbox\n", "/", false, false);
+      this.machine.fs.writeFile("/home/kali/highlion/mail/draft.txt", "bots fill every field on the letterbox\n", "/", false, false);
     }
     if (row.id === "east") {
-      this.machine.fs.writeFile("/home/kali/.local/share/highlion/relay.path", "/lab/relay\n", "/", false, false);
+      this.machine.fs.writeFile("/home/kali/highlion/relay.path", "/lab/relay\n", "/", false, false);
     }
     this.machine.persist();
     this.postClaim(String(value).trim());
@@ -72,7 +72,7 @@
 
   ChallengeController.prototype.trophies = function () {
     if (!this.machine.claimed.length) return "No trophies claimed.\n";
-    return this.machine.claimed.map(function (id) { return "/home/kali/.trophies/" + id + ".flag"; }).join("\n") + "\n";
+    return this.machine.claimed.map(function (id) { return "/home/kali/highlion/.trophies/" + id + ".flag"; }).join("\n") + "\n";
   };
 
   ChallengeController.prototype.hint = function () {

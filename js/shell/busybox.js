@@ -275,16 +275,35 @@
   };
 
   BusyBox.prototype.cmdTree = function (args) {
-    if (args.length > 1) return failure("tree", "too many arguments");
+    var maxDepth = Infinity;
+    var path = ".";
+    for (var index = 0; index < args.length; index += 1) {
+      if (args[index] === "-L" && /^\d+$/.test(args[index + 1] || "")) maxDepth = Number(args[++index]);
+      else if (args[index].charAt(0) === "-") return failure("tree", "usage: tree [-L LEVEL] [DIRECTORY]");
+      else if (path === ".") path = args[index];
+      else return failure("tree", "too many arguments");
+    }
     try {
-      var rootPath = this.fs.resolve(args[0] || ".", this.machine.cwd, true);
-      var rows = this.fs.walk(rootPath, "/");
+      var rootPath = this.fs.resolve(path, this.machine.cwd, true);
       var lines = [rootPath];
-      rows.slice(1).forEach(function (row) {
-        var relative = row.path.slice(rootPath === "/" ? 1 : rootPath.length + 1);
-        var depth = relative.split("/").length;
-        lines.push("│   ".repeat(Math.max(0, depth - 1)) + "├── " + HL.path.basename(row.path));
-      });
+      var directories = 0;
+      var files = 0;
+      var visit = function (directory, depth, prefix) {
+        if (depth > maxDepth) return;
+        var rows;
+        try { rows = this.fs.list(directory, "/", false); }
+        catch (error) { lines.push(prefix + "└── [error opening dir]"); return; }
+        rows.forEach(function (row, rowIndex) {
+          var last = rowIndex === rows.length - 1;
+          lines.push(prefix + (last ? "└── " : "├── ") + row.name);
+          if (row.node.type === "dir") {
+            directories += 1;
+            if (depth < maxDepth) visit(row.path, depth + 1, prefix + (last ? "    " : "│   "));
+          } else files += 1;
+        });
+      }.bind(this);
+      visit(rootPath, 1, "");
+      lines.push("", directories + " directories, " + files + " files");
       return result(lines.join("\n") + "\n");
     } catch (error) { return failure("tree", error); }
   };
@@ -444,6 +463,7 @@
     var lines=["PING "+host+" ("+address+") 56(84) bytes of data."];
     var received=0; var times=[];
     for(var index=1;index<=count;index+=1){
+      await new Promise(function(resolve){root.setTimeout(resolve,profile.up?Math.max(1,profile.rtt):250);});
       var delivered=profile.up&&((profile.seed+index*37)%100>=profile.loss);
       if(!delivered)continue;
       var jitter=((profile.seed>>>index%16)%17-8)/10;
@@ -471,7 +491,9 @@
     var brochure=parsed.protocol==="https:"&&["www.highlion.net","highlion.net"].indexOf(parsed.hostname.toLowerCase())!==-1&&allowed(parsed.pathname);
     if(!brochure){
       var simulated=this.machine.net.http(parsed.href);
+      await new Promise(function(resolve){root.setTimeout(resolve,simulated.profile?Math.max(20,Math.min(800,simulated.profile.rtt)):80);});
       if(simulated.error==="timeout")return result("",28,name+": (28) Connection timed out after 10001 milliseconds\n");
+      if(simulated.error==="refused")return result("",7,name+": (7) Failed to connect: Connection refused\n");
       if(simulated.error)return refused();
       var headers="HTTP/1.1 "+simulated.code+" "+simulated.label+"\nServer: "+simulated.server+"\nContent-Type: text/html; charset=utf-8\nContent-Length: "+simulated.body.length+"\n"+(simulated.location?"Location: "+simulated.location+"\n":"")+"Connection: close\n\n";
       return result((includeHeaders||headOnly?headers:"")+(headOnly?"":simulated.body)+(headOnly||simulated.body.endsWith("\n")?"":"\n"),simulated.code>=400?22:0);
@@ -573,25 +595,27 @@
     return result(lines.join("\n")+"\n");
   };
 
-  BusyBox.prototype.cmdTrace=function(name,args){
+  BusyBox.prototype.cmdTrace=async function(name,args){
     var target=args.filter(function(arg){return arg.charAt(0)!=="-";}).pop()||"";
     if(!target)return failure(name,"usage: "+name+" HOST");
     var profile=this.machine.net.profile(target);if(!profile.address)return failure(name,"unknown host "+target);
     var hops=this.machine.net.trace(target);var lines=name==="traceroute"?["traceroute to "+target+" ("+profile.address+"), 30 hops max, 60 byte packets"]:[" 1?: [LOCALHOST]                      pmtu 1500"];
-    hops.forEach(function(hop,index){var time=hop.rtt.toFixed(3);lines.push(String(index+1).padStart(2," ")+"  "+hop.name+" ("+hop.address+")  "+time+" ms  "+(hop.rtt+0.2).toFixed(3)+" ms  "+(hop.rtt+0.4).toFixed(3)+" ms");});
+    for(var index=0;index<hops.length;index+=1){var hop=hops[index];await new Promise(function(resolve){root.setTimeout(resolve,Math.max(35,Math.min(350,hop.rtt)));});var time=hop.rtt.toFixed(3);lines.push(String(index+1).padStart(2," ")+"  "+hop.name+" ("+hop.address+")  "+time+" ms  "+(hop.rtt+0.2).toFixed(3)+" ms  "+(hop.rtt+0.4).toFixed(3)+" ms");}
     return result(lines.join("\n")+"\n",profile.up?0:1);
   };
 
-  BusyBox.prototype.cmdDns=function(name,args){
+  BusyBox.prototype.cmdDns=async function(name,args){
     var target=args.filter(function(arg){return arg.charAt(0)!=="@"&&arg.charAt(0)!=="-";}).pop()||"";
     if(!target)return failure(name,"usage: "+name+" NAME");
     var address=this.machine.net.resolve(target);
+    var delay=80+this.machine.net.seed(target)%141;
+    await new Promise(function(resolve){root.setTimeout(resolve,delay);});
     if(name==="host")return address?result(target+" has address "+address+"\n"):result("Host "+target+" not found: 3(NXDOMAIN)\n",1);
     if(name==="nslookup")return address?result("Server:\t\t10.8.0.1\nAddress:\t10.8.0.1#53\n\nNon-authoritative answer:\nName:\t"+target+"\nAddress: "+address+"\n"):result("** server can't find "+target+": NXDOMAIN\n",1);
     var status=address?"NOERROR":"NXDOMAIN";var serial=this.machine.net.sha1(target).slice(0,8);
     var out="; <<>> DiG 9.20.4 <<>> "+target+"\n;; ->>HEADER<<- opcode: QUERY, status: "+status+", id: "+(parseInt(serial,16)%65535)+"\n;; flags: qr rd ra; QUERY: 1, ANSWER: "+(address?1:0)+", AUTHORITY: 1, ADDITIONAL: 1\n\n;; QUESTION SECTION:\n;"+target+".\t\tIN\tA\n\n";
     if(address)out+=";; ANSWER SECTION:\n"+target+".\t300\tIN\tA\t"+address+"\n\n";
-    out+=";; AUTHORITY SECTION:\n.\t3600\tIN\tSOA\tns1.sim. hostmaster.sim. "+parseInt(serial,16)+" 7200 3600 1209600 300\n\n;; SERVER: 10.8.0.1#53(10.8.0.1)\n;; Query time: 2 msec\n";
+    out+=";; AUTHORITY SECTION:\n.\t3600\tIN\tSOA\tns1.sim. hostmaster.sim. "+parseInt(serial,16)+" 7200 3600 1209600 300\n\n;; SERVER: 10.8.0.1#53(10.8.0.1)\n;; Query time: "+delay+" msec\n";
     return result(out,address?0:1);
   };
 
@@ -627,18 +651,31 @@
       if(!args.length)return failure("sudo","a command is required");
       return shell.run(args.join(" "),{capture:true,depth:1});
     }
+    if(this.machine.identity.user==="admin"&&args.length&&["cat","ls","find","grep"].indexOf(args[0])!==-1&&args.slice(1).some(function(value){return value.indexOf("/opt/highlion/challenges")===0;}))return shell.run(args.join(" "),{capture:true,depth:1});
     try{this.fs.writeFile("/var/log/auth.log",new Date().toISOString()+" highlion sudo: "+this.machine.identity.user+" : user NOT in sudoers\n","/",true,true);}catch(error){}
-    return failure("sudo",this.machine.identity.user+" is not in the sudoers file. This incident will be reported.");
+    return failure("sudo",this.machine.identity.user+" is not in the sudoers file.  This incident will be reported.");
   };
   BusyBox.prototype.cmdSu=function(args){
     var target=args.filter(function(arg){return arg!=="-";})[0]||"root";
     if(target!=="root"&&target!=="admin"&&target!==this.machine.visitorName)return failure("su","user "+target+" does not exist");
-    if(this.machine.su(target))return result();
-    return failure("su","Authentication failure",1);
+    if(target===this.machine.visitorName){this.machine.dropToKali();return result();}
+    if(target===this.machine.identity.user)return result();
+    return result("",0,"",{authenticate:target});
   };
   BusyBox.prototype.cmdLogout=function(args){
     if(args.length)return failure("logout","extra operand");
-    return this.machine.logoutRoot()?result("logout\n"):failure("logout","not a login shell",1);
+    this.machine.dropToKali();
+    return result("logout\n");
+  };
+
+  BusyBox.prototype.cmdIptables=function(args){
+    if(!this.machine.isRoot())return failure("iptables","Permission denied (you must be root)",4);
+    if(args.length===1&&args[0]==="-F"){this.machine.net.flushFirewall();return result();}
+    var action=args[0];var chain=args[1];var target="";var port="";var jump="";
+    for(var index=2;index<args.length;index+=1){if(args[index]==="-d")target=args[++index]||"";else if(args[index]==="--dport")port=args[++index]||"";else if(args[index]==="-j")jump=(args[++index]||"").toUpperCase();}
+    if(["-A","-D"].indexOf(action)===-1||chain!=="OUTPUT"||!target||!/^\d+$/.test(port)||jump!=="DROP")return failure("iptables","supported: iptables -A|-D OUTPUT -d HOST --dport PORT -j DROP, or iptables -F");
+    if(!this.machine.net.setFirewall(target,Number(port),action==="-A"))return failure("iptables","host must be inside the simulated 10.8.0.0/16 lab");
+    return result();
   };
   BusyBox.prototype.cmdHostnamectl=function(){return result(" Static hostname: highlion\n       Icon name: computer-vm\n         Chassis: vm\nOperating System: Kali GNU/Linux Rolling\n          Kernel: Linux 6.12.0-hl8\n    Architecture: x86-64\n");};
   BusyBox.prototype.cmdLsbRelease=function(args){return args.length===1&&args[0]==="-a"?result("Distributor ID:\tKali\nDescription:\tKali GNU/Linux Rolling\nRelease:\t2026.3\nCodename:\tkali-rolling\n"):failure("lsb_release","usage: lsb_release -a");};
@@ -664,7 +701,7 @@
   BusyBox.prototype.cmdHint=function(args){return args.length?failure("hint","usage: hint"):result(this.machine.ctf.hint());};
   BusyBox.prototype.cmdMotd=function(){try{return result(this.machine.readFile("/etc/motd"));}catch(error){return failure("motd",error);}};
   BusyBox.prototype.cmdOpen=function(args){if(args.length!==1||!this.machine.config.sitePages[args[0]])return failure("open","usage: open home|about|projects|writeups|contact");return result("opening "+args[0]+"\n",0,"",{navigate:this.machine.config.sitePages[args[0]]});};
-  BusyBox.prototype.cmdPublished=function(name,args){if(args.length)return failure(name,"extra operand");try{return result(this.machine.readFile("/home/kali/"+name+".md"));}catch(error){return failure(name,error);}};
+  BusyBox.prototype.cmdPublished=function(name,args){if(args.length)return failure(name,"extra operand");try{return result(this.machine.readFile("/home/kali/highlion/"+name+".md"));}catch(error){return failure(name,error);}};
 
   BusyBox.prototype.run = async function (name, args, stdin, shell) {
     args = args.slice();
@@ -680,7 +717,7 @@
     if(name==="ps")return this.cmdPs(args); if(name==="pidof")return this.cmdPidof(args); if(name==="kill")return this.cmdKill(args); if(name==="pkill")return this.cmdPkill(args); if(name==="df")return this.cmdDf(args); if(name==="du")return this.cmdDu(args); if(name==="free")return this.cmdFree(args); if(name==="uptime")return this.cmdUptime(args); if(name==="mount")return this.cmdMount(args); if(name==="getent")return this.cmdGetent(args); if(name==="last")return this.cmdLast(args); if(name==="who"||name==="w")return this.cmdWho(name,args); if(name==="sessionctl")return this.cmdSessionctl(args);
     if(name==="ip")return this.cmdIp(args); if(name==="ss")return this.cmdSs(args); if(name==="netstat")return this.cmdNetstat(args); if(name==="ping")return this.cmdPing(args); if(name==="curl"||name==="wget")return this.cmdCurl(name,args); if(name==="nc"||name==="netcat")return this.cmdNc(args); if(name==="ssh")return this.cmdSsh(args);
     if(name==="nmap")return this.cmdNmap(args); if(name==="traceroute"||name==="tracepath")return this.cmdTrace(name,args); if(name==="dig"||name==="host"||name==="nslookup")return this.cmdDns(name,args); if(name==="whois")return this.cmdWhois(args);
-    if(name==="systemctl")return this.cmdSystemctl(args); if(name==="journalctl")return this.cmdJournalctl(args); if(name==="dpkg")return this.cmdDpkg(args); if(name==="apt")return this.cmdApt(args); if(name==="sudo")return this.cmdSudo(args,shell); if(name==="su")return this.cmdSu(args); if(name==="exit"||name==="logout")return this.cmdLogout(args); if(name==="hostnamectl")return this.cmdHostnamectl(args); if(name==="lsb_release")return this.cmdLsbRelease(args); if(name==="timedatectl")return this.cmdTimedatectl(args); if(name==="lsblk")return this.cmdLsblk(args); if(name==="top")return this.cmdTop(args); if(name==="alias")return this.cmdAlias(args); if(name==="bash")return this.cmdBash(args,shell); if(name==="python3"||name==="perl"||name==="ruby")return this.cmdRuntime(name,args);
+    if(name==="systemctl")return this.cmdSystemctl(args); if(name==="journalctl")return this.cmdJournalctl(args); if(name==="dpkg")return this.cmdDpkg(args); if(name==="apt")return this.cmdApt(args); if(name==="sudo")return this.cmdSudo(args,shell); if(name==="su")return this.cmdSu(args); if(name==="exit"||name==="logout")return this.cmdLogout(args); if(name==="iptables")return this.cmdIptables(args); if(name==="hostnamectl")return this.cmdHostnamectl(args); if(name==="lsb_release")return this.cmdLsbRelease(args); if(name==="timedatectl")return this.cmdTimedatectl(args); if(name==="lsblk")return this.cmdLsblk(args); if(name==="top")return this.cmdTop(args); if(name==="alias")return this.cmdAlias(args); if(name==="bash")return this.cmdBash(args,shell); if(name==="python3"||name==="perl"||name==="ruby")return this.cmdRuntime(name,args);
     if(name==="cowsay")return this.cmdCowsay(args); if(name==="fortune")return this.cmdFortune(args); if(name==="sl")return this.cmdSl(args); if(name==="figlet")return this.cmdFiglet(args); if(name==="banner")return this.cmdBanner(args); if(name==="neofetch")return this.cmdNeofetch(args); if(name==="cmatrix")return this.cmdCmatrix(args);
     if(name==="history")return this.cmdHistory(args); if(name==="clear")return result("",0,"","clear"); if(name==="reset")return result("",0,"","reset"); if(name==="reset-machine"){this.machine.reset();return result("",0,"","reset");}
     if(name==="score")return this.cmdScore(args); if(name==="trophies")return this.cmdTrophies(args); if(name==="claim")return this.cmdClaim(args); if(name==="hint")return this.cmdHint(args); if(name==="motd")return this.cmdMotd(args); if(name==="open")return this.cmdOpen(args); if(name==="writeups"||name==="projects")return this.cmdPublished(name,args);

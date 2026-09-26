@@ -331,9 +331,29 @@ function hl_intel_thumbnail_url(string $imageUrl): string
     return $imageUrl;
 }
 
+function hl_intel_source_key(string $host): string
+{
+    $host = strtolower(preg_replace('/^www\./', '', $host));
+    if ($host === 'bleepingcomputer.com') {
+        return 'bleeping';
+    }
+    if ($host === 'thehackernews.com' || strpos($host, 'feedburner.com') !== false
+        || strpos($host, 'thehackersnews') !== false) {
+        return 'hackernews';
+    }
+    if ($host === 'krebsonsecurity.com') {
+        return 'krebs';
+    }
+    if ($host === 'cisa.gov') {
+        return 'cisa';
+    }
+    return 'highlion';
+}
+
 function hl_intel_thumb(
     string $imageUrl,
     string $cacheKey,
+    string $sourceKey,
     array &$thumbMap,
     string $thumbDirectory,
     int $thumbTtl,
@@ -364,6 +384,11 @@ function hl_intel_thumb(
         $id = sha1('article|' . $cacheKey);
         $normalized = hl_intel_normalize_image((string) $response['body'], (string) $response['ctype']);
         if ($normalized !== null && @file_put_contents($thumbDirectory . '/' . $id, $normalized['body'], LOCK_EX) !== false) {
+            $sourceDirectory = $thumbDirectory . '/by-source';
+            if ((is_dir($sourceDirectory) || @mkdir($sourceDirectory, 0750, true))
+                && in_array($sourceKey, ['bleeping', 'hackernews', 'krebs', 'cisa', 'highlion'], true)) {
+                @file_put_contents($sourceDirectory . '/' . $sourceKey, $normalized['body'], LOCK_EX);
+            }
             $thumbMap[$cacheKey] = [
                 'id' => $id,
                 'ctype' => $normalized['ctype'],
@@ -560,6 +585,7 @@ if ($items === []) {
 foreach ($items as &$item) {
     $imageUrl = (string) ($item['image'] ?? '');
     $articleUrl = (string) $item['url'];
+    $sourceKey = hl_intel_source_key((string) ($item['source'] ?? ''));
     $thumbId = '';
     if ($imageUrl === '') {
         $articleRecord = $thumbMap[$articleUrl] ?? null;
@@ -578,6 +604,7 @@ foreach ($items as &$item) {
                 $thumbId = hl_intel_thumb(
                     $imageUrl,
                     $articleUrl,
+                    $sourceKey,
                     $thumbMap,
                     $thumbDirectory,
                     $thumbTtl,
@@ -596,6 +623,7 @@ foreach ($items as &$item) {
         $thumbId = hl_intel_thumb(
             $imageUrl,
             $articleUrl,
+            $sourceKey,
             $thumbMap,
             $thumbDirectory,
             $thumbTtl,

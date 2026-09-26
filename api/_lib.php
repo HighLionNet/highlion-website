@@ -84,7 +84,6 @@ function hl_csrf_issue(): string
         'samesite' => 'Lax',
     ];
     setcookie('hl_csrf', $token, $base + ['httponly' => true]);
-    setcookie('hl_csrf_js', $token, $base + ['httponly' => false]);
     return $token;
 }
 

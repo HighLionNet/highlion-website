@@ -10,15 +10,34 @@ if (!in_array($requestMethod, ['GET', 'HEAD'], true)) {
 }
 
 $id = strtolower(trim((string) ($_GET['id'] ?? '')));
-if (preg_match('/^[a-f0-9]{40}$/', $id) !== 1) {
-    header('Location: /assets/thumbs/highlion.png', true, 302);
-    header('Cache-Control: public, max-age=300');
-    exit;
+$source = strtolower(trim((string) ($_GET['source'] ?? '')));
+$allowedSources = ['bleeping', 'hackernews', 'krebs', 'cisa', 'highlion'];
+$path = '';
+
+if (preg_match('/^[a-f0-9]{40}$/', $id) === 1) {
+    $candidate = '/var/tmp/highlion-thumbs/' . $id;
+    if (is_file($candidate) && is_readable($candidate)) {
+        $path = $candidate;
+    }
 }
 
-$path = '/var/tmp/highlion-thumbs/' . $id;
-if (!is_file($path) || !is_readable($path)) {
-    header('Location: /assets/thumbs/highlion.png', true, 302);
+if ($path === '' && in_array($source, $allowedSources, true)) {
+    $sticky = '/var/tmp/highlion-thumbs/by-source/' . $source;
+    if (is_file($sticky) && is_readable($sticky)) {
+        $path = $sticky;
+    } else {
+        foreach (['jpg', 'jpeg', 'png', 'webp'] as $extension) {
+            $static = dirname(__DIR__) . '/assets/thumbs/' . $source . '.' . $extension;
+            if (is_file($static) && is_readable($static)) {
+                $path = $static;
+                break;
+            }
+        }
+    }
+}
+
+if ($path === '') {
+    http_response_code(204);
     header('Cache-Control: public, max-age=300');
     exit;
 }
@@ -38,6 +57,17 @@ if (is_readable($mapFile)) {
             }
             break;
         }
+    }
+}
+
+if (function_exists('finfo_open')) {
+    $fileInfo = @finfo_open(FILEINFO_MIME_TYPE);
+    $detected = $fileInfo === false ? '' : strtolower((string) @finfo_file($fileInfo, $path));
+    if ($fileInfo !== false) {
+        finfo_close($fileInfo);
+    }
+    if (in_array($detected, ['image/jpeg', 'image/png', 'image/webp', 'image/gif'], true)) {
+        $contentType = $detected;
     }
 }
 

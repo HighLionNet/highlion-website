@@ -28,11 +28,14 @@ $ttl = max(30, min(600, (int) ($env['HL_SHELL_TTL'] ?? 90)));
 $operatorCookie = trim((string) ($env['HL_OP_COOKIE'] ?? ''));
 $cookieValue = (string) ($_COOKIE['hl_op'] ?? '');
 $originOk = hl_origin_ok((string) ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? ''));
-$operator = $operatorCookie !== '' && $cookieValue !== '' && hash_equals($operatorCookie, $cookieValue) && $originOk;
+$operator = $operatorCookie !== '' && $cookieValue !== '' && hash_equals($operatorCookie, $cookieValue);
+
+if (!$originOk) {
+    hl_json(['ok' => false], 403);
+}
 
 if ($op === 'list' || $op === 'drop') {
-    $csrf = (string) ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? '');
-    if (!$operator || !hl_csrf_check($csrf)) {
+    if (!$operator) {
         hl_json(['ok' => false], 404);
     }
 }
@@ -94,7 +97,7 @@ if ($op === 'acquire') {
             } catch (Throwable $error) {
                 $id = hash('sha256', uniqid('shell', true) . microtime(true));
             }
-            $user = $operator ? 'root' : 'kali';
+            $user = 'kali';
             $slots[] = [
                 'id' => $id,
                 'user' => $user,

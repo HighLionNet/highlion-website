@@ -119,23 +119,16 @@
       operator: Boolean(lease && lease.operator)
     };
     this.sessionControl = typeof controller === "function" ? controller : null;
-    if (this.lease.operator) this.switchUser("root", { persist: false });
   };
 
-  Machine.prototype.su = function (name) {
-    if (!this.isRoot() && !this.lease.operator) return false;
-    if (name === this.identity.user) return true;
-    this.userStack.push(this.identity.user);
+  Machine.prototype.authenticateUser = function (name) {
+    if (name !== "root" && name !== "admin") return false;
     this.switchUser(name, { persist: false });
     return true;
   };
 
-  Machine.prototype.logoutRoot = function () {
-    if (this.userStack.length) {
-      this.switchUser(this.userStack.pop(), { persist: false });
-      return true;
-    }
-    if (!this.isRoot()) return false;
+  Machine.prototype.dropToKali = function () {
+    this.userStack = [];
     this.switchUser(this.visitorName, { persist: false });
     return true;
   };

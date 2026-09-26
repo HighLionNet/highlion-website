@@ -1,45 +1,49 @@
-HIGHLION DEBIAN CUT-IN (HLv8 / hl8k)
+HIGHLION DEBIAN CUT-IN (HLv8 / hl8l)
 
-1. Sync the git checkout to the web root in this direction only:
+1. Sync the checkout to the web root in this direction only:
      sudo rsync -a --delete --exclude '.git/' /path/to/highlion-website/ /var/www/highlion/
-   Never edit live HTML without copying the change back to git.
+   Never edit the live tree without copying the change back to git.
 
-2. Keep the existing nginx snippets installed and confirm PHP-FPM serves /api/ outside the contact-page geo fence:
-     sudo nginx -t && sudo systemctl reload nginx
+2. Keep the existing nginx snippets installed. Confirm PHP-FPM handles these paths outside the contact-page geo fence, then reload nginx:
+     sudo nginx -t
+     sudo systemctl reload nginx
      curl -sI https://www.highlion.net/api/intel.php
-     curl -sI https://www.highlion.net/api/csrf.php
+     curl -sI 'https://www.highlion.net/api/thumb.php?source=cisa'
      curl -sI https://www.highlion.net/api/traffic.php
-     curl -sI 'https://www.highlion.net/api/thumb.php?id=00'
-   All four HEAD requests must be handled; an invalid thumbnail now redirects to /assets/thumbs/highlion.png.
+     curl -sI -X POST https://www.highlion.net/api/shell-slot.php
+     curl -sI -X POST https://www.highlion.net/api/shell-auth.php
+   A handled 4xx response is expected for protected POST endpoints without a valid same-origin browser session.
 
-3. Purge this Cloudflare URL after rsync, or rely on the new hl8k query token:
-     https://www.highlion.net/css/style.css
+3. Purge https://www.highlion.net/css/style.css after rsync, or let the hl8l query token roll the cache.
 
 4. Create the writable thumbnail and shell-lease stores:
-     sudo install -d -m 0750 -o www-data -g www-data /var/tmp/highlion-thumbs
+     sudo install -d -m 0750 -o www-data -g www-data /var/tmp/highlion-thumbs/by-source
      sudo touch /var/tmp/highlion-intel.json /var/tmp/highlion-thumbs.json /var/tmp/highlion-shell-slots.json
      sudo chown www-data:www-data /var/tmp/highlion-intel.json /var/tmp/highlion-thumbs.json /var/tmp/highlion-shell-slots.json
      sudo chmod 0660 /var/tmp/highlion-intel.json /var/tmp/highlion-thumbs.json /var/tmp/highlion-shell-slots.json
-   After one cold /api/intel.php request, confirm at least six items have distinct 40-character thumbnail IDs and every file in /var/tmp/highlion-thumbs is at most 204800 bytes.
+   After a cold /api/intel.php request, confirm each cached thumbnail is at most 204800 bytes. For optional real source photos, create /var/www/highlion/assets/thumbs and install bleeping.jpg, hackernews.jpg, krebs.jpg, or cisa.jpg there.
 
-5. Fix and verify the operator-only simulated root session. PHP-FPM must be able to read this file; 0600 root:www-data is wrong:
+5. Create the private browser-shell configuration. PHP-FPM owns and reads this file; never commit it:
      sudo install -d -m 0750 -o root -g www-data /etc/highlion
      sudo touch /etc/highlion/shell.env
-     sudo chown root:www-data /etc/highlion/shell.env
-     sudo chmod 0640 /etc/highlion/shell.env
-   Keep these values in that file, never in git:
+     sudo chown www-data:www-data /etc/highlion/shell.env
+     sudo chmod 0600 /etc/highlion/shell.env
+   Put exactly these assignments in /etc/highlion/shell.env:
      HL_SHELL_SLOTS=8
      HL_SHELL_TTL=90
      HL_SHELL_HEARTBEAT=30
-     HL_OP_COOKIE=<long-random-secret>
-   In the intended Firefox container, set cookie hl_op on www.highlion.net with Path=/, Secure, and SameSite=Lax. Reload the page, open DevTools Network, and inspect the acquire POST to /api/shell-slot.php: it must return mode:"full", operator:true. The terminal must then boot as root. While that operator lease is active, `su admin`, `su kali`, and `su root` switch immediately; no simulated password prompt exists. A normal browser without hl_op boots as kali and `su` fails immediately. Remove the cookie to remove operator access.
+     HL_OP_COOKIE=<64-or-more-random-hex-characters>
+     HL_ROOT_PW_HASH='<bcrypt-hash-created-with-password_hash>'
+     HL_ADMIN_PW_HASH='<bcrypt-hash-created-with-password_hash>'
+   The terminal always boots as kali. `su root` and `su admin` fail closed until their hashes exist. Root additionally requires the HttpOnly operator cookie whose value matches HL_OP_COOKIE. Passwords are never stored in git or in plaintext.
 
-6. Keep /etc/highlion/letterbox.env and /etc/highlion/honeypot.env root:www-data mode 0640. Do not commit any /etc/highlion/*.env file. Re-run the existing contact, honeypot, claim, and geo-fence checks after deployment.
+6. Set the operator cookie only in the intended browser profile, scoped to www.highlion.net with Path=/, Secure, HttpOnly, and SameSite=Lax. Remove it to remove root eligibility. The server validates the cookie and password independently; neither grants host access.
 
-7. If local WOFF2 assets are missing, run the existing generator:
+7. Keep /etc/highlion/letterbox.env and /etc/highlion/honeypot.env private and readable by PHP-FPM. Re-run the existing contact, honeypot, claim, and geo-fence checks after deployment. Never commit any /etc/highlion/*.env file.
+
+8. Deploy 403.html and 404.html explicitly if nginx error_page routing does not already use them. If local WOFF2 assets are missing, run:
      sudo bash /var/www/highlion/assets/fonts/generate-fonts.sh
-   Deploy 403.html and 404.html explicitly if nginx error_page routing does not already use them.
 
-8. Deferred owner checks: remove any legacy duplicate X-HighLion header at the nginx/Cloudflare layer; confirm /api/thumb/ is routed to its index.php rather than an nginx directory-listing 403; keep the current .ico social preview until a dedicated Open Graph image exists; review privacy/terms/cookie copy if policy requires it; harden rate-bucket filenames if shared-host threat assumptions change; verify mobile hash rows after CDN transforms. The contact-page off-IL 403 is intentional. Public lab flags remain intentional.
+9. Final checks: verify /api/thumb/ reaches index.php; remove any duplicate X-HighLion header at nginx or Cloudflare; confirm normal visitors receive kali, password failures say exactly `su: Authentication failure`, five failed shell-auth attempts in ten minutes are rate-limited, and root/admin/logout return to kali as designed.
 
-9. Scope note: full-quality simulated ping, nmap, nc, traceroute/tracepath, DNS, ssh, curl, and wget are shipped. Branded offensive suites (hydra, sqlmap, msfconsole, nikto, gobuster, dirb, enum4linux, smbclient, crackmapexec) remain deliberately unavailable rather than shipping shallow emulations.
+The browser machine is a simulated, isolated userspace. Its filesystem, firewall rules, services, credentials, and network delays never touch the Debian host.

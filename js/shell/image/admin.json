@@ -2,7 +2,8 @@
   "schema": 1,
   "notice": "root is an emergency session console for the simulated lab only. It cannot reach the host.",
   "root": {
-    "enabled": false
+    "enabled": true,
+    "authentication": "server-backed-password"
   },
   "packPolicy": {
     "manifest": "packs/manifest.json",

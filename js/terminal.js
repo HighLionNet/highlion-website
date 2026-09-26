@@ -5,6 +5,7 @@
   if (!HL || !HL.boot) return;
 
   var SLOT_URL = "/api/shell-slot.php";
+  var AUTH_URL = "/api/shell-auth.php";
   var heartbeatMs = 25000;
   var sharedMachine = null;
   var acquirePromise = null;
@@ -30,9 +31,7 @@
 
   function acquireSlot() {
     if (!acquirePromise) {
-      acquirePromise = csrfToken().then(function (token) {
-        return slotPost({ op: "acquire" }, { "X-CSRF-Token": token });
-      }).then(function (payload) {
+      acquirePromise = slotPost({ op: "acquire" }).then(function (payload) {
         slot = {
           mode: payload && payload.mode === "full" ? "full" : "fallback",
           id: payload && typeof payload.id === "string" ? payload.id : "",
@@ -49,22 +48,22 @@
     return acquirePromise;
   }
 
-  function csrfToken() {
-    return fetch("/api/csrf.php", { method: "GET", credentials: "same-origin", cache: "no-store" })
-      .then(function (response) {
-        if (!response.ok) throw new Error("token failed");
-        return response.json();
-      })
-      .then(function (payload) {
-        if (!payload || typeof payload.token !== "string") throw new Error("token failed");
-        return payload.token;
-      });
+  function sessionControl(action, id) {
+    return slotPost({ op: action, id: id || "" });
   }
 
-  function sessionControl(action, id) {
-    return csrfToken().then(function (token) {
-      return slotPost({ op: action, id: id || "" }, { "X-CSRF-Token": token });
-    });
+  function shellAuth(user, password) {
+    return fetch(AUTH_URL, {
+      method: "POST",
+      credentials: "same-origin",
+      cache: "no-store",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ user: user, password: password, slot: slot.id || "" })
+    }).then(function (response) {
+      return response.json().catch(function () { return { ok: false, user: "" }; }).then(function (payload) {
+        return response.ok && payload && payload.ok === true && payload.user === user;
+      });
+    }).catch(function () { return false; });
   }
 
   function enterFallback() {
@@ -247,6 +246,56 @@
       scrollBottom();
     }
 
+    function passwordPrompt(userName) {
+      running = true;
+      live = document.createElement("div");
+      live.className = "hlterm-live hlterm-password-live";
+      var label = document.createElement("label");
+      input = document.createElement("input");
+      label.htmlFor = inputId;
+      label.textContent = "Password:";
+      input.id = inputId;
+      input.className = "hlterm-input hlterm-password";
+      input.type = "password";
+      input.autocomplete = "off";
+      input.spellcheck = false;
+      input.setAttribute("aria-label", "Password");
+      live.append(label, input);
+      stream.appendChild(live);
+      input.addEventListener("keydown", function (event) {
+        if (event.ctrlKey && event.key.toLowerCase() === "c") {
+          event.preventDefault();
+          event.stopPropagation();
+          live.remove();
+          live = null;
+          input = null;
+          running = false;
+          appendLine("^C", "hlterm-muted");
+          addLive();
+          return;
+        }
+        if (event.key !== "Enter") return;
+        event.preventDefault();
+        event.stopPropagation();
+        var password = input.value;
+        var row = document.createElement("div");
+        row.className = "hlterm-command";
+        row.textContent = "Password:";
+        live.replaceWith(row);
+        live = null;
+        input = null;
+        shellAuth(userName, password).then(function (ok) {
+          password = "";
+          if (ok && machine.authenticateUser(userName)) updateTitle();
+          else appendLine("su: Authentication failure", "hlterm-error");
+          running = false;
+          addLive();
+        });
+      });
+      input.focus({ preventScroll: true });
+      scrollBottom();
+    }
+
     function resizeMatrix() {
       var dpr = Math.min(window.devicePixelRatio || 1, 2);
       matrixHeight = Math.max(1, Math.round(body.clientHeight * 0.42));
@@ -299,6 +348,7 @@
       else if (effect === "matrix-on") setMatrix(true);
       else if (effect === "matrix-off") setMatrix(false);
       else if (effect === "reset") { setMatrix(false); stream.replaceChildren(); }
+      else if (effect.authenticate) { passwordPrompt(effect.authenticate); return true; }
       else if (effect.navigate) window.location.assign(effect.navigate);
       return false;
     }
@@ -313,7 +363,7 @@
       var effectOwnsPrompt = applyEffect(result.effect);
       if (result.stdout) appendLine(result.stdout, "hlterm-line");
       if (result.stderr) appendLine(result.stderr, "hlterm-error");
-      if (window.HighLionSfx) {
+      if (window.HighLionSfx && !(result.effect && result.effect.authenticate)) {
         if (result.status === 0) window.HighLionSfx.ok();
         else window.HighLionSfx.error();
       }

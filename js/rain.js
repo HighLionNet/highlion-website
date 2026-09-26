@@ -5,7 +5,7 @@
   if (!canvases.length) return;
   var motionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
   var fontSize = 10;
-  var vocabulary = ["a7f3", "0x3d8bff", "deadbeef", "sha256:9c82…", "md5:25a1", "mov rax,rdi", "/proc/net/tcp", "ttl=64", "seq=3"];
+  var vocabulary = ["a7f3", "0x3d", "8841", "13", "dead", "7c"];
 
   canvases.forEach(function (canvas) {
     var band = canvas.closest(".rule-band");
@@ -25,7 +25,7 @@
           x: index * (width / count) + Math.random() * 24,
           row: index % rows,
           text: vocabulary[index % vocabulary.length],
-          alpha: 0.12 + Math.random() * 0.10,
+          alpha: 0.10 + Math.random() * 0.10,
           speed: 4 + Math.random() * 6
         };
       });

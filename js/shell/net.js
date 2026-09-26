@@ -39,12 +39,33 @@
     this.config = config || {};
     this.hosts = {
       "localhost": "127.0.0.1", "highlion": "10.8.0.10", "highlion.net": "10.8.0.10",
-      "www.highlion.net": "10.8.0.10", "gw.lab": "10.8.0.1", "east.lab": "10.8.12.10", "relay.lab": "10.8.12.20"
+      "www.highlion.net": "10.8.0.10", "gw.lab": "10.8.0.1", "pihole.lab": "10.8.0.20",
+      "nas.lab": "10.8.0.30", "cam-east.lab": "10.8.0.40", "east.lab": "10.8.12.10",
+      "relay.lab": "10.8.12.20", "jump.lab": "10.8.12.30", "ids.lab": "10.8.50.2",
+      "honeypot.lab": "10.8.50.8"
     };
     this.reverse = {
       "127.0.0.1": "localhost", "10.8.0.10": "highlion", "10.8.0.1": "gw.lab",
-      "10.8.12.10": "east.lab", "10.8.12.20": "relay.lab"
+      "10.8.0.20": "pihole.lab", "10.8.0.30": "nas.lab", "10.8.0.40": "cam-east.lab",
+      "10.8.12.10": "east.lab", "10.8.12.20": "relay.lab", "10.8.12.30": "jump.lab",
+      "10.8.50.2": "ids.lab", "10.8.50.8": "honeypot.lab"
     };
+    function service(port, state, name, version, banner) {
+      return { port: port, state: state || "open", service: name, version: version || "", banner: banner || "" };
+    }
+    this.world = {
+      "10.8.0.1": { up: true, services: [service(22,"open","ssh","OpenSSH 9.7","SSH-2.0-OpenSSH_9.7"),service(53,"open","domain","dnsmasq 2.90"),service(80,"open","http","lighttpd 1.4","HTTP/1.1 200 OK")], users: ["root","netops"], fileshares: [], routes: ["10.8.0.0/24","10.8.12.0/24","10.8.50.0/24"], rtt: 0.7, loss: 0 },
+      "10.8.0.10": { up: true, services: [service(22,"open","ssh","OpenSSH 9.9p1 Debian 3","SSH-2.0-OpenSSH_9.9p1 Debian-3"),service(80,"open","http","nginx 1.28.0","HTTP/1.1 301 Moved Permanently"),service(443,"open","https","nginx 1.28.0","HTTP/1.1 200 OK")], users: ["kali","admin"], fileshares: [], routes: ["default via 10.8.0.1"], rtt: 0.6, loss: 0 },
+      "10.8.0.20": { up: true, services: [service(22,"open","ssh","OpenSSH 9.6p1"),service(53,"open","domain","FTL dns"),service(80,"open","http","lighttpd 1.4","HTTP/1.1 200 OK")], users: ["pi"], fileshares: [], routes: ["default via 10.8.0.1"], rtt: 0.9, loss: 0 },
+      "10.8.0.30": { up: true, services: [service(22,"open","ssh","OpenSSH 9.6p1"),service(139,"open","netbios-ssn","Samba smbd 4.20"),service(445,"open","microsoft-ds","Samba smbd 4.20")], users: ["storage","backup"], fileshares: ["public","backups"], routes: ["default via 10.8.0.1"], rtt: 1.1, loss: 0 },
+      "10.8.0.40": { up: true, services: [service(80,"open","http","camera web","HTTP/1.1 401 Unauthorized"),service(554,"open","rtsp","RTSP 1.0")], users: ["viewer"], fileshares: [], routes: ["default via 10.8.0.1"], rtt: 2.4, loss: 1 },
+      "10.8.12.10": { up: true, services: [service(22,"open","ssh","OpenSSH 9.6p1","SSH-2.0-OpenSSH_9.6p1"),service(80,"open","http","Apache httpd 2.4.62","HTTP/1.1 200 OK"),service(445,"filtered","microsoft-ds")], users: ["analyst","lab"], fileshares: ["drop"], routes: ["10.8.0.0/24 via 10.8.12.1"], rtt: 6.8, loss: 2 },
+      "10.8.12.20": { up: true, services: [service(22,"open","ssh","OpenSSH 9.8p1","SSH-2.0-OpenSSH_9.8p1"),service(5900,"open","vnc","VNC protocol 3.8","RFB 003.008")], users: ["relay"], fileshares: [], routes: ["default via 10.8.12.1"], rtt: 8.2, loss: 1 },
+      "10.8.12.30": { up: true, services: [service(22,"open","ssh","OpenSSH 9.8p1")], users: ["jump"], fileshares: [], routes: ["10.8.50.0/24 via 10.8.12.1"], rtt: 9.4, loss: 0 },
+      "10.8.50.2": { up: true, services: [service(22,"open","ssh","OpenSSH 9.8p1"),service(443,"open","https","sensor console","HTTP/1.1 200 OK")], users: ["sensor"], fileshares: [], routes: ["default via 10.8.50.1"], rtt: 12.1, loss: 0 },
+      "10.8.50.8": { up: true, services: [service(22,"open","ssh","OpenSSH 8.4p1"),service(80,"open","http","nginx 1.18","HTTP/1.1 200 OK"),service(443,"open","https","nginx 1.18","HTTP/1.1 200 OK")], users: ["decoy"], fileshares: [], routes: ["default via 10.8.50.1"], rtt: 13.5, loss: 3 }
+    };
+    this.firewall = {};
     this.packBanners = {};
     (packs || []).forEach(function (pack) {
       if (pack._error) return;
@@ -85,24 +106,28 @@
     var address = this.resolve(name);
     var hostClass = this.classify(address);
     var seed = this.seed(name + "|" + address);
+    var world = this.world[address];
     var blocked = ["invalid", "multicast", "broadcast"].indexOf(hostClass) !== -1;
-    var up = !blocked && (hostClass === "loopback" || hostClass === "lab" || seed % 17 !== 0);
-    var loss = !up ? 100 : (hostClass === "private" || hostClass === "linklocal" ? seed % 21 : (hostClass === "public" ? seed % 9 : 0));
-    var rtt = hostClass === "loopback" ? 0.03 : hostClass === "lab" ? 0.6 + seed % 35 / 10 : hostClass === "public" ? 18 + seed % 930 / 10 : 2 + seed % 280 / 10;
-    return { input: name, name: this.reverse[address] || name, address: address, className: hostClass, seed: seed, up: up, loss: loss, rtt: rtt, ports: this.ports(name, address, hostClass, seed, up) };
+    var up = world ? world.up : !blocked && (hostClass === "loopback" || hostClass === "lab" || seed % 17 !== 0);
+    var loss = world ? world.loss : !up ? 100 : (hostClass === "private" || hostClass === "linklocal" ? seed % 21 : (hostClass === "public" ? seed % 9 : 0));
+    var rtt = world ? world.rtt : hostClass === "loopback" ? 0.03 : hostClass === "lab" ? 0.6 + seed % 35 / 10 : hostClass === "public" ? 18 + seed % 930 / 10 : 2 + seed % 280 / 10;
+    return {
+      input: name, name: this.reverse[address] || name, address: address, className: hostClass, seed: seed,
+      up: up, loss: loss, rtt: rtt, ports: this.ports(name, address, hostClass, seed, up),
+      services: world ? world.services : [], users: world ? world.users.slice() : [],
+      fileshares: world ? world.fileshares.slice() : [], routes: world ? world.routes.slice() : []
+    };
   };
 
   Network.prototype.ports = function (name, address, hostClass, seed, up) {
     function record(port, state, service, version, banner) { return { port: port, state: state, service: service, version: version, banner: banner || "" }; }
     if (!up) return [record(22, "filtered", "ssh", "", ""), record(80, "filtered", "http", "", ""), record(443, "filtered", "https", "", "")];
-    var known = {
-      "10.8.0.10": [record(22, "open", "ssh", "OpenSSH 9.9p1 Debian 3", "SSH-2.0-OpenSSH_9.9p1 Debian-3"), record(80, "open", "http", "nginx 1.28.0", "HTTP/1.1 301 Moved Permanently"), record(443, "open", "https", "nginx 1.28.0", "HTTP/1.1 200 OK")],
-      "10.8.0.1": [record(22, "open", "ssh", "OpenSSH 9.7", "SSH-2.0-OpenSSH_9.7"), record(53, "open", "domain", "dnsmasq 2.90", ""), record(80, "open", "http", "lighttpd 1.4", "HTTP/1.1 200 OK")],
-      "10.8.12.10": [record(22, "open", "ssh", "OpenSSH 9.6p1", "SSH-2.0-OpenSSH_9.6p1"), record(80, "open", "http", "Apache httpd 2.4.62", "HTTP/1.1 200 OK"), record(445, "filtered", "microsoft-ds", "", "")],
-      "10.8.12.20": [record(22, "open", "ssh", "OpenSSH 9.8p1", "SSH-2.0-OpenSSH_9.8p1"), record(5900, "open", "vnc", "VNC protocol 3.8", "RFB 003.008")]
-    };
-    if (known[address]) return known[address];
-    if (hostClass === "loopback") return known["10.8.0.10"];
+    if (this.world[address]) return this.world[address].services.map(function (row) {
+      var copy = Object.assign({}, row);
+      if (this.firewall[address + ":" + copy.port]) copy.state = "filtered";
+      return copy;
+    }, this);
+    if (hostClass === "loopback") return this.world["10.8.0.10"].services.map(function (row) { return Object.assign({}, row); });
     if (hostClass === "public") {
       var web = [record(80, "open", "http", seed % 2 ? "nginx" : "Apache httpd", "HTTP/1.1 200 OK"), record(443, "open", "https", seed % 2 ? "nginx" : "cloud edge", "HTTP/1.1 200 OK")];
       if (seed % 4 === 0) web.push(record(8080, "open", "http-proxy", "Jetty 11", "HTTP/1.1 302 Found"));
@@ -119,6 +144,19 @@
     return profile.ports.find(function (row) { return Number(row.port) === Number(port); }) || { port: Number(port), state: profile.up ? "closed" : "filtered", service: "unknown", version: "", banner: "" };
   };
 
+  Network.prototype.setFirewall = function (target, port, blocked) {
+    var address = this.resolve(target);
+    if (!address || !/^10\.8\./.test(address)) return false;
+    var key = address + ":" + Number(port);
+    if (blocked) this.firewall[key] = true;
+    else delete this.firewall[key];
+    return true;
+  };
+
+  Network.prototype.flushFirewall = function () {
+    this.firewall = {};
+  };
+
   Network.prototype.banner = function (host, port) {
     var address = this.resolve(host);
     var custom = this.packBanners[String(host).toLowerCase() + ":" + port] || this.packBanners[address + ":" + port];
@@ -132,6 +170,10 @@
     try { parsed = new URL(url); } catch (error) { return { error: "malformed" }; }
     var profile = this.profile(parsed.hostname);
     if (!profile.up) return { error: "timeout", profile: profile };
+    var port = parsed.port ? Number(parsed.port) : (parsed.protocol === "https:" ? 443 : 80);
+    var endpoint = this.port(parsed.hostname, port);
+    if (endpoint.state === "filtered") return { error: "timeout", profile: profile };
+    if (endpoint.state !== "open") return { error: "refused", profile: profile };
     var seed = this.seed(parsed.hostname + parsed.pathname);
     var codes = [200, 200, 200, 200, 301, 302, 401, 403, 404];
     var code = codes[seed % codes.length];

@@ -13,13 +13,13 @@
     if (!host && row.url) {
       try { host = new URL(row.url).hostname.toLowerCase().replace(/^www\./, ""); } catch (error) { host = "source"; }
     }
-    if (host === "bleepingcomputer.com") return { className: "source-bc", host: host, thumb: "/assets/thumbs/bleeping.png" };
+    if (host === "bleepingcomputer.com") return { className: "source-bc", host: host, key: "bleeping" };
     if (host === "thehackernews.com" || host.indexOf("feedburner.com") !== -1 || host.indexOf("thehackersnews") !== -1) {
-      return { className: "source-th", host: host, thumb: "/assets/thumbs/hackernews.png" };
+      return { className: "source-th", host: host, key: "hackernews" };
     }
-    if (host === "krebsonsecurity.com") return { className: "source-kr", host: host, thumb: "/assets/thumbs/krebs.png" };
-    if (host === "cisa.gov") return { className: "source-ci", host: host, thumb: "/assets/thumbs/cisa.png" };
-    return { className: "", host: host || "source", thumb: "/assets/thumbs/highlion.png" };
+    if (host === "krebsonsecurity.com") return { className: "source-kr", host: host, key: "krebs" };
+    if (host === "cisa.gov") return { className: "source-ci", host: host, key: "cisa" };
+    return { className: "", host: host || "source", key: "highlion" };
   }
 
   function publishFeed(state, count) {
@@ -30,7 +30,13 @@
 
   function thumbFor(row, source) {
     var thumb = String(row.thumb || "");
-    var fallback = source.thumb || "/assets/thumbs/highlion.png";
+    var candidates = [];
+    if (/^\/api\/thumb\.php\?id=[a-f0-9]{40}$/.test(thumb)) candidates.push(thumb);
+    candidates.push(
+      "/assets/thumbs/" + source.key + ".jpg",
+      "/assets/thumbs/" + source.key + ".png",
+      "/api/thumb.php?source=" + encodeURIComponent(source.key)
+    );
     var image = document.createElement("img");
     image.className = "news-thumb";
     image.alt = "";
@@ -38,10 +44,20 @@
     image.height = 56;
     image.loading = "lazy";
     image.decoding = "async";
-    image.addEventListener("error", function () {
-      image.src = fallback;
-    }, { once: true });
-    image.src = /^\/api\/thumb\.php\?id=[a-f0-9]{40}$/.test(thumb) ? thumb : fallback;
+    var candidateIndex = 0;
+    function nextCandidate() {
+      if (candidateIndex >= candidates.length) {
+        image.remove();
+        return;
+      }
+      image.src = candidates[candidateIndex];
+      candidateIndex += 1;
+    }
+    image.addEventListener("error", nextCandidate);
+    image.addEventListener("load", function () {
+      if (!image.naturalWidth) image.remove();
+    });
+    nextCandidate();
     return image;
   }
 
@@ -52,7 +68,7 @@
     var rows = motionQuery.matches ? items.slice(0, 3) : items;
     var tickerText = rows.map(function (row) {
       var source = sourceInfo(row);
-      return source.chip + " · " + (row.title || "Untitled");
+      return source.host.toUpperCase() + " · " + (row.title || "Untitled");
     }).join("    ·    ");
     var strip = document.createElement("span");
     strip.className = "news-ticker-strip";
@@ -89,7 +105,7 @@
     }
     lastItems = items;
     var state = payload.stale ? "stale" : "live";
-    if (stamp) stamp.textContent = String(items.length) + " items · 15m headlines";
+    if (stamp) stamp.textContent = String(items.length) + " items · " + state;
     items.forEach(function (row) {
       var item = document.createElement("li");
       var copy = document.createElement("div");

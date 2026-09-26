@@ -6,7 +6,7 @@
   var key = "hl-sfx";
   var reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
   var stored = null;
-  try { stored = window.localStorage.getItem(key); } catch (error) { stored = null; }
+  try { stored = window.sessionStorage.getItem(key); } catch (error) { stored = null; }
   var enabled = stored === "on" || (stored !== "off" && !reduced.matches);
   var context = null;
   var unlocked = false;
@@ -66,7 +66,8 @@
   function paintChip() {
     var chip = document.getElementById("navSfx");
     if (!chip) return false;
-    chip.textContent = "SFX · " + (enabled ? "on" : "off");
+    chip.textContent = "SFX";
+    chip.setAttribute("aria-label", "SFX " + (enabled ? "on" : "off"));
     chip.setAttribute("aria-pressed", enabled ? "true" : "false");
     chip.dataset.state = enabled ? "on" : "off";
     return true;
@@ -75,7 +76,7 @@
   function setEnabled(next, remember) {
     enabled = Boolean(next);
     if (remember) {
-      try { window.localStorage.setItem(key, enabled ? "on" : "off"); } catch (error) {}
+      try { window.sessionStorage.setItem(key, enabled ? "on" : "off"); } catch (error) {}
     }
     if (enabled) unlock();
     paintChip();
