@@ -10,7 +10,7 @@
     "/home/kali/.local/share/highlion/east.host": {"type": "file", "mode": "0644", "owner": "kali", "group": "kali", "content": "east.lab 10.8.12.10\n"}
   },
   "hosts": {"east.lab": "10.8.12.10", "relay.lab": "10.8.12.20"},
-  "banners": {"east.lab:22": "OpenSSH_9.8 HL-east", "relay.lab:22": "OpenSSH_9.8 HL-relay"},
+  "banners": {"gw.lab:22": "OpenSSH_9.8 HL-gateway", "east.lab:22": "OpenSSH_9.8 HL-east", "east.lab:8080": "HL-east status ready", "relay.lab:22": "OpenSSH_9.8 HL-relay", "relay.lab:9000": "HL-relay queue ready"},
   "flags": [
     {"id": "notice", "flag": "HL8{off-catalog}", "prize": "Observer", "hint": "Read the quiet notice under ~/.local/share/highlion."},
     {"id": "letterbox", "flag": "HL8{spare-field}", "prize": "Letterbox", "hint": "Bots fill every field on the letterbox."},

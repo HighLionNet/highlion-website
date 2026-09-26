@@ -11,6 +11,7 @@
   var context = null;
   var unlocked = false;
   var lastKeyAt = 0;
+  var intelSwept = false;
 
   function audioContext() {
     if (!context) {
@@ -114,7 +115,10 @@
     if (event.target.closest(".nav .link")) api.tick();
   });
   window.addEventListener("hl:intel", function (event) {
-    if (event.detail && event.detail.state === "live") api.sweep();
+    if (!intelSwept && event.detail && event.detail.state === "live") {
+      intelSwept = true;
+      api.sweep();
+    }
   });
 
   if (!paintChip()) {

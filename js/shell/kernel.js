@@ -5,28 +5,31 @@
   var imageBase = "/js/shell/image/";
 
   function fetchText(name) {
-    return fetch(imageBase + name + "?v=hl8i", { cache: "no-store", credentials: "same-origin" }).then(function (response) {
+    return fetch(imageBase + name + "?v=hl8j", { cache: "no-store", credentials: "same-origin" }).then(function (response) {
       if (!response.ok) throw new Error("machine image unavailable: " + name);
       return response.text();
     });
   }
 
   function fetchJson(name) {
-    return fetch(imageBase + name + "?v=hl8i", { cache: "no-store", credentials: "same-origin" }).then(function (response) {
+    return fetch(imageBase + name + "?v=hl8j", { cache: "no-store", credentials: "same-origin" }).then(function (response) {
       if (!response.ok) throw new Error("machine image unavailable: " + name);
       return response.json();
     });
   }
 
   function storageGet(key) {
+    if (key !== "hl-machine-v1") return null;
     try { return root.localStorage.getItem(key); } catch (error) { return null; }
   }
 
   function storageSet(key, value) {
+    if (key !== "hl-machine-v1") return false;
     try { root.localStorage.setItem(key, value); return true; } catch (error) { return false; }
   }
 
   function storageRemove(key) {
+    if (key !== "hl-machine-v1") return false;
     try { root.localStorage.removeItem(key); return true; } catch (error) { return false; }
   }
 

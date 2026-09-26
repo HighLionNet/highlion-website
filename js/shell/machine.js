@@ -40,6 +40,8 @@
     this.aliases = {};
     this.umask = "0022";
     this.claimed = [];
+    this.lease = { id: "", operator: false };
+    this.sessionControl = null;
     this.proc = new HL.ProcessTable(image.proc, this.started);
     HL.mountPacks(this.fs, this.packs);
     this.net = new HL.Network(image.proc, this.packs);
@@ -110,28 +112,13 @@
     if (options.persist !== false) this.persist();
   };
 
-  Machine.prototype.rootAuthStatus = function () {
-    var auth = (this.admin.root || {}).auth || {};
-    return {
-      configured: Boolean((this.admin.root || {}).enabled && auth.kdf === "PBKDF2-SHA-256" && Number(auth.iterations) >= 100000 && HL.kernel.hexBytes(auth.salt) && HL.kernel.hexBytes(auth.verifier)),
-      enabled: Boolean((this.admin.root || {}).enabled),
-      clientOnly: true
+  Machine.prototype.attachLease = function (lease, controller) {
+    this.lease = {
+      id: lease && typeof lease.id === "string" ? lease.id : "",
+      operator: Boolean(lease && lease.operator)
     };
-  };
-
-  Machine.prototype.authenticateRoot = async function (password) {
-    var status = this.rootAuthStatus();
-    if (!status.configured || !root.crypto || !root.crypto.subtle) return false;
-    var auth = this.admin.root.auth;
-    var salt = HL.kernel.hexBytes(auth.salt);
-    var expected = HL.kernel.hexBytes(auth.verifier);
-    var key = await root.crypto.subtle.importKey("raw", new TextEncoder().encode(String(password)), { name: "PBKDF2" }, false, ["deriveBits"]);
-    var bits = await root.crypto.subtle.deriveBits({
-      name: "PBKDF2", salt: salt, iterations: Math.min(1000000, Math.max(100000, Number(auth.iterations))), hash: "SHA-256"
-    }, key, expected.length * 8);
-    var valid = HL.kernel.timingSafeEqual(new Uint8Array(bits), expected);
-    if (valid) this.switchUser("root", { persist: false });
-    return valid;
+    this.sessionControl = typeof controller === "function" ? controller : null;
+    if (this.lease.operator) this.switchUser("root", { persist: false });
   };
 
   Machine.prototype.logoutRoot = function () {
@@ -181,7 +168,7 @@
   Machine.prototype.addHistory = function (line) {
     if (!line) return;
     this.history.push(line);
-    if (this.history.length > 500) this.history = this.history.slice(-500);
+    if (this.history.length > 300) this.history = this.history.slice(-300);
     try { this.fs.writeFile(this.historyPath(), this.history.join("\n") + "\n", "/", false, true); } catch (error) {}
     this.persist();
   };
@@ -228,7 +215,7 @@
       this.previousCwd = saved.previousCwd || visitorHome;
       this.env = Object.assign(this.env, saved.env || {}, { PWD: this.cwd, OLDPWD: this.previousCwd });
       this.exported = Array.isArray(saved.exported) && saved.exported.length ? saved.exported : this.exported;
-      this.history = Array.isArray(saved.history) ? saved.history.slice(-500) : [];
+      this.history = Array.isArray(saved.history) ? saved.history.slice(-300) : [];
       this.claimed = Array.isArray(saved.claimed) ? saved.claimed : [];
     } catch (error) {}
   };

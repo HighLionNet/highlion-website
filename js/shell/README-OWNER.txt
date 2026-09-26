@@ -1,37 +1,27 @@
-HighLion browser machine — owner customization
+HighLion sealed browser machine — owner manual
 
 BOUNDARY
-The root account controls only the in-browser virtual filesystem. It is not Debian/nginx/PHP root and is not a security boundary: visitors can inspect and modify JavaScript running in their own browser. Never put a server password, API token, Telegram secret, or private flag in this image.
+The terminal is one in-browser Kali userspace on an isolated simulated network. It cannot read or write the Pi, /var/www/highlion, /etc/highlion, PHP, Telegram, the honeypot, or any other host resource. Never place a secret, operator value, private credential, or real service file in the image.
 
-ROOT OWNER PROFILE
-Visitors always boot as kali. Root is present but locked by default, and root state is never restored as the active user after reload.
+IDENTITIES
+Visitors boot as kali. admin is an unprivileged lab target with a private mode-0750 home. Neither account belongs to sudo or adm. su asks for a password and fails; sudo logs only to the simulated /var/log/auth.log and fails. Root is an emergency session console, not a site administrator.
 
-1. Run: node deploy/generate-shell-admin.mjs
-2. Copy the printed enabled/auth object over root in js/shell/image/admin.json.
-3. Keep a strong, unique passphrase outside git. Only its PBKDF2 verifier is published.
-4. In the terminal run: su -
-5. Leave owner mode with: exit
+FILESYSTEM
+The base image is js/shell/image/tree.json plus the text fixtures beside it. Visitor changes persist only in localStorage key hl-machine-v1 and are capped at 64 KiB. kali may write /home/kali, /tmp, and /var/tmp. admin may write /home/admin, /tmp, and /var/tmp. Root may additionally use /root and simulated logs. /etc, /usr, /bin, /srv, and /var/www remain read-only.
 
-Root may edit the simulated /root, /etc, /opt, /home, /tmp, and /var trees. /proc and /sys remain generated read-only views. Changes are browser-local and subject to the 64 KiB persisted-state cap; publish durable changes by editing the image files in git.
+SESSIONS
+api/shell-slot.php leases the full machine. When the lease pool is unavailable, terminal.js uses the read-only console automatically. The lease file stores only opaque ids, users, salted IP/UA hashes, timestamps, and simulated pid arrays. It never stores history or file contents.
 
-CUSTOMIZATION SURFACE
-- hostname, users, base directories/files, aliases: image/tree.json
-- motd and OS fixtures: image/motd, os-release, hostname, hosts, resolv.conf
-- packages and services: image/packages.json, units.json
-- process/network fixtures: image/proc.json
-- mounts: image/fstab.json
-- root verifier and pack policy: image/admin.json
-- challenge load order: image/packs/manifest.json
-- challenge content: one JSON file per pack under image/packs/
+OPERATOR ROOT
+The Pi sets cookie hl_op to the value in /etc/highlion/shell.env on the owner's browser only. JavaScript never reads that cookie. A matching same-origin request receives the emergency root session. Root may run:
+  sessionctl who
+  sessionctl list
+  sessionctl drop ID
 
-PACK CONTRACT
-Each manifest entry names one same-directory JSON file. A pack has schema, id, title, hidden, mount, hosts, banners, optional units, flags, and prizes. Mount keys are absolute VFS paths. Nodes use type=file|dir|symlink plus mode, owner, group, content/target, and optional kids. Pack files are validated before mounting; an invalid pack is skipped and reported by packctl verify.
+The list/drop calls also require the site's CSRF token. Removing the cookie removes operator access. There is no root password or verifier in git.
 
-Owner commands after su -:
-  admin-status
-  packctl list
-  packctl verify
-  packctl info season00
-  packctl template season01
+NETWORK
+ping, ssh, and nc use simulated fixtures. curl and wget are GET-only and restricted to the public HighLion brochure allowlist. /api, /lab, /contact.html, /403.html, third-party hosts, redirects outside the allowlist, and bodies over 64 KiB are refused.
 
-To add a season, copy the template into image/packs/season01.json, add that filename to image/packs/manifest.json, reset-machine, then run packctl verify. File-driven puzzles require no terminal.js edit.
+IMAGE MAINTENANCE
+Edit the JSON/text image in git, validate it, deploy the repository, and use reset-machine to remount it in a browser. Challenge packs remain data files under js/shell/image/packs/. Keep flags in those hidden fixtures; never add host secrets or broaden the browser network boundary.

@@ -6,7 +6,7 @@
     this.config = config || {};
     this.hosts = {
       "localhost": "127.0.0.1", "highlion": "10.8.0.10", "highlion.net": "10.8.0.10",
-      "www.highlion.net": "10.8.0.10", "127.0.0.1": "127.0.0.1", "10.8.0.1": "10.8.0.1",
+      "www.highlion.net": "10.8.0.10", "127.0.0.1": "127.0.0.1", "gw.lab": "10.8.0.1", "10.8.0.1": "10.8.0.1",
       "10.8.12.10": "10.8.12.10", "10.8.12.20": "10.8.12.20"
     };
     this.banners = {};
@@ -42,7 +42,7 @@
     var name = String(host).toLowerCase();
     var address = this.resolve(name);
     if (!address) return "";
-    return this.banners[name + ":" + port] || this.banners[address + ":" + port] || (Number(port) === 22 ? "SSH-2.0-OpenSSH_9.8 HighLion" : "HighLion service");
+    return this.banners[name + ":" + port] || this.banners[address + ":" + port] || "";
   };
 
   HL.Network = Network;

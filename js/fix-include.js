@@ -13,10 +13,6 @@
 
   function finish() {
     dedupeOnce();
-    document.querySelectorAll("[data-current-year]").forEach(function (node) {
-      node.textContent = String(new Date().getFullYear());
-    });
-
     var path = window.location.pathname.replace(/\/+$/, "") || "/";
     if (path === "/" || path === "/index") path = "/index.html";
     else if (/^\/writeups\//.test(path) || path === "/writeups") path = "/writeups.html";

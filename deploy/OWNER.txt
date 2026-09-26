@@ -1,4 +1,4 @@
-HIGHLION DEBIAN CUT-IN (HLv8 / hl8i)
+HIGHLION DEBIAN CUT-IN (HLv8 / hl8j)
 
 1. Sync git to disk in this direction only:
      sudo rsync -a --delete --exclude '.git/' /path/to/highlion-website/ /var/www/highlion/
@@ -15,7 +15,7 @@ HIGHLION DEBIAN CUT-IN (HLv8 / hl8i)
 
 3. Purge the bare stylesheet URL from Cloudflare:
      https://www.highlion.net/css/style.css
-   The unversioned URL is still serving HLv6 from 2025-11-24. The versioned ?v=hl8i URL is fine.
+   Purge both the bare URL and prior ?v=hl8i asset cache after deploying ?v=hl8j.
    Cloudflare dashboard → Caching → Purge Custom URL.
 
 4. If the strict CSP breaks pages behind Cloudflare, disable Cloudflare Email Obfuscation and Rocket Loader for this zone. Keep script-src 'self'; do not add unsafe-eval or inline script permission.
@@ -59,8 +59,21 @@ HIGHLION DEBIAN CUT-IN (HLv8 / hl8i)
 
    GET or HEAD on /api/contact.php must still take the bad-method honeypot path and return 405.
 
-13. Optional simulated browser-root provisioning (never server root):
-      node deploy/generate-shell-admin.mjs
-    Copy the printed enabled/auth object into js/shell/image/admin.json, commit it, and redeploy.
-    Use a strong unique passphrase. The verifier is public and the root profile controls only the visitor's browser VFS.
-    Challenge customization and pack-manifest instructions are in js/shell/README-OWNER.txt.
+13. Configure full-machine leases and the owner-only emergency session. Do not run these from Codex:
+      sudo install -m 600 -o root -g www-data /dev/null /etc/highlion/shell.env
+      # owner writes:
+      # HL_SHELL_SLOTS=8
+      # HL_SHELL_TTL=90
+      # HL_SHELL_HEARTBEAT=30
+      # HL_OP_COOKIE=<long random>
+      sudo mkdir -p /var/tmp
+      sudo touch /var/tmp/highlion-shell-slots.json
+      sudo chown www-data:www-data /var/tmp/highlion-shell-slots.json
+      sudo chmod 660 /var/tmp/highlion-shell-slots.json
+      # include deploy/nginx-shell-slot.conf next to the other
+      # /api/ location
+      # set cookie hl_op on the owner's browser only
+      # purge Cloudflare cache for /css/style.css and ?v=hl8i assets
+
+14. Raise HL_SHELL_SLOTS when hardware allows. Do not move the machine onto the host.
+    The sealed-machine and pack notes are in js/shell/README-OWNER.txt.

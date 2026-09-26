@@ -156,15 +156,22 @@
 
   VirtualFS.prototype.canWritePath = function (absolute, creating) {
     if (this.isProtected(absolute)) return false;
+    if (absolute === "/dev/null") return true;
+    if (absolute === "/dev" || absolute.indexOf("/dev/") === 0) return false;
+    var identity = this.identity.user;
+    var permitted = identity === "root"
+      ? ["/home/kali", "/home/admin", "/tmp", "/var/tmp", "/root", "/var/log"]
+      : identity === "admin"
+        ? ["/home/admin", "/tmp", "/var/tmp"]
+        : ["/home/kali", "/tmp", "/var/tmp"];
+    var allowed = permitted.some(function (prefix) { return absolute === prefix || absolute.indexOf(prefix + "/") === 0; });
+    if (!allowed) return false;
     if (this.isRoot()) {
-      if (["/dev/null", "/dev/tty", "/dev/pts/0"].indexOf(absolute) !== -1) return true;
       var rootNode = this.nodes.get(this.resolve(absolute, "/"));
       if (rootNode && !creating) return rootNode.type !== "dir" || absolute !== "/";
       var rootParent = this.nodes.get(this.resolve(dirname(absolute), "/"));
       return Boolean(rootParent && rootParent.type === "dir");
     }
-    var allowed = this.writable.some(function (prefix) { return absolute === prefix || absolute.indexOf(prefix + "/") === 0; });
-    if (!allowed && absolute !== "/dev/null" && absolute !== "/dev/tty" && absolute !== "/dev/pts/0") return false;
     if (!this.canTraverse(absolute)) return false;
     var node = this.nodes.get(this.resolve(absolute, "/"));
     if (node && !creating) return this.canAccess(node, "w");

@@ -1,5 +1,7 @@
 root:x:0:
+admin:x:1001:admin
 kali:x:1000:kali
 sudo:x:27:
 www-data:x:33:
-adm:x:4:kali
+adm:x:4:
+nobody:x:65534:

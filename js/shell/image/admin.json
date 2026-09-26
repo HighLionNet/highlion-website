@@ -1,14 +1,8 @@
 {
   "schema": 1,
-  "notice": "Browser root is an owner-only simulation for authoring VFS content. It never grants server access.",
+  "notice": "root is an emergency session console for the simulated lab only. It cannot reach the host.",
   "root": {
-    "enabled": false,
-    "auth": {
-      "kdf": "PBKDF2-SHA-256",
-      "iterations": 310000,
-      "salt": "",
-      "verifier": ""
-    }
+    "enabled": false
   },
   "packPolicy": {
     "manifest": "packs/manifest.json",

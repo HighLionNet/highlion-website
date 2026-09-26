@@ -9,13 +9,14 @@
   <meta name="description" content="Profile and technical focus behind the HighLion cybersecurity lab.">
   <title>HighLion — About</title>
   <link rel="icon" href="/assets/icons/HighLion.ico" sizes="any">
-  <link rel="stylesheet" href="/css/style.css?v=hl8i">
+  <link rel="stylesheet" href="/css/style.css?v=hl8j">
 </head>
-<body>
-  <a class="skip" href="#main">Skip to content</a>
+<body><a class="skip" href="#main">Skip to content</a>
   <div class="scanlines" aria-hidden="true"></div>
   <canvas id="fx" class="fx" aria-hidden="true"></canvas>
-  <div data-include="/components/header.html?v=hl8i"></div>
+  <div class="station-rail station-rail-left" aria-hidden="true"></div>
+  <div class="station-rail station-rail-right" aria-hidden="true"></div>
+  <div data-include="/components/header.html?v=hl8j"></div>
 
   <main id="main">
     <header class="shell page-head compact">
@@ -43,6 +44,17 @@
             <div class="profile-label">Lab</div>
             <p>Segmented VLANs, Pi-hole, DMZ, and self-hosted services</p>
           </section>
+        </div>
+      </article>
+
+      <article class="monitor onion-panel onion-station" id="tor-mirror">
+        <div class="monitor-body">
+          <div class="kicker">TOR</div>
+          <h2>Onion service</h2>
+          <a class="tor-link" href="http://hh7547je3hpb4hj7stuiorzwnwazamecatqn6saqkxamlmckztgr2lid.onion" target="_blank" rel="noopener noreferrer">
+            <span class="tor-badge" aria-hidden="true">TOR</span>
+            <code>hh7547je3hpb4hj7stuiorzwnwazamecatqn6saqkxamlmckztgr2lid.onion</code>
+          </a>
         </div>
       </article>
 
@@ -83,24 +95,6 @@
       </aside>
     </section>
 
-    <section class="shell onion-station" id="tor-mirror">
-      <article class="monitor onion-panel">
-        <header class="monitor-head">
-          <div class="hlterm-lights" aria-hidden="true">
-            <span class="red"></span><span class="amber"></span><span class="green"></span>
-          </div>
-        </header>
-        <div class="monitor-body">
-          <div class="kicker">Tor</div>
-          <h2>Onion service</h2>
-          <a class="tor-link" href="http://hh7547je3hpb4hj7stuiorzwnwazamecatqn6saqkxamlmckztgr2lid.onion" target="_blank" rel="noopener noreferrer">
-            <span class="tor-badge" aria-hidden="true">TOR</span>
-            <code>hh7547je3hpb4hj7stuiorzwnwazamecatqn6saqkxamlmckztgr2lid.onion</code>
-          </a>
-        </div>
-      </article>
-    </section>
-
     <section class="shell about-term">
       <aside class="hlterm-panel monitor" id="hlterm-panel" data-hlshell data-matrix-default="off" aria-label="HighLion terminal">
         <div class="hlterm-head monitor-head">
@@ -121,22 +115,22 @@
     </section>
   </main>
 
-  <!-- briefing lives off-catalog -->
-  <div data-include="/components/footer.html?v=hl8i"></div>
-  <script src="/js/fix-include.js?v=hl8i" defer></script>
-  <script src="/js/sfx.js?v=hl8i" defer></script>
-  <script src="/js/shell/kernel.js?v=hl8i" defer></script>
-  <script src="/js/shell/fs.js?v=hl8i" defer></script>
-  <script src="/js/shell/proc.js?v=hl8i" defer></script>
-  <script src="/js/shell/net.js?v=hl8i" defer></script>
-  <script src="/js/shell/sh.js?v=hl8i" defer></script>
-  <script src="/js/shell/busybox.js?v=hl8i" defer></script>
-  <script src="/js/shell/pack.js?v=hl8i" defer></script>
-  <script src="/js/shell/ctf.js?v=hl8i" defer></script>
-  <script src="/js/shell/machine.js?v=hl8i" defer></script>
-  <script src="/js/session-meta.js?v=hl8i" defer></script>
-  <script src="/js/particles.js?v=hl8i" defer></script>
-  <script src="/js/source-bay.js?v=hl8i" defer></script>
-  <script src="/js/terminal.js?v=hl8i" defer></script>
+  <div data-include="/components/footer.html?v=hl8j"></div>
+  <script src="/js/fix-include.js?v=hl8j" defer></script>
+  <script src="/js/sfx.js?v=hl8j" defer></script>
+  <script src="/js/shell/kernel.js?v=hl8j" defer></script>
+  <script src="/js/shell/fs.js?v=hl8j" defer></script>
+  <script src="/js/shell/proc.js?v=hl8j" defer></script>
+  <script src="/js/shell/net.js?v=hl8j" defer></script>
+  <script src="/js/shell/sh.js?v=hl8j" defer></script>
+  <script src="/js/shell/busybox.js?v=hl8j" defer></script>
+  <script src="/js/shell/pack.js?v=hl8j" defer></script>
+  <script src="/js/shell/ctf.js?v=hl8j" defer></script>
+  <script src="/js/shell/machine.js?v=hl8j" defer></script>
+  <script src="/js/session-meta.js?v=hl8j" defer></script>
+  <script src="/js/particles.js?v=hl8j" defer></script>
+  <script src="/js/station-toggles.js?v=hl8j" defer></script>
+  <script src="/js/source-bay.js?v=hl8j" defer></script>
+  <script src="/js/terminal.js?v=hl8j" defer></script>
 </body>
 </html>

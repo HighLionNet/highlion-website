@@ -13,7 +13,43 @@
     this.machine.shell = this;
     this.maxScriptLines = 200;
     this.maxDepth = 20;
+    this.maxInstructions = 50000;
+    this.maxWallMs = 200;
+    this.maxOutputBytes = 32768;
   }
+
+  Shell.prototype.charge = function (options, amount) {
+    var budget = options && options.budget;
+    if (!budget) return;
+    budget.steps += amount || 1;
+    var now = root.performance && root.performance.now ? root.performance.now() : Date.now();
+    if (budget.steps > this.maxInstructions || now - budget.started > this.maxWallMs) {
+      var error = new Error("Killed");
+      error.killed = true;
+      throw error;
+    }
+  };
+
+  Shell.prototype.limitOutput = function (run) {
+    var remaining = this.maxOutputBytes;
+    function take(value) {
+      var text = String(value || "");
+      if (remaining <= 0) return "";
+      var encoded = new TextEncoder().encode(text);
+      if (encoded.length <= remaining) {
+        remaining -= encoded.length;
+        return text;
+      }
+      var end = Math.min(text.length, remaining);
+      while (end > 0 && new TextEncoder().encode(text.slice(0, end)).length > remaining) end -= 1;
+      var clipped = text.slice(0, end);
+      remaining -= new TextEncoder().encode(clipped).length;
+      return clipped;
+    }
+    run.stdout = take(run.stdout);
+    run.stderr = take(run.stderr);
+    return run;
+  };
 
   Shell.prototype.expandVariable = function (line, index) {
     var next = line[index + 1] || "";
@@ -98,10 +134,11 @@
     return null;
   };
 
-  Shell.prototype.expandSubstitutions = async function (line, depth) {
+  Shell.prototype.expandSubstitutions = async function (line, options) {
     var output = line; var found = this.findSubstitution(output);
     while (found) {
-      var run = await this.run(found.inner, { capture: true, depth: (depth || 0) + 1, substitution: true });
+      this.charge(options, 1);
+      var run = await this.run(found.inner, { capture: true, depth: (options.depth || 0) + 1, substitution: true, budget: options.budget, script: options.script });
       var replacement = run.stdout.replace(/\n+$/, "").replace(/\n/g, " ");
       output = output.slice(0, found.start) + replacement + output.slice(found.end + 1);
       found = this.findSubstitution(output);
@@ -147,7 +184,8 @@
     return { tokens: command, redirect: redirect };
   };
 
-  Shell.prototype.runScript = async function (path, args, depth) {
+  Shell.prototype.runScript = async function (path, args, options) {
+    var depth = options.depth || 0;
     if (depth > this.maxDepth) return { stdout: "", stderr: "zsh: maximum script depth exceeded\n", status: 126 };
     var text;
     try { text = this.machine.readFile(path); } catch (error) { return { stdout: "", stderr: "zsh: " + path + ": " + error.message + "\n", status: 126 }; }
@@ -162,7 +200,8 @@
     var stdout = ""; var stderr = ""; var status = 0;
     for (var index = 1; index < lines.length; index += 1) {
       if (!lines[index].trim()) continue;
-      var run = await this.run(lines[index], { capture: true, depth: depth + 1 });
+      this.charge(options, 1);
+      var run = await this.run(lines[index], { capture: true, depth: depth + 1, budget: options.budget, script: true });
       stdout += run.stdout; stderr += run.stderr; status = run.status;
       if (status !== 0) break;
     }
@@ -172,6 +211,7 @@
   };
 
   Shell.prototype.executeSimple = async function (rawTokens, stdin, options) {
+    this.charge(options, rawTokens.length + 1);
     var parsed;
     try { parsed = this.extractRedirects(this.expandAlias(rawTokens)); } catch (error) { return { stdout: "", stderr: "zsh: " + error.message + "\n", status: 2 }; }
     var tokens = parsed.tokens.map(this.resolveVariables.bind(this)); var redirect = parsed.redirect;
@@ -186,6 +226,9 @@
       return { stdout: "", stderr: "", status: 0 };
     }
     var name = tokens.shift();
+    if (options.script && (name === "curl" || name === "wget")) {
+      return { stdout: "", stderr: "zsh: permission denied: " + name + "\n", status: 126 };
+    }
     var args = [];
     tokens.forEach(function (token) { args = args.concat(this.machine.fs.glob(token, this.machine.cwd)); }, this);
     var path = this.resolveCommand(name);
@@ -209,7 +252,7 @@
     } else if (options.substitution) {
       run = { stdout: "", stderr: "zsh: command substitution permits busybox commands only\n", status: 126 };
     } else {
-      run = await this.runScript(resolved, args, options.depth || 0);
+      run = await this.runScript(resolved, args, options);
     }
     Object.keys(assignments).forEach(function (key) { if (previousEnv[key] === undefined) delete this.machine.env[key]; else this.machine.env[key] = previousEnv[key]; }, this);
     this.machine.exported = previousExported;
@@ -227,6 +270,7 @@
   };
 
   Shell.prototype.runPipeline = async function (tokens, options) {
+    this.charge(options, tokens.length + 1);
     var stages = []; var current = [];
     tokens.forEach(function (token) { if (token === "|") { stages.push(current); current = []; } else current.push(token); });
     stages.push(current);
@@ -240,6 +284,7 @@
   };
 
   Shell.prototype.runTokens = async function (tokens, options) {
+    this.charge(options, tokens.length + 1);
     var groups = []; var current = []; var connector = ";";
     tokens.forEach(function (token) {
       if (["&&", "||", ";"].indexOf(token) !== -1) { groups.push({ tokens: current, connector: connector }); current = []; connector = token; }
@@ -255,25 +300,36 @@
       var run = await this.runPipeline(group.tokens, options);
       output.stdout += run.stdout; output.stderr += run.stderr; output.status = run.status; output.effect = run.effect || output.effect;
       this.machine.env["?"] = String(run.status);
-      if (run.effect && run.effect.type === "root-auth") break;
+      if (run.effect && run.effect.type === "su-auth") break;
     }
     return output;
   };
 
   Shell.prototype.run = async function (line, options) {
     options = options || {};
+    var top = !options.budget;
+    if (top) options.budget = {
+      steps: 0,
+      started: root.performance && root.performance.now ? root.performance.now() : Date.now()
+    };
     if ((options.depth || 0) > this.maxDepth) return { stdout: "", stderr: "zsh: maximum fork depth exceeded\n", status: 126 };
     try {
-      var expanded = await this.expandSubstitutions(String(line || ""), options.depth || 0);
+      this.charge(options, String(line || "").length + 1);
+      var expanded = await this.expandSubstitutions(String(line || ""), options);
       var tokens = this.tokenize(expanded);
       if (!tokens.length) return { stdout: "", stderr: "", status: 0 };
       var run = await this.runTokens(tokens, options);
+      this.charge(options, 1);
       this.machine.env["?"] = String(run.status);
       this.machine.persist();
-      return run;
+      return top ? this.limitOutput(run) : run;
     } catch (error) {
-      this.machine.env["?"] = "2";
-      return { stdout: "", stderr: "zsh: " + error.message + "\n", status: 2 };
+      var killed = Boolean(error && error.killed);
+      this.machine.env["?"] = killed ? "137" : "2";
+      var failed = killed
+        ? { stdout: "", stderr: "Killed\n", status: 137 }
+        : { stdout: "", stderr: "zsh: " + error.message + "\n", status: 2 };
+      return top ? this.limitOutput(failed) : failed;
     }
   };
 

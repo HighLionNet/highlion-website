@@ -26,13 +26,6 @@
   function publishFeed(state, count) {
     var detail = { state: state, count: count || 0 };
     window.__hlIntelFeed = detail;
-    var node = document.getElementById("navFeed");
-    if (node) {
-      node.textContent = state === "live"
-        ? "FEED · " + String(detail.count).padStart(2, "0") + " live"
-        : "FEED · " + (state === "stale" ? "stale" : "off");
-      node.dataset.state = state;
-    }
     window.dispatchEvent(new CustomEvent("hl:intel", { detail: detail }));
   }
 

@@ -199,31 +199,16 @@ function hl_intel_cached_payload(
     array &$thumbMap
 ): array
 {
-    foreach ($payload['items'] as $itemIndex => &$item) {
+    foreach ($payload['items'] as &$item) {
         $articleUrl = (string) ($item['url'] ?? '');
         $thumb = (string) ($item['thumb'] ?? '');
-        $photo = false;
-        if (preg_match('/^\/api\/thumb\.php\?id=([a-f0-9]{40})$/', $thumb, $match) !== 1
+        $record = $thumbMap[$articleUrl] ?? null;
+        $placeholder = is_array($record) && (bool) ($record['placeholder'] ?? false);
+        if ($placeholder
+            || preg_match('/^\/api\/thumb\.php\?id=([a-f0-9]{40})$/', $thumb, $match) !== 1
             || !is_file($thumbDirectory . '/' . $match[1])) {
-            $source = (string) ($item['source'] ?? parse_url($articleUrl, PHP_URL_HOST) ?? 'NEWS');
-            $placeholderId = $articleUrl === ''
-                ? ''
-                : hl_intel_placeholder($articleUrl, $source, $thumbMap, $thumbDirectory);
-            $item['thumb'] = $placeholderId === '' ? '' : '/api/thumb.php?id=' . $placeholderId;
-        } else {
-            $record = $thumbMap[$articleUrl] ?? null;
-            $photo = !is_array($record) || !((bool) ($record['placeholder'] ?? false));
+            $item['thumb'] = '';
         }
-        $item['_photo'] = $photo;
-        $item['_order'] = $itemIndex;
-    }
-    unset($item);
-    usort($payload['items'], static function (array $left, array $right): int {
-        $photoOrder = ((int) ($right['_photo'] ?? false)) <=> ((int) ($left['_photo'] ?? false));
-        return $photoOrder !== 0 ? $photoOrder : ((int) $left['_order'] <=> (int) $right['_order']);
-    });
-    foreach ($payload['items'] as &$item) {
-        unset($item['_photo'], $item['_order']);
     }
     unset($item);
     $payload['count'] = count($payload['items']);
@@ -281,105 +266,6 @@ function hl_intel_thumb(
         }
     }
     return '';
-}
-
-function hl_intel_source_badge(string $source): array
-{
-    $host = strtolower(preg_replace('/^www\./', '', $source));
-    if ($host === 'bleepingcomputer.com') {
-        return ['BC', [141, 36, 49]];
-    }
-    if ($host === 'thehackernews.com' || strpos($host, 'feedburner.com') !== false
-        || strpos($host, 'thehackersnews') !== false) {
-        return ['TH', [154, 92, 20]];
-    }
-    if ($host === 'krebsonsecurity.com') {
-        return ['KR', [27, 111, 124]];
-    }
-    if ($host === 'cisa.gov') {
-        return ['CI', [55, 72, 135]];
-    }
-    $letters = strtoupper(substr((string) preg_replace('/[^a-z]/', '', $host), 0, 2));
-    return [$letters !== '' ? $letters : '--', [62, 76, 112]];
-}
-
-function hl_intel_png_chunk(string $type, string $data): string
-{
-    return pack('N', strlen($data)) . $type . $data . pack('H*', hash('crc32b', $type . $data));
-}
-
-function hl_intel_badge_png(string $chip, array $color): string
-{
-    if (!function_exists('gzcompress')) {
-        return '';
-    }
-    $glyphs = [
-        'B' => ['11110', '10001', '10001', '11110', '10001', '10001', '11110'],
-        'C' => ['01111', '10000', '10000', '10000', '10000', '10000', '01111'],
-        'H' => ['10001', '10001', '10001', '11111', '10001', '10001', '10001'],
-        'I' => ['11111', '00100', '00100', '00100', '00100', '00100', '11111'],
-        'K' => ['10001', '10010', '10100', '11000', '10100', '10010', '10001'],
-        'R' => ['11110', '10001', '10001', '11110', '10100', '10010', '10001'],
-        'T' => ['11111', '00100', '00100', '00100', '00100', '00100', '00100'],
-        '-' => ['00000', '00000', '00000', '11111', '00000', '00000', '00000'],
-    ];
-    $chip = str_pad(substr(strtoupper($chip), 0, 2), 2, '-');
-    $scale = 4;
-    $startX = 6;
-    $startY = 14;
-    $raw = '';
-    for ($y = 0; $y < 56; $y += 1) {
-        $raw .= "\x00";
-        for ($x = 0; $x < 56; $x += 1) {
-            $pixel = $color;
-            if ($x < 2 || $x > 53 || $y < 2 || $y > 53) {
-                $pixel = [167, 231, 240];
-            }
-            for ($letter = 0; $letter < 2; $letter += 1) {
-                $rows = $glyphs[$chip[$letter]] ?? $glyphs['-'];
-                $glyphX = $startX + ($letter * 24);
-                $gx = intdiv($x - $glyphX, $scale);
-                $gy = intdiv($y - $startY, $scale);
-                if ($x >= $glyphX && $y >= $startY && $gx >= 0 && $gx < 5 && $gy >= 0 && $gy < 7
-                    && $rows[$gy][$gx] === '1') {
-                    $pixel = [239, 250, 255];
-                }
-            }
-            $raw .= chr($pixel[0]) . chr($pixel[1]) . chr($pixel[2]);
-        }
-    }
-    $header = pack('NNCCCCC', 56, 56, 8, 2, 0, 0, 0);
-    return "\x89PNG\r\n\x1a\n"
-        . hl_intel_png_chunk('IHDR', $header)
-        . hl_intel_png_chunk('IDAT', gzcompress($raw, 9))
-        . hl_intel_png_chunk('IEND', '');
-}
-
-function hl_intel_placeholder(
-    string $articleUrl,
-    string $source,
-    array &$thumbMap,
-    string $thumbDirectory
-): string {
-    if (!is_dir($thumbDirectory) && !@mkdir($thumbDirectory, 0750, true) && !is_dir($thumbDirectory)) {
-        return '';
-    }
-    [$chip, $color] = hl_intel_source_badge($source);
-    $id = sha1('fallback|' . $articleUrl);
-    $path = $thumbDirectory . '/' . $id;
-    if (!is_file($path)) {
-        $png = hl_intel_badge_png($chip, $color);
-        if ($png === '' || @file_put_contents($path, $png, LOCK_EX) === false) {
-            return '';
-        }
-    }
-    $thumbMap[$articleUrl] = [
-        'id' => $id,
-        'ctype' => 'image/png',
-        'at' => time(),
-        'placeholder' => true,
-    ];
-    return $id;
 }
 
 $thumbMap = [];
@@ -532,6 +418,8 @@ foreach ($feeds as $feed) {
     $feedItems[] = $current;
 }
 
+shuffle($feedItems);
+
 $items = [];
 $seen = [];
 for ($round = 0; $round < 10 && count($items) < 10; $round += 1) {
@@ -560,11 +448,10 @@ if ($items === []) {
     hl_json(['ok' => false, 'generated' => gmdate('c'), 'items' => [], 'count' => 0]);
 }
 
-foreach ($items as $itemIndex => &$item) {
+foreach ($items as &$item) {
     $imageUrl = (string) ($item['image'] ?? '');
     $articleUrl = (string) $item['url'];
     $thumbId = '';
-    $photo = false;
     if ($imageUrl === '') {
         $articleRecord = $thumbMap[$articleUrl] ?? null;
         if (is_array($articleRecord)) {
@@ -575,7 +462,6 @@ foreach ($items as $itemIndex => &$item) {
                 && !((bool) ($articleRecord['placeholder'] ?? false))
                 && is_file($thumbDirectory . '/' . $articleId)) {
                 $thumbId = $articleId;
-                $photo = true;
             }
         }
         if ($thumbId === '') {
@@ -589,7 +475,6 @@ foreach ($items as $itemIndex => &$item) {
                     $thumbTtl,
                     $imageHosts
                 );
-                $photo = $thumbId !== '';
             }
         }
         if ($thumbId === '' && is_array($articleRecord)) {
@@ -598,7 +483,6 @@ foreach ($items as $itemIndex => &$item) {
                 && !((bool) ($articleRecord['placeholder'] ?? false))
                 && is_file($thumbDirectory . '/' . $staleId)) {
                 $thumbId = $staleId;
-                $photo = true;
             }
         }
     } else {
@@ -610,29 +494,9 @@ foreach ($items as $itemIndex => &$item) {
             $thumbTtl,
             $imageHosts
         );
-        $photo = $thumbId !== '';
-    }
-    if ($thumbId === '') {
-        $thumbId = hl_intel_placeholder(
-            $articleUrl,
-            (string) ($item['source'] ?? ''),
-            $thumbMap,
-            $thumbDirectory
-        );
     }
     $item['thumb'] = $thumbId === '' ? '' : '/api/thumb.php?id=' . $thumbId;
-    $item['_photo'] = $photo;
-    $item['_order'] = $itemIndex;
     unset($item['image']);
-}
-unset($item);
-
-usort($items, static function (array $left, array $right): int {
-    $photoOrder = ((int) ($right['_photo'] ?? false)) <=> ((int) ($left['_photo'] ?? false));
-    return $photoOrder !== 0 ? $photoOrder : ((int) $left['_order'] <=> (int) $right['_order']);
-});
-foreach ($items as &$item) {
-    unset($item['_photo'], $item['_order']);
 }
 unset($item);
 

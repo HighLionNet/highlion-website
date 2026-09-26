@@ -3,8 +3,151 @@
 
   var HL = window.HLShell;
   if (!HL || !HL.boot) return;
-  var sharedMachine = HL.boot();
+
+  var SLOT_URL = "/api/shell-slot.php";
+  var heartbeatMs = 25000;
+  var sharedMachine = null;
+  var acquirePromise = null;
+  var slot = { mode: "fallback", id: "", ttl: 90, operator: false };
+  var fallbackListeners = [];
+  var heartbeatTimer = 0;
+  var released = false;
   var instance = 0;
+
+  function slotPost(payload, headers) {
+    return fetch(SLOT_URL, {
+      method: "POST",
+      credentials: "same-origin",
+      cache: "no-store",
+      keepalive: payload.op === "release",
+      headers: Object.assign({ "Content-Type": "application/json" }, headers || {}),
+      body: JSON.stringify(payload)
+    }).then(function (response) {
+      if (!response.ok) throw new Error("request failed");
+      return response.json();
+    });
+  }
+
+  function acquireSlot() {
+    if (!acquirePromise) {
+      acquirePromise = slotPost({ op: "acquire" }).then(function (payload) {
+        slot = {
+          mode: payload && payload.mode === "full" ? "full" : "fallback",
+          id: payload && typeof payload.id === "string" ? payload.id : "",
+          ttl: Number(payload && payload.ttl) || 90,
+          operator: Boolean(payload && payload.operator)
+        };
+        startHeartbeat();
+        return slot;
+      }).catch(function () {
+        slot = { mode: "fallback", id: "", ttl: 90, operator: false };
+        return slot;
+      });
+    }
+    return acquirePromise;
+  }
+
+  function csrfToken() {
+    return fetch("/api/csrf.php", { method: "GET", credentials: "same-origin", cache: "no-store" })
+      .then(function (response) {
+        if (!response.ok) throw new Error("token failed");
+        return response.json();
+      })
+      .then(function (payload) {
+        if (!payload || typeof payload.token !== "string") throw new Error("token failed");
+        return payload.token;
+      });
+  }
+
+  function sessionControl(action, id) {
+    return csrfToken().then(function (token) {
+      return slotPost({ op: action, id: id || "" }, { "X-CSRF-Token": token });
+    });
+  }
+
+  function enterFallback() {
+    if (slot.mode === "fallback") return;
+    slot.mode = "fallback";
+    slot.id = "";
+    slot.operator = false;
+    fallbackListeners.slice().forEach(function (listener) { listener(); });
+  }
+
+  function beat() {
+    if (document.hidden || slot.mode !== "full" || !slot.id) return;
+    slotPost({ op: "beat", id: slot.id }).then(function (payload) {
+      if (!payload || payload.mode !== "full") enterFallback();
+    }).catch(enterFallback);
+  }
+
+  function startHeartbeat() {
+    if (heartbeatTimer || slot.mode !== "full") return;
+    heartbeatTimer = window.setInterval(beat, heartbeatMs);
+  }
+
+  function release() {
+    if (released || !slot.id) return;
+    released = true;
+    slotPost({ op: "release", id: slot.id }).catch(function () {});
+  }
+
+  document.addEventListener("visibilitychange", function () {
+    if (!document.hidden) beat();
+  });
+  window.addEventListener("pagehide", release, { once: true });
+
+  function fullMachine() {
+    if (!sharedMachine) sharedMachine = HL.boot();
+    return sharedMachine;
+  }
+
+  function fallbackMachine() {
+    var history = [];
+    var snapshot = {
+      "/etc/issue": "Kali GNU/Linux Rolling \\n \\l\n",
+      "/etc/hostname": "highlion\n",
+      "/etc/passwd": "root:x:0:0:root:/root:/bin/zsh\nadmin:x:1001:1001:Lab Admin:/home/admin:/bin/zsh\nkali:x:1000:1000:Kali User:/home/kali:/bin/zsh\nwww-data:x:33:33:www-data:/var/www:/usr/sbin/nologin\nnobody:x:65534:65534:nobody:/nonexistent:/usr/sbin/nologin\n",
+      "/home/kali/README.txt": "Kali GNU/Linux Rolling\n"
+    };
+    var machine = {
+      identity: { user: "kali", host: "highlion", home: "/home/kali" },
+      cwd: "/home/kali",
+      history: history,
+      promptPath: function () { return "~"; },
+      promptSymbol: function () { return "$"; },
+      addHistory: function (line) {
+        history.push(line);
+        if (history.length > 300) history.splice(0, history.length - 300);
+      }
+    };
+    machine.shell = {
+      run: function (raw) {
+        var line = String(raw || "").trim();
+        if (!line) return Promise.resolve({ stdout: "", stderr: "", status: 0 });
+        if (/[|;&<>]/.test(line)) return Promise.resolve({ stdout: "", stderr: "zsh: command not found: " + line.split(/\s+/)[0] + "\n", status: 127 });
+        var parts = line.split(/\s+/);
+        var name = parts.shift();
+        if (name === "pwd") return Promise.resolve({ stdout: machine.cwd + "\n", stderr: "", status: 0 });
+        if (name === "whoami") return Promise.resolve({ stdout: "kali\n", stderr: "", status: 0 });
+        if (name === "help") return Promise.resolve({ stdout: "pwd ls cat whoami help clear cmatrix\n", stderr: "", status: 0 });
+        if (name === "ls") return Promise.resolve({ stdout: "Desktop  Documents  Downloads  README.txt\n", stderr: "", status: 0 });
+        if (name === "cat") {
+          var path = parts[0] || "";
+          if (path && path.charAt(0) !== "/") path = machine.cwd + "/" + path;
+          if (Object.prototype.hasOwnProperty.call(snapshot, path)) return Promise.resolve({ stdout: snapshot[path], stderr: "", status: 0 });
+          return Promise.resolve({ stdout: "", stderr: "cat: no such file or directory\n", status: 1 });
+        }
+        if (name === "clear") return Promise.resolve({ stdout: "", stderr: "", status: 0, effect: "clear" });
+        if (name === "cmatrix") {
+          if (parts.length && parts[0] !== "-q") return Promise.resolve({ stdout: "", stderr: "cmatrix: usage: cmatrix [-q]\n", status: 1 });
+          return Promise.resolve({ stdout: "", stderr: "", status: 0, effect: parts[0] === "-q" ? "matrix-off" : "matrix-on" });
+        }
+        return Promise.resolve({ stdout: "", stderr: "zsh: command not found: " + name + "\n", status: 127 });
+      },
+      complete: function () { return { choices: [], start: 0 }; }
+    };
+    return machine;
+  }
 
   function mountTerminal(panel) {
     if (!panel || panel.dataset.mounted === "true") return;
@@ -13,6 +156,7 @@
     var stream = panel.querySelector(".hlterm-stream");
     var matrix = panel.querySelector(".hlterm-matrix");
     var title = panel.querySelector(".hlterm-title");
+    var kicker = panel.querySelector(".hlterm-kicker");
     if (!body || !stream || !matrix) return;
     body.tabIndex = 0;
     instance += 1;
@@ -25,20 +169,20 @@
     var running = false;
     var authPending = false;
     var runSerial = 0;
-    var reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
+    var reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     var matrixFrame = 0;
     var matrixDrops = [];
     var matrixWanted = false;
+    var matrixHeight = 1;
 
     function scrollBottom() {
       body.scrollTop = body.scrollHeight;
     }
 
-    function appendLine(text, className) {
-      if (text === "") return null;
+    function appendLine(value, className) {
       var line = document.createElement("div");
       line.className = className || "hlterm-line";
-      line.textContent = String(text).replace(/\n$/, "");
+      line.textContent = String(value === undefined ? "" : value).replace(/\n$/, "");
       stream.insertBefore(line, live);
       scrollBottom();
       return line;
@@ -62,6 +206,7 @@
 
     function updateTitle() {
       if (title) title.textContent = machine.identity.user + "@" + machine.identity.host + ": " + machine.promptPath();
+      if (kicker) kicker.textContent = machine.identity.user;
       panel.dataset.shellUser = machine.identity.user;
     }
 
@@ -104,7 +249,7 @@
       input.autocomplete = "off";
       input.autocapitalize = "off";
       input.spellcheck = false;
-      input.setAttribute("aria-label", authPending ? "Root password" : "Terminal command");
+      input.setAttribute("aria-label", authPending ? "Password" : "Terminal command");
       live.append(label, input);
       stream.appendChild(live);
       input.addEventListener("keydown", handleKey);
@@ -114,26 +259,31 @@
 
     function resizeMatrix() {
       var dpr = Math.min(window.devicePixelRatio || 1, 2);
+      matrixHeight = Math.max(1, Math.round(body.clientHeight * 0.42));
       matrix.width = Math.max(1, Math.round(body.clientWidth * dpr));
-      matrix.height = Math.max(1, Math.round(body.clientHeight * dpr));
+      matrix.height = Math.max(1, Math.round(matrixHeight * dpr));
       matrix.style.width = body.clientWidth + "px";
-      matrix.style.height = body.clientHeight + "px";
+      matrix.style.height = matrixHeight + "px";
       var context = matrix.getContext("2d");
       context.setTransform(dpr, 0, 0, dpr, 0, 0);
-      matrixDrops = Array(Math.ceil(body.clientWidth / 14)).fill(0).map(function () { return Math.random() * body.clientHeight / 14; });
+      matrixDrops = Array(Math.ceil(body.clientWidth / 12)).fill(0).map(function () { return Math.random() * matrixHeight / 12; });
+    }
+
+    function paintMatrix(staticFrame) {
+      var context = matrix.getContext("2d");
+      context.fillStyle = staticFrame ? "rgba(5,7,19,0.72)" : "rgba(5,7,19,0.16)";
+      context.fillRect(0, 0, body.clientWidth, matrixHeight);
+      context.font = "12px JetBrains Mono, monospace";
+      matrixDrops.forEach(function (drop, column) {
+        context.fillStyle = Math.random() > 0.86 ? "rgba(170,255,190,0.94)" : "rgba(94,224,160,0.76)";
+        context.fillText(Math.random() > 0.5 ? "1" : "0", column * 12, drop * 12);
+        if (!staticFrame) matrixDrops[column] = drop * 12 > matrixHeight && Math.random() > 0.96 ? 0 : drop + 0.78;
+      });
     }
 
     function drawMatrix() {
-      if (!matrixFrame || reduced.matches) return;
-      var context = matrix.getContext("2d");
-      context.fillStyle = "rgba(5,7,19,0.16)";
-      context.fillRect(0, 0, body.clientWidth, body.clientHeight);
-      context.font = "14px JetBrains Mono, monospace";
-      matrixDrops.forEach(function (drop, column) {
-        context.fillStyle = Math.random() > 0.84 ? "rgba(102,247,255,0.88)" : "rgba(61,139,255,0.72)";
-        context.fillText(Math.random() > 0.5 ? "1" : "0", column * 14, drop * 14);
-        matrixDrops[column] = drop * 14 > body.clientHeight && Math.random() > 0.97 ? 0 : drop + 0.82;
-      });
+      if (!matrixFrame || reduced) return;
+      paintMatrix(false);
       matrixFrame = window.requestAnimationFrame(drawMatrix);
     }
 
@@ -141,12 +291,15 @@
       matrixWanted = on;
       if (matrixFrame) window.cancelAnimationFrame(matrixFrame);
       matrixFrame = 0;
-      matrix.classList.toggle("is-on", on && !reduced.matches);
-      if (on && !reduced.matches) {
-        resizeMatrix();
-        matrixFrame = window.requestAnimationFrame(drawMatrix);
-      } else {
+      matrix.classList.toggle("is-on", on);
+      if (!on) {
         matrix.getContext("2d").clearRect(0, 0, matrix.width, matrix.height);
+        return;
+      }
+      resizeMatrix();
+      if (reduced) paintMatrix(true);
+      else {
+        matrixFrame = window.requestAnimationFrame(drawMatrix);
       }
     }
 
@@ -155,8 +308,9 @@
       if (effect === "clear") stream.replaceChildren();
       else if (effect === "matrix-on") setMatrix(true);
       else if (effect === "matrix-off") setMatrix(false);
+      else if (effect === "reset") { setMatrix(false); stream.replaceChildren(); }
       else if (effect.navigate) window.location.assign(effect.navigate);
-      else if (effect.type === "root-auth") {
+      else if (effect.type === "su-auth") {
         authPending = true;
         addLive();
         return true;
@@ -181,19 +335,11 @@
       if (!effectOwnsPrompt) addLive();
     }
 
-    async function authenticate(password) {
-      running = true;
-      var valid = false;
-      try { valid = await machine.authenticateRoot(password); } catch (error) { valid = false; }
+    function rejectAuthentication() {
       running = false;
       authPending = false;
-      if (valid) {
-        appendLine("Owner console unlocked. Browser VFS only; no server privilege granted.", "hlterm-muted");
-        if (window.HighLionSfx) window.HighLionSfx.ok();
-      } else {
-        appendLine("su: Authentication failure", "hlterm-error");
-        if (window.HighLionSfx) window.HighLionSfx.error();
-      }
+      appendLine("su: Authentication failure", "hlterm-error");
+      if (window.HighLionSfx) window.HighLionSfx.error();
       addLive();
     }
 
@@ -206,9 +352,7 @@
         input.value = input.value.slice(0, completion.start) + choice + suffix + input.value.slice(caret);
         var next = completion.start + choice.length + suffix.length;
         input.setSelectionRange(next, next);
-      } else if (completion.choices.length > 1) {
-        appendLine(completion.choices.join("  "), "hlterm-muted");
-      }
+      } else if (completion.choices.length > 1) appendLine(completion.choices.join("  "), "hlterm-muted");
     }
 
     function handleKey(event) {
@@ -216,6 +360,7 @@
       if (window.HighLionSfx && (event.key.length === 1 || event.key === "Backspace")) window.HighLionSfx.key();
       if (event.ctrlKey && key === "c") {
         event.preventDefault();
+        if (matrixWanted) setMatrix(false);
         if (authPending) freezeSecret();
         else freeze(input.value);
         authPending = false;
@@ -241,7 +386,7 @@
         var raw = input.value;
         if (authPending) {
           freezeSecret();
-          authenticate(raw);
+          rejectAuthentication();
           return;
         }
         freeze(raw);
@@ -264,30 +409,55 @@
       }
     }
 
+    function bootPaint() {
+      stream.replaceChildren();
+      live = null;
+      input = null;
+      appendLine("Kali GNU/Linux Rolling", "hlterm-muted");
+      appendLine("highlion tty1", "hlterm-muted");
+      appendLine("", "hlterm-muted");
+      appendLine("kali@highlion login: kali", "hlterm-muted");
+      var client = "10.8.0." + String(20 + Math.floor(Math.random() * 30));
+      appendLine("Last login: " + new Date().toString() + " on tty1 from " + client, "hlterm-muted");
+      addLive();
+    }
+
+    function activateFallback() {
+      runSerial += 1;
+      running = false;
+      authPending = false;
+      setMatrix(false);
+      machine = fallbackMachine();
+      shell = machine.shell;
+      historyIndex = machine.history.length;
+      bootPaint();
+    }
+
     body.addEventListener("keydown", function (event) {
       if (!running || !event.ctrlKey || event.key.toLowerCase() !== "c") return;
       event.preventDefault();
+      if (matrixWanted) setMatrix(false);
       runSerial += 1;
       running = false;
       appendLine("^C", "hlterm-muted");
       addLive();
     });
     body.addEventListener("click", function () { if (input) input.focus(); else body.focus(); });
-    window.addEventListener("resize", function () { if (matrixFrame) resizeMatrix(); }, { passive: true });
-    reduced.addEventListener("change", function () { if (matrixWanted) setMatrix(true); });
+    new ResizeObserver(function () { if (matrixWanted) setMatrix(true); }).observe(body);
+    fallbackListeners.push(activateFallback);
 
-    sharedMachine.then(function (ready) {
-      machine = ready;
-      shell = machine.shell || new HL.Shell(machine);
-      historyIndex = machine.history.length;
-      updateTitle();
-      appendLine("HighLion tty1", "hlterm-muted");
-      appendLine(machine.identity.user + "@" + machine.identity.host + " login: " + machine.identity.user, "hlterm-muted");
-      appendLine("Last login: local session", "hlterm-muted");
-      try { appendLine(machine.readFile("/etc/motd"), "hlterm-muted"); } catch (error) {}
-      addLive();
-    }).catch(function (error) {
-      appendLine("machine boot failed: " + error.message, "hlterm-error");
+    acquireSlot().then(function (lease) {
+      if (lease.mode !== "full") {
+        activateFallback();
+        return;
+      }
+      return fullMachine().then(function (ready) {
+        machine = ready;
+        machine.attachLease(lease, sessionControl);
+        shell = machine.shell || new HL.Shell(machine);
+        historyIndex = machine.history.length;
+        bootPaint();
+      }).catch(activateFallback);
     });
   }
 

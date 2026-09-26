@@ -30,6 +30,18 @@
     return { ok: true };
   };
 
+  ProcessTable.prototype.killByName = function (name, user) {
+    var matches = this.processes.filter(function (row) {
+      return row.state === "running" && row.command.split(/\s+/)[0] === name;
+    });
+    var killed = 0;
+    matches.forEach(function (row) {
+      var state = this.kill(row.pid, user);
+      if (state.ok) killed += 1;
+    }, this);
+    return { ok: killed > 0, count: killed, message: matches.length ? "Operation not permitted" : "No such process" };
+  };
+
   ProcessTable.prototype.pidof = function (name) {
     return this.processes.filter(function (row) { return row.state === "running" && row.command.split(/\s+/)[0] === name; }).map(function (row) { return row.pid; });
   };

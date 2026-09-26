@@ -56,52 +56,18 @@
     });
   }
 
-  function feedState(payload) {
-    var items = payload && Array.isArray(payload.items) ? payload.items : [];
-    if (!items.length || payload.ok !== true) return { state: "off", count: 0 };
-    return { state: payload.stale ? "stale" : "live", count: items.length };
-  }
-
-  function paintFeed(status) {
-    window.__hlIntelFeed = status;
-    var node = document.getElementById("navFeed");
-    if (!node) return;
-    if (status.state === "live") {
-      node.textContent = "FEED · " + String(status.count).padStart(2, "0") + " live";
-    } else {
-      node.textContent = "FEED · " + (status.state === "stale" ? "stale" : "off");
-    }
-    node.dataset.state = status.state;
-  }
-
   function paintSession() {
     var local = document.getElementById("navClock");
     var now = new Date();
     if (local) local.textContent = clockText(now);
-    paintFeed(window.__hlIntelFeed || { state: "off", count: 0 });
-  }
-
-  function loadFeedChip() {
-    if (document.getElementById("news-list")) return;
-    fetch("/api/intel.php", { headers: { Accept: "application/json" }, cache: "no-store" })
-      .then(function (response) {
-        if (!response.ok) throw new Error("Feed unavailable");
-        return response.json();
-      })
-      .then(function (payload) { paintFeed(feedState(payload)); })
-      .catch(function () { paintFeed({ state: "off", count: 0 }); });
   }
 
   function watchHeader() {
     paintSession();
-    if (document.getElementById("navClock") && document.getElementById("navFeed")) {
-      loadFeedChip();
-      return;
-    }
+    if (document.getElementById("navClock")) return;
     var observer = new MutationObserver(function () {
-      if (!document.getElementById("navClock") || !document.getElementById("navFeed")) return;
+      if (!document.getElementById("navClock")) return;
       paintSession();
-      loadFeedChip();
       observer.disconnect();
     });
     observer.observe(document.documentElement, { childList: true, subtree: true });
@@ -115,9 +81,6 @@
     current: function () { return latencyResult; }
   };
 
-  window.addEventListener("hl:intel", function (event) {
-    if (event.detail) paintFeed(event.detail);
-  });
   watchHeader();
   window.setInterval(paintSession, 1000);
 })();
