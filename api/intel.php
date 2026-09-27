@@ -542,7 +542,7 @@ foreach ($feeds as $feed) {
             '_timestamp' => $timestamp === false ? 0 : $timestamp,
             'image' => $image,
         ];
-        if (count($current) >= 10) {
+        if (count($current) >= 15) {
             break;
         }
     }
@@ -551,7 +551,7 @@ foreach ($feeds as $feed) {
 
 $items = [];
 $seen = [];
-for ($round = 0; $round < 10 && count($items) < 10; $round += 1) {
+for ($round = 0; $round < 15 && count($items) < 15; $round += 1) {
     foreach ($feedItems as $current) {
         if (!isset($current[$round])) {
             continue;
@@ -563,7 +563,7 @@ for ($round = 0; $round < 10 && count($items) < 10; $round += 1) {
         }
         $seen[$url] = true;
         $items[] = $item;
-        if (count($items) >= 10) {
+        if (count($items) >= 15) {
             break;
         }
     }

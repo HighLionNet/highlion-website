@@ -5,12 +5,13 @@
   var ATTRACT_FORCE = 0.07;
   var DRAG = 0.96;
   var COUNT_DIVISOR = 9000;
-  var DRIFT_MIN = 9.2;
-  var DRIFT_MAX = 25.3;
-  var HEADING = 10.8;
-  var WANDER = 0.024;
-  var LINK_DIST = 118;
-  var LINK_ALPHA = 0.125;
+  var DRIFT_MIN = 36;
+  var DRIFT_MAX = 64;
+  var HEADING = 3.2;
+  var WANDER = 0;
+  var LINK_DIST = 168;
+  var LINK_ALPHA = 0.30;
+  var LINK_WIDTH = 1;
 
   var canvas = document.getElementById("fx");
   if (!canvas) return;
@@ -69,7 +70,8 @@
       fadeIn: between(0.8, 1.6),
       fadeOut: between(1.2, 2.4),
       retiring: false,
-      held: false
+      held: false,
+      returnAge: 0
     };
   }
 
@@ -89,7 +91,7 @@
       var key = Math.floor(point.x / LINK_DIST) + ":" + Math.floor(point.y / LINK_DIST);
       (cells[key] = cells[key] || []).push(index);
     });
-    context.lineWidth = 1;
+    context.lineWidth = LINK_WIDTH;
     for (var left = 0; left < points.length; left += 1) {
       var cellX = Math.floor(points[left].x / LINK_DIST);
       var cellY = Math.floor(points[left].y / LINK_DIST);
@@ -144,13 +146,14 @@
 
   function updatePoint(point, elapsed) {
     var attracted = false;
+    var closeness = 0;
     if (pointer.active) {
       var dx = pointer.x - point.x;
       var dy = pointer.y - point.y;
       var distance = Math.hypot(dx, dy);
       if (distance < ATTRACT_RADIUS && distance > 0.01) {
         attracted = true;
-        var closeness = 1 - distance / ATTRACT_RADIUS;
+        closeness = 1 - distance / ATTRACT_RADIUS;
         var force = ATTRACT_FORCE * (0.35 + 1.65 * closeness * closeness);
         point.vx += (dx / distance) * force * 900 * elapsed;
         point.vy += (dy / distance) * force * 900 * elapsed;
@@ -158,15 +161,19 @@
     }
     point.held = attracted;
     if (attracted) {
+      point.returnAge = 0;
       var drag = Math.pow(DRAG, elapsed * 60);
       point.vx *= drag;
       point.vy *= drag;
     } else {
-      var resume = clamp(elapsed * 1.8, 0, 1);
+      point.returnAge = Math.min(0.18, point.returnAge + elapsed);
+      var resume = clamp(point.returnAge / 0.18, 0, 1);
       point.vx += (point.driftX - point.vx) * resume;
       point.vy += (point.driftY - point.vy) * resume;
-      point.vx += between(-WANDER, WANDER) * 60 * elapsed;
-      point.vy += between(-WANDER, WANDER) * 60 * elapsed;
+      if (point.returnAge >= 0.18) {
+        point.vx = point.driftX;
+        point.vy = point.driftY;
+      }
     }
     var speed = Math.hypot(point.vx, point.vy);
     var maxPerSecond = attracted ? 90 + 220 * closeness : Infinity;

@@ -97,7 +97,7 @@
   }
 
   function render(payload) {
-    var items = payload && Array.isArray(payload.items) ? payload.items.slice(0, 10) : [];
+    var items = payload && Array.isArray(payload.items) ? payload.items.slice(0, 15) : [];
     list.replaceChildren();
     if (!items.length) {
       offline();

@@ -48,7 +48,11 @@ HIGHLION DEBIAN CUT-IN (HLv8 / hl8l)
 
 The browser machine is a simulated, isolated userspace. Its filesystem, firewall rules, services, credentials, and network delays never touch the Debian host.
 
-HLv8 OSPREY LAN NOTE
-Sim LAN is now Osprey & Hale 10.8.0.0/24, not HighLion infra.
+PROMPT 12 OWNER NOTE
+Prompt 12 closes unshipped Prompt 11 and the 69c6a4f regressions.
+Sim LAN is Osprey & Hale 10.8.0.0/24, not HighLion infra.
 ctf.php allowlist is sha256 digests. Old flag strings still claim.
+News rail height doubled, 15-item cap. Telemetry rows restored against live /api/traffic.php.
 No new Pi secrets. No new cookies.
+Live /403.html and /404.html still need a deploy if they 404.
+Baseline continuation: local main included extra commit 77a8a0d302a72af3dfb2d0e48b4f8b1187c3e150 while origin/main was 69c6a4f84a39680e1d1cdd83d51a815846120a3f.

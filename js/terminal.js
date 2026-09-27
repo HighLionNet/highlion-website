@@ -437,7 +437,7 @@
       appendLine("highlion tty1", "hlterm-muted");
       appendLine("", "hlterm-muted");
       appendLine(machine.identity.user + "@highlion login: " + machine.identity.user, "hlterm-muted");
-      var stamp = new Date();
+      var stamp = new Date(2026, 8, 27, 9, 7, 55);
       var weekday = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][stamp.getDay()];
       var month = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][stamp.getMonth()];
       var clock = [stamp.getHours(), stamp.getMinutes(), stamp.getSeconds()].map(function (part) { return String(part).padStart(2, "0"); }).join(":");

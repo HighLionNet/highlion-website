@@ -16,7 +16,7 @@
   }
 
   function formatMs(value) {
-    return (value >= 20 ? Math.round(value) : Math.round(value * 10) / 10) + " ms";
+    return (value >= 20 ? String(Math.round(value)) : (Math.round(value * 10) / 10).toFixed(1)) + " ms";
   }
 
   function paintLatency(detail) {
@@ -63,6 +63,24 @@
       exactNode.textContent = exact;
       exactNode.title = String(payload.window || "") + " " + String(payload.generated || "");
     }
+    paintTopPaths(payload.top);
+  }
+
+  function paintTopPaths(top) {
+    var block = document.getElementById("dTopPaths");
+    var list = document.getElementById("dTopPathList");
+    if (!block || !list || !Array.isArray(top) || !top.length) return;
+    list.replaceChildren();
+    top.slice(0, 5).forEach(function (row) {
+      var item = document.createElement("li");
+      var path = document.createElement("span");
+      var count = document.createElement("b");
+      path.textContent = String(row.path || row.uri || "/");
+      count.textContent = String(Number(row.n || row.count || 0));
+      item.append(path, count);
+      list.appendChild(item);
+    });
+    block.hidden = false;
   }
 
   function elapsed() {
