@@ -135,6 +135,9 @@
 
   Machine.prototype.readFile = function (path) {
     var absolute = this.fs.resolve(path, this.cwd, true);
+    if (absolute === "/proc/net/arp") return this.net.procArp();
+    if (absolute === "/proc/net/route") return this.net.procRoute();
+    if (absolute === "/proc/net/tcp") return this.net.procTcp();
     var synthetic = this.proc.readProc(absolute, this);
     if (synthetic !== null) return synthetic;
     return this.fs.readFile(absolute, "/");

@@ -394,7 +394,7 @@
   BusyBox.prototype.cmdHelp = function(args){
     if(args.length===1)return this.cmdMan(args);
     if(args.length)return failure("help","usage: help [command]");
-    return result("GNU bash, version 5.3\nShell commands:\n  cd pwd help history alias clear reset exit export unset env\n  ls cat head tail grep find mkdir touch cp mv rm chmod chown\n  ps top kill pkill who w id groups df free lsblk mount\n  ip ss netstat ping nmap nc ssh traceroute dig host whois curl wget\n");
+    return result("GNU bash, version 5.3\nShell commands:\n  cd pwd help history alias clear reset exit export unset env\n  ls cat head tail grep find mkdir touch cp mv rm chmod chown\n  ps top kill pkill who w id groups df free lsblk mount\n  ip ifconfig route arp ss netstat ping nmap nc ssh traceroute dig host whois curl wget\n");
   };
 
   BusyBox.prototype.cmdWhichType = function(name,args,shell){if(args.length!==1)return failure(name,"usage: "+name+" NAME");var path=shell.resolveCommand(args[0]);if(!path)return result("",1,name+": "+args[0]+" not found\n");if(name==="type")return result(args[0]+" is "+(this.commandNames.has(args[0])?"a shell builtin":""+path)+"\n");return result(path+"\n");};
@@ -425,11 +425,18 @@
   BusyBox.prototype.cmdFree=function(args){if(args.length&&!(args.length===1&&args[0]==="-h"))return failure("free","usage: free -h");return result("               total        used        free      shared  buff/cache   available\nMem:           2.0Gi       512Mi       964Mi        24Mi       572Mi       1.4Gi\nSwap:          512Mi          0B       512Mi\n");};
   BusyBox.prototype.cmdUptime=function(){var seconds=this.machine.proc.uptimeSeconds();var hours=Math.floor(seconds/3600);var minutes=Math.floor((seconds%3600)/60);return result("up "+hours+":"+String(minutes).padStart(2,"0")+", 1 user, load average: 0.04, 0.02, 0.01\n");};
   BusyBox.prototype.cmdMount=function(args){return args.length?failure("mount","operation not permitted"):result(this.machine.mountText(true));};
-  BusyBox.prototype.cmdGetent=function(args){if(args.length!==1||["passwd","group"].indexOf(args[0])===-1)return failure("getent","usage: getent passwd|group");try{return result(this.machine.readFile("/etc/"+args[0]));}catch(error){return failure("getent",error);}};
-  BusyBox.prototype.cmdLast=function(){return result("kali     pts/0        10.8.0.20       Sat Sep 26 05:20   still logged in\nreboot   system boot  6.12.0-hl8     Sat Sep 26 05:19   still running\n");};
+  BusyBox.prototype.cmdGetent=function(args){
+    if(args.length===1&&["passwd","group"].indexOf(args[0])!==-1){try{return result(this.machine.readFile("/etc/"+args[0]));}catch(error){return failure("getent",error);}}
+    if(args.length===2&&args[0]==="hosts"){
+      var address=this.machine.net.resolve(args[1]);
+      return address?result(address+"       "+args[1]+"\n"):result("",2);
+    }
+    return failure("getent","usage: getent passwd|group|hosts NAME");
+  };
+  BusyBox.prototype.cmdLast=function(){return result("kali     pts/0        10.8.0.38       Sat Sep 26 05:20   still logged in\nreboot   system boot  6.12.0-hl8     Sat Sep 26 05:19   still running\n");};
   BusyBox.prototype.cmdWho=function(name,args){
     if(args.length)return failure(name,"extra operand");
-    var row=this.machine.identity.user+"     pts/0        "+new Date().toISOString().slice(0,16).replace("T"," ")+" (10.8.0.20)";
+    var row=this.machine.identity.user+"     pts/0        "+new Date().toISOString().slice(0,16).replace("T"," ")+" (10.8.0.38)";
     if(name==="who")return result(row+"\n");
     return result(" "+new Date().toTimeString().slice(0,5)+" up "+Math.max(1,Math.floor(this.machine.proc.uptimeSeconds()/60))+" min, 1 user, load average: 0.04, 0.02, 0.01\nUSER     TTY      FROM             LOGIN@   IDLE   JCPU   PCPU WHAT\n"+row+"   0.00s  0.01s  0.00s zsh\n");
   };
@@ -459,20 +466,27 @@
     }
     if(!host)return failure("ping","usage: ping [-c COUNT] HOST");
     var profile=this.machine.net.profile(host);
-    var address=profile.address||"0.0.0.0";
+    if(!profile.address||profile.className==="unreachable"||profile.className==="broadcast")return failure("ping","connect: Network is unreachable",2);
+    var address=profile.address;
     var lines=["PING "+host+" ("+address+") 56(84) bytes of data."];
     var received=0; var times=[];
+    if(!profile.up){
+      for(var missed=1;missed<=count;missed+=1)lines.push("From 10.8.0.1 icmp_seq="+missed+" Destination Host Unreachable");
+      lines.push("","--- "+host+" ping statistics ---",count+" packets transmitted, 0 received, 100% packet loss, time 0ms");
+      return result(lines.join("\n")+"\n",1);
+    }
+    this.machine.net.touch(address);
     for(var index=1;index<=count;index+=1){
-      await new Promise(function(resolve){root.setTimeout(resolve,profile.up?Math.max(1,profile.rtt):250);});
+      await new Promise(function(resolve){root.setTimeout(resolve,Math.max(0,profile.rtt));});
       var delivered=profile.up&&((profile.seed+index*37)%100>=profile.loss);
       if(!delivered)continue;
-      var jitter=((profile.seed>>>index%16)%17-8)/10;
-      var timing=Math.max(0.02,profile.rtt+jitter);
+      var spread=((profile.seed>>>index%16)%200-100)/100;
+      var timing=Math.max(0.02,profile.rtt+spread*profile.jitter);
       received+=1;times.push(timing);
       lines.push("64 bytes from "+address+": icmp_seq="+index+" ttl=64 time="+timing.toFixed(timing<1?3:1)+" ms");
     }
     var loss=Math.round((count-received)/count*100);
-    lines.push("","--- "+host+" ping statistics ---",count+" packets transmitted, "+received+" received, "+loss+"% packet loss, time "+(count*1000)+"ms");
+    lines.push("","--- "+host+" ping statistics ---",count+" packets transmitted, "+received+" received, "+loss+"% packet loss, time "+Math.ceil(count*profile.rtt)+"ms");
     if(times.length){var min=Math.min.apply(null,times);var max=Math.max.apply(null,times);var avg=times.reduce(function(sum,value){return sum+value;},0)/times.length;lines.push("rtt min/avg/max/mdev = "+min.toFixed(3)+"/"+avg.toFixed(3)+"/"+max.toFixed(3)+"/0.214 ms");}
     return result(lines.join("\n")+"\n",received?0:1);
   };
@@ -480,21 +494,23 @@
     var includeHeaders=false; var headOnly=false; var url="";
     args.forEach(function(arg){if(arg==="-i")includeHeaders=true;else if(arg==="-I"||arg==="--head")headOnly=true;else if(["-s","-S","-L","--silent"].indexOf(arg)===-1&&arg.charAt(0)!=="-")url=arg;});
     if(!url)return failure(name,"usage: "+name+" URL");
-    function refused(){return result("",7,name+": (7) Failed to connect\n");}
+    function refused(host,port,detail){return result("",7,name+": (7) Failed to connect to "+host+" port "+port+": "+detail+"\n");}
     function allowed(path){
       return ["/","/index.html","/about.html","/projects.html","/writeups.html","/writeups/pihole.html","/writeups/cve-2026-2441.html","/css/style.css","/components/header.html","/components/footer.html","/404.html"].indexOf(path)!==-1
         || path.indexOf("/assets/icons/")===0 || path.indexOf("/assets/writeups/")===0;
     }
     var parsed;
-    try{parsed=new URL(url,"https://www.highlion.net/");}catch(error){return refused();}
-    if(["http:","https:"].indexOf(parsed.protocol)===-1||parsed.pathname.indexOf("/api/")===0)return refused();
-    var brochure=parsed.protocol==="https:"&&["www.highlion.net","highlion.net"].indexOf(parsed.hostname.toLowerCase())!==-1&&allowed(parsed.pathname);
-    if(!brochure){
+    try{parsed=new URL(url.indexOf("://")===-1?"http://"+url:url);}catch(error){return result("",7,name+": (7) URL rejected: malformed input\n");}
+    var port=parsed.port?Number(parsed.port):(parsed.protocol==="https:"?443:80);
+    if(["http:","https:"].indexOf(parsed.protocol)===-1||parsed.pathname.indexOf("/api/")===0)return refused(parsed.hostname,port,"Connection refused");
+    var localBrochure=["127.0.0.1","localhost"].indexOf(parsed.hostname.toLowerCase())!==-1&&allowed(parsed.pathname);
+    if(!localBrochure){
       var simulated=this.machine.net.http(parsed.href);
-      await new Promise(function(resolve){root.setTimeout(resolve,simulated.profile?Math.max(20,Math.min(800,simulated.profile.rtt)):80);});
-      if(simulated.error==="timeout")return result("",28,name+": (28) Connection timed out after 10001 milliseconds\n");
-      if(simulated.error==="refused")return result("",7,name+": (7) Failed to connect: Connection refused\n");
-      if(simulated.error)return refused();
+      if(simulated.error==="timeout"){await new Promise(function(resolve){root.setTimeout(resolve,25);});return result("",28,name+": (28) Connection timed out after 25 milliseconds\n");}
+      if(simulated.error==="network")return refused(parsed.hostname,port,"Network is unreachable");
+      if(simulated.error==="noroute")return refused(parsed.hostname,port,"No route to host");
+      if(simulated.error==="refused")return refused(parsed.hostname,port,"Connection refused");
+      if(simulated.error)return refused(parsed.hostname,port,"Connection refused");
       var headers="HTTP/1.1 "+simulated.code+" "+simulated.label+"\nServer: "+simulated.server+"\nContent-Type: text/html; charset=utf-8\nContent-Length: "+simulated.body.length+"\n"+(simulated.location?"Location: "+simulated.location+"\n":"")+"Connection: close\n\n";
       return result((includeHeaders||headOnly?headers:"")+(headOnly?"":simulated.body)+(headOnly||simulated.body.endsWith("\n")?"":"\n"),simulated.code>=400?22:0);
     }
@@ -503,7 +519,7 @@
     try{
       var response=await fetch(parsed.pathname+parsed.search,{method:"GET",credentials:"same-origin",cache:"no-store",redirect:"follow",signal:controller?controller.signal:undefined});
       var finalUrl=new URL(response.url,root.location.href);
-      if(["www.highlion.net","highlion.net"].indexOf(finalUrl.hostname.toLowerCase())===-1||!allowed(finalUrl.pathname))return refused();
+      if(["127.0.0.1","localhost",root.location.hostname.toLowerCase()].indexOf(finalUrl.hostname.toLowerCase())===-1||!allowed(finalUrl.pathname))return refused(parsed.hostname,port,"Connection refused");
       var chunks=[];
       var total=0;
       if(response.body&&typeof response.body.getReader==="function"){
@@ -527,14 +543,18 @@
       if(timer)root.clearTimeout(timer);
       var liveHeaders="HTTP/1.1 "+response.status+" "+response.statusText+"\nContent-Type: "+(response.headers.get("content-type")||"text/plain")+"\n\n";
       return result((includeHeaders||headOnly?liveHeaders:"")+(headOnly?"":text+(text.endsWith("\n")?"":"\n")),response.ok?0:22,response.ok?"":name+": server returned "+response.status+"\n");
-    }catch(error){if(timer)root.clearTimeout(timer);return refused();}
+    }catch(error){if(timer)root.clearTimeout(timer);return refused(parsed.hostname,port,"Connection refused");}
   };
   BusyBox.prototype.cmdNc=function(args){
     if(args.indexOf("-l")!==-1)return failure("nc","listen mode is not supported in this sealed network");
     var clean=args.filter(function(arg){return ["-v","-z","-n"].indexOf(arg)===-1;});
     if(clean.length!==2||!/^\d+$/.test(clean[1]))return failure("nc","usage: nc [-vz] HOST PORT");
+    var profile=this.machine.net.profile(clean[0]);
+    if(!profile.address||profile.className==="unreachable"||profile.className==="broadcast")return failure("nc","connect to "+clean[0]+" port "+clean[1]+" (tcp) failed: Network is unreachable");
+    if(!profile.up)return failure("nc","connect to "+clean[0]+" port "+clean[1]+" (tcp) failed: No route to host");
     var row=this.machine.net.port(clean[0],Number(clean[1]));
     if(row.state!=="open")return failure("nc","connect to "+clean[0]+" port "+clean[1]+" (tcp) failed: Connection "+(row.state==="filtered"?"timed out":"refused"));
+    this.machine.net.touch(profile.address);
     var banner=this.machine.net.banner(clean[0],Number(clean[1]));
     return result("Connection to "+clean[0]+" "+clean[1]+" port [tcp/"+row.service+"] succeeded!\n"+(banner?banner+"\n":""));
   };
@@ -543,21 +563,27 @@
     if(target.indexOf("@")===-1)return failure("ssh","usage: ssh user@host");
     var pair=target.split("@");var profile=this.machine.net.profile(pair[1]);var port=this.machine.net.port(pair[1],22);
     if(!profile.address)return failure("ssh","Could not resolve hostname "+pair[1]+": Name or service not known",255);
+    if(profile.className==="unreachable"||profile.className==="broadcast")return failure("ssh","connect to host "+pair[1]+" port 22: Network is unreachable",255);
+    if(!profile.up)return failure("ssh","connect to host "+pair[1]+" port 22: No route to host",255);
     if(port.state!=="open")return failure("ssh","connect to host "+pair[1]+" port 22: "+(port.state==="filtered"?"Connection timed out":"Connection refused"),255);
+    this.machine.net.touch(profile.address);
     var banner=port.banner||"SSH-2.0-OpenSSH_9.8";
-    if(profile.className==="lab")return result(banner+"\nLinux "+(profile.name||pair[1])+" 6.12.0-hl8 x86_64\nConnection to "+pair[1]+" closed.\n");
     return result(banner+"\n"+pair[0]+"@"+pair[1]+": Permission denied (publickey,password).\n",255);
   };
-  BusyBox.prototype.cmdIp=function(args){if(args.length===1&&(args[0]==="a"||args[0]==="addr"))return result(this.machine.net.ipAddress());if(args.length===1&&(args[0]==="r"||args[0]==="route"))return result(this.machine.net.routes());return failure("ip","usage: ip addr|route");};
+  BusyBox.prototype.cmdIp=function(args){if(args.length===1&&(args[0]==="a"||args[0]==="addr"))return result(this.machine.net.ipAddress());if(args.length===1&&(args[0]==="r"||args[0]==="route"))return result(this.machine.net.routes());if(args.length===1&&(args[0]==="n"||args[0]==="neigh"||args[0]==="neighbor"))return result(this.machine.net.neighborText("ip"));return failure("ip","usage: ip addr|route|neigh");};
+  BusyBox.prototype.cmdIfconfig=function(args){return args.length?failure("ifconfig","unsupported option"):result(this.machine.net.ifconfig());};
+  BusyBox.prototype.cmdRoute=function(args){return !args.length||(args.length===1&&args[0]==="-n")?result(this.machine.net.routeTable()):failure("route","usage: route -n");};
+  BusyBox.prototype.cmdArp=function(args){return !args.length||(args.length===1&&args[0]==="-a")?result(this.machine.net.neighborText("arp")):failure("arp","usage: arp -a");};
   BusyBox.prototype.cmdSs=function(args){return !args.length||args.indexOf("-tuln")!==-1||args.indexOf("-lntup")!==-1?result(this.machine.net.sockets(false)):failure("ss","usage: ss -tuln");};
   BusyBox.prototype.cmdNetstat=function(args){return !args.length||args.some(function(arg){return /^-[a-z]*[tuln][a-z]*$/i.test(arg);})?result(this.machine.net.sockets(true)):failure("netstat","usage: netstat -tuln");};
 
   BusyBox.prototype.cmdNmap=async function(args){
-    var serviceScan=false;var aggressive=false;var pingless=false;var fast=false;var openOnly=false;var portSpec="";var target="";
+    var serviceScan=false;var aggressive=false;var pingless=false;var discovery=false;var fast=false;var openOnly=false;var portSpec="";var target="";
     for(var at=0;at<args.length;at+=1){
       var arg=args[at];
       if(arg==="-sV"||arg==="-sT")serviceScan=serviceScan||arg==="-sV";
       else if(arg==="-Pn")pingless=true;
+      else if(arg==="-sn")discovery=true;
       else if(arg==="-F")fast=true;
       else if(arg==="-A"){aggressive=true;serviceScan=true;}
       else if(arg==="--open")openOnly=true;
@@ -566,13 +592,30 @@
       else if(arg.charAt(0)==="-")return failure("nmap","unrecognized option "+arg+"\nSee the output of nmap -h for a summary of options.");
       else if(!target)target=arg;else return failure("nmap","only one target may be scanned");
     }
-    if(!target)return failure("nmap","usage: nmap [-sV] [-sT] [-Pn] [-p PORTS] [-F] [-A] [--open] target");
+    if(!target)return failure("nmap","usage: nmap [-sn] [-sV] [-sT] [-Pn] [-p PORTS] [-F] [-A] [--open] target");
+    var started="Starting Nmap 7.95 ( https://nmap.org ) at "+new Date().toISOString().replace("T"," ").slice(0,19)+" UTC";
+    if(target.indexOf("/")!==-1){
+      if(!discovery||target!=="10.8.0.0/24")return failure("nmap","Network is unreachable");
+      await new Promise(function(resolve){root.setTimeout(resolve,210);});
+      var sweep=[started];
+      this.machine.net.liveProfiles().forEach(function(profile){
+        sweep.push("Nmap scan report for "+profile.name+" ("+profile.address+")");
+        sweep.push("Host is up ("+(profile.rtt/1000).toFixed(5)+"s latency).");
+        this.machine.net.touch(profile.address);
+      },this);
+      sweep.push("Nmap done: 256 IP addresses (4 hosts up) scanned in 0.21 seconds");
+      return result(sweep.join("\n")+"\n");
+    }
     var profile=this.machine.net.profile(target);
     if(!profile.address)return failure("nmap","Failed to resolve \""+target+"\".");
-    await new Promise(function(resolve){root.setTimeout(resolve,200+profile.seed%601);});
-    var lines=["Starting Nmap 7.95 ( https://nmap.org ) at "+new Date().toISOString().replace("T"," ").slice(0,19)+" UTC","Nmap scan report for "+target+" ("+profile.address+")"];
-    if(!profile.up&&!pingless){lines.push("Host seems down. If it is really up, but blocking our ping probes, try -Pn","Nmap done: 1 IP address (0 hosts up) scanned in 0.17 seconds");return result(lines.join("\n")+"\n",1);}
-    lines.push("Host is up ("+profile.rtt.toFixed(3)+"s latency).");
+    if(profile.className==="unreachable"||profile.className==="broadcast")return failure("nmap","Network is unreachable");
+    await new Promise(function(resolve){root.setTimeout(resolve,40+profile.seed%81);});
+    var reportName=profile.name&&profile.name!==profile.address?profile.name+" ("+profile.address+")":profile.address;
+    var lines=[started,"Nmap scan report for "+reportName];
+    if(!profile.up){lines.push("Host seems down.","Nmap done: 1 IP address (0 hosts up) scanned in 0.08 seconds");return result(lines.join("\n")+"\n",1);}
+    this.machine.net.touch(profile.address);
+    lines.push("Host is up ("+(profile.rtt/1000).toFixed(5)+"s latency).");
+    if(discovery){lines.push("Nmap done: 1 IP address (1 host up) scanned in 0.06 seconds");return result(lines.join("\n")+"\n");}
     var ports=[];
     if(portSpec){
       var valid=true;
@@ -590,8 +633,8 @@
       lines.push("PORT      STATE    SERVICE        "+(serviceScan?"VERSION":""));
       rows.forEach(function(row){lines.push((row.port+"/tcp").padEnd(10," ")+row.state.padEnd(9," ")+String(row.service||"unknown").padEnd(15," ")+(serviceScan?row.version||"":""));});
     }else lines.push("All scanned ports are closed or filtered");
-    if(aggressive){lines.push("Service Info: OS: Linux; CPE: cpe:/o:linux:linux_kernel","OS details: Linux 5.15 - 6.12","TRACEROUTE (using port 80/tcp)","HOP RTT      ADDRESS", "1   0.72 ms  gw.lab (10.8.0.1)");}
-    lines.push("Nmap done: 1 IP address (1 host up) scanned in "+(0.17+(profile.seed%64)/100).toFixed(2)+" seconds");
+    if(aggressive){lines.push("Service Info: OS: Linux; CPE: cpe:/o:linux:linux_kernel","OS details: Linux 5.15 - 6.12","TRACEROUTE (using port 80/tcp)","HOP RTT      ADDRESS", "1   "+profile.rtt.toFixed(2)+" ms  "+profile.name+" ("+profile.address+")");}
+    lines.push("Nmap done: 1 IP address (1 host up) scanned in "+(0.04+(profile.seed%81)/1000).toFixed(2)+" seconds");
     return result(lines.join("\n")+"\n");
   };
 
@@ -600,22 +643,31 @@
     if(!target)return failure(name,"usage: "+name+" HOST");
     var profile=this.machine.net.profile(target);if(!profile.address)return failure(name,"unknown host "+target);
     var hops=this.machine.net.trace(target);var lines=name==="traceroute"?["traceroute to "+target+" ("+profile.address+"), 30 hops max, 60 byte packets"]:[" 1?: [LOCALHOST]                      pmtu 1500"];
-    for(var index=0;index<hops.length;index+=1){var hop=hops[index];await new Promise(function(resolve){root.setTimeout(resolve,Math.max(35,Math.min(350,hop.rtt)));});var time=hop.rtt.toFixed(3);lines.push(String(index+1).padStart(2," ")+"  "+hop.name+" ("+hop.address+")  "+time+" ms  "+(hop.rtt+0.2).toFixed(3)+" ms  "+(hop.rtt+0.4).toFixed(3)+" ms");}
+    for(var index=0;index<hops.length;index+=1){
+      var hop=hops[index];
+      if(hop.unreachable){lines.push(String(index+1).padStart(2," ")+"  * * *","!N  network unreachable");continue;}
+      var time=hop.rtt.toFixed(1);
+      lines.push(String(index+1).padStart(2," ")+"  "+hop.name+" ("+hop.address+")  "+time+" ms  "+time+" ms  "+time+" ms");
+    }
     return result(lines.join("\n")+"\n",profile.up?0:1);
   };
 
   BusyBox.prototype.cmdDns=async function(name,args){
-    var target=args.filter(function(arg){return arg.charAt(0)!=="@"&&arg.charAt(0)!=="-";}).pop()||"";
+    var server="10.8.0.1";var short=false;var target="";
+    args.forEach(function(arg){if(arg.charAt(0)==="@")server=arg.slice(1);else if(arg==="+short")short=true;else if(["-","+"].indexOf(arg.charAt(0))===-1)target=arg;});
     if(!target)return failure(name,"usage: "+name+" NAME");
-    var address=this.machine.net.resolve(target);
-    var delay=80+this.machine.net.seed(target)%141;
+    if(this.machine.net.resolve(server)!=="10.8.0.1")return failure(name,"communications error to "+server+": Network is unreachable");
+    var clean=target.toLowerCase().replace(/\.$/,"");
+    var address=this.machine.net.hosts[clean]||"";
+    var delay=10+this.machine.net.seed(target)%21;
     await new Promise(function(resolve){root.setTimeout(resolve,delay);});
+    if(short)return result(address?address+"\n":"",address?0:1);
     if(name==="host")return address?result(target+" has address "+address+"\n"):result("Host "+target+" not found: 3(NXDOMAIN)\n",1);
     if(name==="nslookup")return address?result("Server:\t\t10.8.0.1\nAddress:\t10.8.0.1#53\n\nNon-authoritative answer:\nName:\t"+target+"\nAddress: "+address+"\n"):result("** server can't find "+target+": NXDOMAIN\n",1);
     var status=address?"NOERROR":"NXDOMAIN";var serial=this.machine.net.sha1(target).slice(0,8);
-    var out="; <<>> DiG 9.20.4 <<>> "+target+"\n;; ->>HEADER<<- opcode: QUERY, status: "+status+", id: "+(parseInt(serial,16)%65535)+"\n;; flags: qr rd ra; QUERY: 1, ANSWER: "+(address?1:0)+", AUTHORITY: 1, ADDITIONAL: 1\n\n;; QUESTION SECTION:\n;"+target+".\t\tIN\tA\n\n";
+    var out="; <<>> DiG 9.20.4 <<>> "+target+"\n;; ->>HEADER<<- opcode: QUERY, status: "+status+", id: "+(parseInt(serial,16)%65535)+"\n;; flags: qr aa; QUERY: 1, ANSWER: "+(address?1:0)+", AUTHORITY: 0, ADDITIONAL: 0\n\n;; QUESTION SECTION:\n;"+target+".\t\tIN\tA\n\n";
     if(address)out+=";; ANSWER SECTION:\n"+target+".\t300\tIN\tA\t"+address+"\n\n";
-    out+=";; AUTHORITY SECTION:\n.\t3600\tIN\tSOA\tns1.sim. hostmaster.sim. "+parseInt(serial,16)+" 7200 3600 1209600 300\n\n;; SERVER: 10.8.0.1#53(10.8.0.1)\n;; Query time: "+delay+" msec\n";
+    out+=";; SERVER: 10.8.0.1#53(10.8.0.1)\n;; Query time: "+delay+" msec\n";
     return result(out,address?0:1);
   };
 
@@ -673,8 +725,8 @@
     if(args.length===1&&args[0]==="-F"){this.machine.net.flushFirewall();return result();}
     var action=args[0];var chain=args[1];var target="";var port="";var jump="";
     for(var index=2;index<args.length;index+=1){if(args[index]==="-d")target=args[++index]||"";else if(args[index]==="--dport")port=args[++index]||"";else if(args[index]==="-j")jump=(args[++index]||"").toUpperCase();}
-    if(["-A","-D"].indexOf(action)===-1||chain!=="OUTPUT"||!target||!/^\d+$/.test(port)||jump!=="DROP")return failure("iptables","supported: iptables -A|-D OUTPUT -d HOST --dport PORT -j DROP, or iptables -F");
-    if(!this.machine.net.setFirewall(target,Number(port),action==="-A"))return failure("iptables","host must be inside the simulated 10.8.0.0/16 lab");
+    if(["-A","-D"].indexOf(action)===-1||["INPUT","FORWARD","OUTPUT"].indexOf(chain)===-1||!target||!/^\d+$/.test(port)||jump!=="DROP")return failure("iptables","supported: iptables -A|-D INPUT|FORWARD|OUTPUT -d HOST --dport PORT -j DROP, or iptables -F");
+    if(!this.machine.net.setFirewall(target,Number(port),action==="-A"))return failure("iptables","invalid destination");
     return result();
   };
   BusyBox.prototype.cmdHostnamectl=function(){return result(" Static hostname: highlion\n       Icon name: computer-vm\n         Chassis: vm\nOperating System: Kali GNU/Linux Rolling\n          Kernel: Linux 6.12.0-hl8\n    Architecture: x86-64\n");};
@@ -715,7 +767,7 @@
     if(name==="env")return this.cmdEnv(args); if(name==="export")return this.cmdExport(args); if(name==="unset")return this.cmdUnset(args); if(name==="set")return this.cmdSet(args); if(name==="source")return this.cmdSource(args);
     if(name==="date")return this.cmdDate(args); if(name==="uname")return this.cmdUname(args); if(["hostname","whoami","id","groups"].indexOf(name)!==-1)return this.cmdIdentity(name,args); if(name==="umask")return this.cmdUmask(args);
     if(name==="ps")return this.cmdPs(args); if(name==="pidof")return this.cmdPidof(args); if(name==="kill")return this.cmdKill(args); if(name==="pkill")return this.cmdPkill(args); if(name==="df")return this.cmdDf(args); if(name==="du")return this.cmdDu(args); if(name==="free")return this.cmdFree(args); if(name==="uptime")return this.cmdUptime(args); if(name==="mount")return this.cmdMount(args); if(name==="getent")return this.cmdGetent(args); if(name==="last")return this.cmdLast(args); if(name==="who"||name==="w")return this.cmdWho(name,args); if(name==="sessionctl")return this.cmdSessionctl(args);
-    if(name==="ip")return this.cmdIp(args); if(name==="ss")return this.cmdSs(args); if(name==="netstat")return this.cmdNetstat(args); if(name==="ping")return this.cmdPing(args); if(name==="curl"||name==="wget")return this.cmdCurl(name,args); if(name==="nc"||name==="netcat")return this.cmdNc(args); if(name==="ssh")return this.cmdSsh(args);
+    if(name==="ip")return this.cmdIp(args); if(name==="ifconfig")return this.cmdIfconfig(args); if(name==="route")return this.cmdRoute(args); if(name==="arp")return this.cmdArp(args); if(name==="ss")return this.cmdSs(args); if(name==="netstat")return this.cmdNetstat(args); if(name==="ping")return this.cmdPing(args); if(name==="curl"||name==="wget")return this.cmdCurl(name,args); if(name==="nc"||name==="netcat")return this.cmdNc(args); if(name==="ssh")return this.cmdSsh(args);
     if(name==="nmap")return this.cmdNmap(args); if(name==="traceroute"||name==="tracepath")return this.cmdTrace(name,args); if(name==="dig"||name==="host"||name==="nslookup")return this.cmdDns(name,args); if(name==="whois")return this.cmdWhois(args);
     if(name==="systemctl")return this.cmdSystemctl(args); if(name==="journalctl")return this.cmdJournalctl(args); if(name==="dpkg")return this.cmdDpkg(args); if(name==="apt")return this.cmdApt(args); if(name==="sudo")return this.cmdSudo(args,shell); if(name==="su")return this.cmdSu(args); if(name==="exit"||name==="logout")return this.cmdLogout(args); if(name==="iptables")return this.cmdIptables(args); if(name==="hostnamectl")return this.cmdHostnamectl(args); if(name==="lsb_release")return this.cmdLsbRelease(args); if(name==="timedatectl")return this.cmdTimedatectl(args); if(name==="lsblk")return this.cmdLsblk(args); if(name==="top")return this.cmdTop(args); if(name==="alias")return this.cmdAlias(args); if(name==="bash")return this.cmdBash(args,shell); if(name==="python3"||name==="perl"||name==="ruby")return this.cmdRuntime(name,args);
     if(name==="cowsay")return this.cmdCowsay(args); if(name==="fortune")return this.cmdFortune(args); if(name==="sl")return this.cmdSl(args); if(name==="figlet")return this.cmdFiglet(args); if(name==="banner")return this.cmdBanner(args); if(name==="neofetch")return this.cmdNeofetch(args); if(name==="cmatrix")return this.cmdCmatrix(args);

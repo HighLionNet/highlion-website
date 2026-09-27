@@ -1,26 +1,27 @@
 {
   "schema": 1,
   "id": "season00",
-  "title": "HighLion Lab",
+  "title": "Osprey office",
   "hidden": true,
   "mount": {
     "/opt/highlion/challenges/season00": {"type": "dir", "mode": "0755", "owner": "root", "group": "root"},
     "/opt/highlion/challenges/season00/README": {"type": "file", "mode": "0444", "owner": "root", "group": "root", "content": "Season 00 is mounted. Progress is tracked in ~/.trophies.\n"},
     "/home/kali/highlion/notice": {"type": "file", "mode": "0644", "owner": "kali", "group": "kali", "content": "The briefing is off-catalog. HL8{off-catalog}\n"},
-    "/home/kali/highlion/east.host": {"type": "file", "mode": "0644", "owner": "kali", "group": "kali", "content": "east.lab 10.8.12.10\n"}
+    "/home/kali/osprey/notes.txt": {"type": "file", "mode": "0644", "owner": "kali", "group": "kali", "content": "Dropped on Osprey & Hale office LAN. 10.8.0.0/24.\nfw01 .1, intranet .21, files01 .34.\nNo WAN from here.\n"},
+    "/usr/share/osprey/files01.shares": {"type": "file", "mode": "0444", "owner": "root", "group": "root", "content": "public\ntransfer\nfinance          ACCESS_DENIED\nadmin$           ACCESS_DENIED\n"}
   },
-  "hosts": {"east.lab": "10.8.12.10", "relay.lab": "10.8.12.20"},
-  "banners": {"gw.lab:22": "OpenSSH_9.8 HL-gateway", "east.lab:22": "OpenSSH_9.8 HL-east", "east.lab:8080": "HL-east status ready", "relay.lab:22": "OpenSSH_9.8 HL-relay", "relay.lab:9000": "HL-relay queue ready"},
+  "hosts": {"fw01": "10.8.0.1", "intranet": "10.8.0.21", "files01": "10.8.0.34"},
+  "banners": {"fw01:22": "SSH-2.0-OpenSSH_8.9p1 Debian-3", "intranet:80": "Apache/2.4.58 (Debian)", "files01:22": "SSH-2.0-OpenSSH_8.9p1 Debian-3", "files01:445": "Samba smbd 4.19.5-Debian"},
   "flags": [
     {"id": "notice", "flag": "HL8{off-catalog}", "prize": "Observer", "hint": "Read the quiet notice under ~/highlion."},
     {"id": "letterbox", "flag": "HL8{spare-field}", "prize": "Letterbox", "hint": "Bots fill every field on the letterbox."},
-    {"id": "east", "flag": ["HL{east-node-01}", "HL8{east-node-01}"], "prize": "Eastbound", "hint": "The east node speaks in pairs of hexadecimal digits."},
-    {"id": "relay", "flag": "HL8{relay-ack}", "prize": "Relay", "hint": "Inspect the relay authentication log."}
+    {"id": "east", "flag": ["HL{east-node-01}", "HL8{east-node-01}"], "prize": "Eastbound", "hint": "Helpdesk ticket 1042 points at a share."},
+    {"id": "relay", "flag": "HL8{relay-ack}", "prize": "Relay", "hint": "fw01 /status is boring. Its source is not."}
   ],
   "prizes": [
     {"count": 1, "badge": "Observer", "text": "mention in a future lab note if the player emails CTF-CLAIM"},
     {"count": 2, "badge": "Letterbox", "text": "short written feedback on a home-lab diagram attached to that email"},
-    {"count": 3, "badge": "Eastbound", "text": "a 30-minute voice walkthrough of the HighLion network diagram, scheduled by email"},
+    {"count": 3, "badge": "Eastbound", "text": "a 30-minute voice walkthrough of the office-box findings, scheduled by email"},
     {"count": 4, "badge": "Relay", "text": "Operator — ask admin@highlion.net"}
   ]
 }

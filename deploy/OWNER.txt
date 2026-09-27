@@ -47,3 +47,8 @@ HIGHLION DEBIAN CUT-IN (HLv8 / hl8l)
 9. Final checks: verify /api/thumb/ reaches index.php; remove any duplicate X-HighLion header at nginx or Cloudflare; confirm normal visitors receive kali, password failures say exactly `su: Authentication failure`, five failed shell-auth attempts in ten minutes are rate-limited, and root/admin/logout return to kali as designed.
 
 The browser machine is a simulated, isolated userspace. Its filesystem, firewall rules, services, credentials, and network delays never touch the Debian host.
+
+HLv8 OSPREY LAN NOTE
+Sim LAN is now Osprey & Hale 10.8.0.0/24, not HighLion infra.
+ctf.php allowlist is sha256 digests. Old flag strings still claim.
+No new Pi secrets. No new cookies.

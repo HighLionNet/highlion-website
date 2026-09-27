@@ -10,6 +10,61 @@
     if (node) node.textContent = String(value);
   }
 
+  function removeRow(id) {
+    var node = document.getElementById(id);
+    if (node && node.parentElement) node.parentElement.remove();
+  }
+
+  function formatMs(value) {
+    return (value >= 20 ? Math.round(value) : Math.round(value * 10) / 10) + " ms";
+  }
+
+  function paintLatency(detail) {
+    if (!detail || !Number.isFinite(detail.ms)) {
+      removeRow("dPing");
+      removeRow("dLatency");
+      return;
+    }
+    ["dPing", "dLatency"].forEach(function (id) {
+      var node = document.getElementById(id);
+      if (!node) return;
+      node.textContent = formatMs(detail.ms);
+      node.title = "GET /assets/ping.txt";
+    });
+  }
+
+  async function fetchTraffic() {
+    var endpoints = ["/api/traffic.php", "/api/traffic", "/api/traffic/"];
+    for (var index = 0; index < endpoints.length; index += 1) {
+      try {
+        var response = await fetch(endpoints[index], { cache: "no-store", credentials: "same-origin" });
+        if (!response.ok) continue;
+        var payload = await response.json();
+        if (payload && payload.ok === true && payload.codes) return payload;
+      } catch (error) {}
+    }
+    return null;
+  }
+
+  async function updateTraffic() {
+    var payload = await fetchTraffic();
+    if (!payload) {
+      removeRow("dHttp");
+      removeRow("dCodes");
+      return;
+    }
+    var codes = payload.codes;
+    set("dHttp", "2xx " + Number(codes["2xx"] || 0) + " · 3xx " + Number(codes["3xx"] || 0) + " · 4xx " + Number(codes["4xx"] || 0) + " · 5xx " + Number(codes["5xx"] || 0));
+    var exact = Array.isArray(payload.exact) ? payload.exact.map(function (row) {
+      return String(row.code) + "×" + Number(row.n || 0);
+    }).join("  ") : "";
+    var exactNode = document.getElementById("dCodes");
+    if (exactNode) {
+      exactNode.textContent = exact;
+      exactNode.title = String(payload.window || "") + " " + String(payload.generated || "");
+    }
+  }
+
   function elapsed() {
     var seconds = Math.floor((Date.now() - started) / 1000);
     return String(Math.floor(seconds / 3600)).padStart(2, "0") + ":" +
@@ -69,8 +124,21 @@
   set("dLang", navigator.language || "unknown");
   set("dTz", Intl.DateTimeFormat().resolvedOptions().timeZone || "unknown");
   set("dPage", window.location.pathname || "/");
+  var connection = navigator.connection;
+  if (connection && Number.isFinite(connection.rtt)) set("dRtt", connection.rtt + " ms");
+  else {
+    var rttRow = document.getElementById("dRttRow");
+    if (rttRow) rttRow.remove();
+  }
+  if (window.__hlLatency) paintLatency(window.__hlLatency);
+  window.addEventListener("hl:latency", function (event) { paintLatency(event.detail); });
+  if (window.HighLionSessionMeta && window.HighLionSessionMeta.latency) {
+    window.HighLionSessionMeta.latency.then(paintLatency);
+  }
+  updateTraffic();
   updateViewport();
   updateClock();
   window.addEventListener("resize", updateViewport, { passive: true });
   window.setInterval(updateClock, 1000);
+  window.setInterval(updateTraffic, 60000);
 })();

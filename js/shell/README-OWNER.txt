@@ -16,7 +16,7 @@ AUTHENTICATION
 api/shell-auth.php checks a live slot, same-origin request, failure budget, and password hash. It returns only `{ok,user}`. Five failed attempts from one IP in ten minutes are rate-limited. The owner installs the private hashes and operator credential in /etc/highlion/shell.env as documented in deploy/OWNER.txt. No privileged identity is automatic.
 
 NETWORK
-The shipped hosts expose explicit simulated reachability, latency, packet loss, routes, users, services, and file shares. ping, nmap, nc, traceroute/tracepath, DNS, ssh, curl, wget, and iptables wait for believable simulated delays. Firewall edits affect only the simulated network. Arbitrary real network access is not available.
+The terminal is attached to an isolated 10.8.0.0/24 Osprey & Hale office LAN with three neighbors: fw01, intranet, and files01. There is no WAN and there are no HighLion services on the segment. Firewall edits affect only this tab-local simulation. Arbitrary real network access is not available.
 
 IMAGE MAINTENANCE
 Edit the JSON/text image in git, validate it, deploy the repository, and use reset-machine to remount it in a browser. Challenge packs remain data files under js/shell/image/packs/. Keep public lab flags in those fixtures; never add host secrets or broaden the browser boundary. Branded offensive suites remain unavailable instead of being represented by shallow toys.

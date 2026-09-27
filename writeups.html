@@ -9,20 +9,20 @@
   <meta name="description" content="HighLion incident audits and vulnerability research writeups.">
   <title>HighLion — Writeups</title>
   <link rel="icon" href="/assets/icons/HighLion.ico" sizes="any">
-  <link rel="stylesheet" href="/css/style.css?v=hl8l">
+  <link rel="stylesheet" href="/css/style.css?v=hl8m">
 </head>
 <body><a class="skip" href="#main">Skip to content</a>
   <div class="scanlines" aria-hidden="true"></div>
   <canvas id="fx" class="fx" aria-hidden="true"></canvas>
-  <div data-include="/components/header.html?v=hl8l"></div>
+  <div data-include="/components/header.html?v=hl8m"></div>
 
   <main id="main">
     <header class="shell page-head compact">
       <div class="page-head-row">
         <div class="kicker">WRITEUPS</div>
-        <h1 class="headline">Security writeups &amp; incident audits</h1>
+        <h1 class="headline">Writeups</h1>
       </div>
-      <p class="lead">Technical research, vulnerability analysis, and incident documentation from security testing and lab environments.</p>
+      <p class="lead">Two reports. One from my own lab, one browser bug.</p>
     </header>
 
     <section class="shell section" aria-labelledby="writeup-index">
@@ -31,9 +31,9 @@
         <article class="monitor writeup-card">
           <div class="eyebrow">Incident audit</div>
           <h2>Exposed Pi-hole Admin Page</h2>
-          <p>Home lab penetration-testing, covering a reverse-proxy misconfiguration that exposed an internal Pi-hole administration panel.</p>
+          <p>Reverse proxy on this domain used to hand out the Pi-hole login at /admin/login. Fixed.</p>
           <div class="status-row"><span class="status-label">Status</span><span class="status-value patched">Patched</span></div>
-          <div class="hash-row"><span class="hash-label">SHA-256</span><code class="hash-value">25A17FC060946D52A71F53F98612964B9A16FD47EC12618435B6D0C838D89C82</code></div>
+          <div class="hash-row"><span class="hash-label">sha256</span><code class="hash-value">25A17FC060946D52A71F53F98612964B9A16FD47EC12618435B6D0C838D89C82</code></div>
           <div class="card-actions">
             <a class="card-link" href="/writeups/pihole.html">Read Online</a>
             <a class="card-link" href="/assets/writeups/pdf/Incident_Audit_Pihole.pdf" target="_blank" rel="noopener">Download PDF</a>
@@ -43,9 +43,9 @@
         <article class="monitor writeup-card">
           <div class="eyebrow">Vulnerability research</div>
           <h2>CVE-2026-2441</h2>
-          <p>SOC report of Use-After-Free in CSS - CVE-2026-2441 vulnerability.</p>
+          <p>Use-after-free in Blink CSS. Writeup and PoC video.</p>
           <div class="status-row"><span class="status-label">Status</span><span class="status-value research">Research</span></div>
-          <div class="hash-row"><span class="hash-label">SHA-256</span><code class="hash-value">345BD2C08A94EBEB55BD4D7D7B186921D39DD42A5941D15F170C088B29604057</code></div>
+          <div class="hash-row"><span class="hash-label">sha256</span><code class="hash-value">345BD2C08A94EBEB55BD4D7D7B186921D39DD42A5941D15F170C088B29604057</code></div>
           <div class="card-actions">
             <a class="card-link" href="/writeups/cve-2026-2441.html">Read Online</a>
             <a class="card-link" href="/assets/writeups/pdf/CVE-2026-2441.pdf" target="_blank" rel="noopener">Download PDF</a>
@@ -55,11 +55,11 @@
     </section>
   </main>
 
-  <div data-include="/components/footer.html?v=hl8l"></div>
-  <script src="/js/fix-include.js?v=hl8l" defer></script>
-  <script src="/js/sfx.js?v=hl8l" defer></script>
-  <script src="/js/session-meta.js?v=hl8l" defer></script>
-  <script src="/js/particles.js?v=hl8l" defer></script>
-  <script src="/js/station-toggles.js?v=hl8l" defer></script>
+  <div data-include="/components/footer.html?v=hl8m"></div>
+  <script src="/js/fix-include.js?v=hl8m" defer></script>
+  <script src="/js/sfx.js?v=hl8m" defer></script>
+  <script src="/js/session-meta.js?v=hl8m" defer></script>
+  <script src="/js/particles.js?v=hl8m" defer></script>
+  <script src="/js/station-toggles.js?v=hl8m" defer></script>
 </body>
 </html>

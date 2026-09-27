@@ -25,7 +25,7 @@
       if (index < 2) await wait(200);
     }
     samples.sort(function (left, right) { return left - right; });
-    return { ms: Math.round(samples[1]), url: url };
+    return { ms: samples[1], url: url };
   }
 
   async function runProbe() {

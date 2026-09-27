@@ -115,7 +115,7 @@ body::before {
   pointer-events: none;
   background: repeating-linear-gradient(180deg, rgba(255, 255, 255, 0.03) 0 1px, transparent 1px 3px);
   mix-blend-mode: soft-light;
-  opacity: 0.08;
+  opacity: 0.05;
 }
 
 html.is-scan-off .scanlines {
@@ -651,9 +651,10 @@ h3 {
 }
 
 .dash-groups {
-  flex: 1;
-  display: grid;
-  gap: 0.7rem;
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
   padding: 0.8rem;
 }
 
@@ -1242,8 +1243,13 @@ h3 {
 }
 
 .hash-value {
-  color: var(--text-soft);
+  color: var(--muted);
+  font-size: 11px;
+  text-shadow: none;
+  background: none;
+  border: 0;
   word-break: break-all;
+  overflow-wrap: anywhere;
 }
 
 .card-actions {
@@ -2097,7 +2103,7 @@ h3 {
 }
 
 .dash-groups {
-  gap: 0.8rem;
+  gap: 20px;
   padding: 0.8rem;
 }
 

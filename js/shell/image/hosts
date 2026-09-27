@@ -1,4 +1,5 @@
-127.0.0.1 localhost highlion
-10.8.0.1 gw.lab
-10.8.12.10 east.lab
-10.8.12.20 relay.lab
+127.0.0.1       localhost highlion
+10.8.0.1        fw01.osprey.corp fw01
+10.8.0.10       highlion
+10.8.0.21       intranet.osprey.corp intranet web01
+10.8.0.34       files01.osprey.corp files01 fs01
