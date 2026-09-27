@@ -157,7 +157,6 @@
     var stream = panel.querySelector(".hlterm-stream");
     var matrix = panel.querySelector(".hlterm-matrix");
     var title = panel.querySelector(".hlterm-title");
-    var kicker = panel.querySelector(".hlterm-kicker");
     if (!body || !stream || !matrix) return;
     body.tabIndex = 0;
     instance += 1;
@@ -176,7 +175,7 @@
     var matrixHeight = 1;
 
     function scrollBottom() {
-      body.scrollTop = body.scrollHeight;
+      stream.scrollTop = stream.scrollHeight;
     }
 
     function appendLine(value, className) {
@@ -206,7 +205,6 @@
 
     function updateTitle() {
       if (title) title.textContent = machine.identity.user + "@" + machine.identity.host + ": " + machine.promptPath();
-      if (kicker) kicker.textContent = machine.identity.user;
       panel.dataset.shellUser = machine.identity.user;
     }
 

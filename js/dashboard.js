@@ -10,19 +10,14 @@
     if (node) node.textContent = String(value);
   }
 
-  function removeRow(id) {
-    var node = document.getElementById(id);
-    if (node && node.parentElement) node.parentElement.remove();
-  }
-
   function formatMs(value) {
     return (value >= 20 ? String(Math.round(value)) : (Math.round(value * 10) / 10).toFixed(1)) + " ms";
   }
 
   function paintLatency(detail) {
     if (!detail || !Number.isFinite(detail.ms)) {
-      removeRow("dPing");
-      removeRow("dLatency");
+      set("dPing", "n/a");
+      set("dLatency", "n/a");
       return;
     }
     ["dPing", "dLatency"].forEach(function (id) {
@@ -49,8 +44,8 @@
   async function updateTraffic() {
     var payload = await fetchTraffic();
     if (!payload) {
-      removeRow("dHttp");
-      removeRow("dCodes");
+      set("dHttp", "n/a");
+      set("dCodes", "n/a");
       return;
     }
     var codes = payload.codes;
@@ -143,11 +138,8 @@
   set("dTz", Intl.DateTimeFormat().resolvedOptions().timeZone || "unknown");
   set("dPage", window.location.pathname || "/");
   var connection = navigator.connection;
-  if (connection && Number.isFinite(connection.rtt)) set("dRtt", connection.rtt + " ms");
-  else {
-    var rttRow = document.getElementById("dRttRow");
-    if (rttRow) rttRow.remove();
-  }
+  if (connection && isFinite(connection.rtt)) set("dRtt", connection.rtt + " ms");
+  else set("dRtt", "n/a");
   if (window.__hlLatency) paintLatency(window.__hlLatency);
   window.addEventListener("hl:latency", function (event) { paintLatency(event.detail); });
   if (window.HighLionSessionMeta && window.HighLionSessionMeta.latency) {
