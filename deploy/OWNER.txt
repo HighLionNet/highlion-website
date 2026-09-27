@@ -61,3 +61,8 @@ Prompt 13 baseline HEAD: ecb4eeb167900ec95443f232a08e304b34e9d829 feat: HLv8 sta
 
 PROMPT 13 OWNER NOTE
 Status rows live under SESSION and are never removed. Terminal clipped; QTerminal chrome; about terminal restored. particles.js restored from 155912e0. News and crypto are sibling XDR consoles. CVE page is full HTML from the existing PDF, video first. HighLion ico used in xdr-top / footer. No new Pi secrets. No new cookies.
+
+Prompt 14 baseline HEAD: 5188c5e5c5523d3db249a55794646adf1469a677
+
+PROMPT 14 OWNER NOTE
+Status listing is the first block in User Local Information and renders payload.exact as rows. Attack/defense colors restored on the locked sentence. Writeup rows are clickable. Small type nudged up; home h1 unchanged. Per-widget contrast caps. Footer ico 22px everywhere, error pages cache-bumped. particles.js restored from 235c0d0 (one version before 155912e0). No new secrets.

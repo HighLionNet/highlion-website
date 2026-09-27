@@ -35,23 +35,12 @@
     return minimum + Math.random() * (maximum - minimum);
   }
 
-  function makePoint(atEdge) {
-    var x = Math.random() * width;
-    var y = Math.random() * height;
-    if (atEdge) {
-      var edge = Math.floor(Math.random() * 4);
-      if (edge === 0) y = -4;
-      if (edge === 1) x = width + 4;
-      if (edge === 2) y = height + 4;
-      if (edge === 3) x = -4;
-    }
+  function makePoint() {
     return {
-      x: x,
-      y: y,
+      x: Math.random() * width,
+      y: Math.random() * height,
       vx: between(-0.42, 0.42),
       vy: between(-0.42, 0.42),
-      driftX: between(-0.018, 0.018),
-      driftY: between(-0.018, 0.018),
       size: between(SIZE_MIN, SIZE_MAX),
       alpha: between(ALPHA_MIN, ALPHA_MAX)
     };
@@ -112,7 +101,7 @@
     if (document.hidden || now - lastFrame < 24) return;
     lastFrame = now;
 
-    points.forEach(function (point, index) {
+    points.forEach(function (point) {
       if (pointer.active) {
         var dx = pointer.x - point.x;
         var dy = pointer.y - point.y;
@@ -124,8 +113,6 @@
       }
       point.vx *= DRAG;
       point.vy *= DRAG;
-      point.vx += point.driftX;
-      point.vy += point.driftY;
       var speed = Math.hypot(point.vx, point.vy);
       if (speed > MAX_SPEED) {
         point.vx = point.vx / speed * MAX_SPEED;
@@ -133,12 +120,6 @@
       }
       point.x += point.vx;
       point.y += point.vy;
-      point.alpha -= 0.0012;
-      point.size -= 0.001;
-      if (point.alpha < 0.08 || point.size < 0.4) {
-        points[index] = makePoint(true);
-        return;
-      }
       if (point.x < -8) point.x = width + 8;
       if (point.x > width + 8) point.x = -8;
       if (point.y < -8) point.y = height + 8;

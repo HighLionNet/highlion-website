@@ -45,20 +45,49 @@
     var payload = await fetchTraffic();
     if (!payload) {
       set("dHttp", "n/a");
-      set("dCodes", "n/a");
+      paintCodes([]);
       return;
     }
     var codes = payload.codes;
-    set("dHttp", "2xx " + Number(codes["2xx"] || 0) + " · 3xx " + Number(codes["3xx"] || 0) + " · 4xx " + Number(codes["4xx"] || 0) + " · 5xx " + Number(codes["5xx"] || 0));
-    var exact = Array.isArray(payload.exact) ? payload.exact.map(function (row) {
-      return String(row.code) + "×" + Number(row.n || 0);
-    }).join("  ") : "";
-    var exactNode = document.getElementById("dCodes");
-    if (exactNode) {
-      exactNode.textContent = exact;
-      exactNode.title = String(payload.window || "") + " " + String(payload.generated || "");
+    var httpNode = document.getElementById("dHttp");
+    if (httpNode) {
+      httpNode.innerHTML = '<span class="http-2xx">2xx ' + Number(codes["2xx"] || 0) + '</span> · ' +
+        '<span class="http-3xx">3xx ' + Number(codes["3xx"] || 0) + '</span> · ' +
+        '<span class="http-4xx">4xx ' + Number(codes["4xx"] || 0) + '</span> · ' +
+        '<span class="http-5xx">5xx ' + Number(codes["5xx"] || 0) + '</span>';
     }
+    paintCodes(payload.exact, String(payload.window || "") + " " + String(payload.generated || ""));
     paintTopPaths(payload.top);
+  }
+
+  function paintCodes(exact, title) {
+    var list = document.getElementById("dCodeList");
+    if (!list) return;
+    var rows = Array.isArray(exact) ? exact.slice().sort(function (a, b) {
+      return Number(a.code) - Number(b.code);
+    }) : [];
+    var fragment = document.createDocumentFragment();
+    if (!rows.length) rows.push({ code: "n/a", n: "" });
+    rows.forEach(function (row, index) {
+      var item = document.createElement("li");
+      var code = document.createElement("span");
+      var count = document.createElement("span");
+      var numericCode = Number(row.code);
+      if (index === 0) item.id = "dCodes";
+      if (Number.isFinite(numericCode) && numericCode >= 200 && numericCode < 600) {
+        item.className = "code-" + Math.floor(numericCode / 100) + "xx";
+      } else {
+        item.className = "dash-codes-empty";
+      }
+      code.className = "code";
+      count.className = "count";
+      code.textContent = String(row.code);
+      count.textContent = row.n === "" ? "" : String(Number(row.n || 0));
+      item.append(code, count);
+      fragment.appendChild(item);
+    });
+    list.replaceChildren(fragment);
+    list.title = title || "";
   }
 
   function paintTopPaths(top) {

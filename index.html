@@ -18,19 +18,19 @@
   <meta name="twitter:description" content="Home lab notes, writeups, and a browser terminal on highlion.net.">
   <title>HighLion — Home</title>
   <link rel="icon" href="/assets/icons/HighLion.ico" sizes="any">
-  <link rel="stylesheet" href="/css/style.css?v=hl8o">
+  <link rel="stylesheet" href="/css/style.css?v=hl8p">
 </head>
 <body><a class="skip" href="#main">Skip to content</a>
   <div class="scanlines" aria-hidden="true"></div>
   <canvas id="fx" class="fx" aria-hidden="true"></canvas>
-  <div data-include="/components/header.html?v=hl8o"></div>
+  <div data-include="/components/header.html?v=hl8p"></div>
 
   <main id="main">
     <section class="shell home-stage">
       <article class="hero-copy">
         <div class="kicker">Cybersecurity / Linux / Networking</div>
         <h1 id="home-title" class="headline">Welcome to HighLion:</h1>
-        <p class="lead headline-sub">A cybersecurity lab built for attack and defense skill development.</p>
+        <p class="lead headline-sub">A cybersecurity lab built for <span class="accent attack">attack</span> and <span class="accent defense">defense</span> skill development.</p>
         <p class="lead">HighLion documents my Cybersecurity works and projects. I focus on incident response and vulnerability research, while gaining valuable experience in Linux and system administration.</p>
       </article>
 
@@ -95,16 +95,17 @@
           <span id="dClock" class="dash-clock">—</span>
         </header>
         <div class="monitor-body dash-groups">
-          <section class="dash-group" aria-labelledby="dash-client">
-            <h3 id="dash-client">client</h3>
+          <section class="dash-group dash-status" aria-labelledby="dash-status">
+            <h3 id="dash-status">status</h3>
             <dl class="dash-list">
-              <div><dt>user-agent</dt><dd id="dUserAgent">loading</dd></div>
-              <div><dt>platform</dt><dd id="dPlatform">loading</dd></div>
-              <div><dt>hw.cpu</dt><dd id="dCpu">loading</dd></div>
-              <div><dt>display</dt><dd id="dDisplay">loading</dd></div>
-              <div><dt>viewport</dt><dd id="dViewport">loading</dd></div>
-              <div><dt>lang</dt><dd id="dLang">loading</dd></div>
+              <div><dt>http</dt><dd id="dHttp">loading</dd></div>
+              <div><dt>ping</dt><dd id="dPing">loading</dd></div>
+              <div><dt>latency</dt><dd id="dLatency">loading</dd></div>
+              <div id="dRttRow"><dt>rtt</dt><dd id="dRtt">loading</dd></div>
             </dl>
+            <ol class="dash-codes" id="dCodeList" aria-label="HTTP status codes">
+              <li class="dash-codes-empty" id="dCodes">loading</li>
+            </ol>
           </section>
           <section class="dash-group" aria-labelledby="dash-session">
             <h3 id="dash-session">session</h3>
@@ -116,14 +117,15 @@
               <div><dt>site</dt><dd>HLv8</dd></div>
             </dl>
           </section>
-          <section class="dash-group" aria-labelledby="dash-status">
-            <h3 id="dash-status">status</h3>
+          <section class="dash-group" aria-labelledby="dash-client">
+            <h3 id="dash-client">client</h3>
             <dl class="dash-list">
-              <div><dt>http</dt><dd id="dHttp">loading</dd></div>
-              <div><dt>codes</dt><dd id="dCodes">loading</dd></div>
-              <div><dt>ping</dt><dd id="dPing">loading</dd></div>
-              <div><dt>latency</dt><dd id="dLatency">loading</dd></div>
-              <div id="dRttRow"><dt>rtt</dt><dd id="dRtt">loading</dd></div>
+              <div><dt>user-agent</dt><dd id="dUserAgent">loading</dd></div>
+              <div><dt>platform</dt><dd id="dPlatform">loading</dd></div>
+              <div><dt>hw.cpu</dt><dd id="dCpu">loading</dd></div>
+              <div><dt>display</dt><dd id="dDisplay">loading</dd></div>
+              <div><dt>viewport</dt><dd id="dViewport">loading</dd></div>
+              <div><dt>lang</dt><dd id="dLang">loading</dd></div>
             </dl>
           </section>
           <section class="dash-top-paths" id="dTopPaths" hidden>
@@ -176,13 +178,13 @@
             <table class="xdr-table writeup-table">
               <thead><tr><th scope="col">TITLE</th><th scope="col">TYPE</th><th scope="col">STATUS</th><th scope="col">SHA-256</th><th scope="col">LINKS</th></tr></thead>
               <tbody>
-                <tr>
+                <tr data-href="/writeups/pihole.html" tabindex="0">
                   <td><span class="xdr-name"><img src="/assets/marks/pihole.svg" alt="">Exposed Pi-hole Admin Page</span><span class="xdr-detail">Reverse proxy on this domain used to hand out the Pi-hole login at /admin/login. Fixed.</span></td>
                   <td>Incident audit</td><td class="status-patched">patched</td><td><code class="table-hash">25A17FC060946D52A71F53F98612964B9A16FD47EC12618435B6D0C838D89C82</code></td>
                   <td class="xdr-links"><a href="/writeups/pihole.html">Read Online</a><a href="/assets/writeups/pdf/Incident_Audit_Pihole.pdf" target="_blank" rel="noopener">Download PDF</a></td>
                 </tr>
-                <tr>
-                  <td><span class="xdr-name">CVE-2026-2441</span><span class="xdr-detail">Use-after-free in Blink CSS. Writeup and PoC video.</span></td>
+                <tr data-href="/writeups/cve-2026-2441.html" tabindex="0">
+                  <td><span class="xdr-name"><img src="/assets/icons/HighLion.ico" alt="">CVE-2026-2441</span><span class="xdr-detail">Use-after-free in Blink CSS. Writeup and PoC video.</span></td>
                   <td>Vulnerability research</td><td class="status-research">research</td><td><code class="table-hash">345BD2C08A94EBEB55BD4D7D7B186921D39DD42A5941D15F170C088B29604057</code></td>
                   <td class="xdr-links"><a href="/writeups/cve-2026-2441.html">Read Online</a><a href="/assets/writeups/pdf/CVE-2026-2441.pdf" target="_blank" rel="noopener">Download PDF</a></td>
                 </tr>
@@ -194,25 +196,26 @@
     </section>
   </main>
 
-  <div data-include="/components/footer.html?v=hl8o"></div>
-  <script src="/js/fix-include.js?v=hl8o" defer></script>
-  <script src="/js/sfx.js?v=hl8o" defer></script>
-  <script src="/js/shell/kernel.js?v=hl8o" defer></script>
-  <script src="/js/shell/fs.js?v=hl8o" defer></script>
-  <script src="/js/shell/proc.js?v=hl8o" defer></script>
-  <script src="/js/shell/net.js?v=hl8o" defer></script>
-  <script src="/js/shell/sh.js?v=hl8o" defer></script>
-  <script src="/js/shell/busybox.js?v=hl8o" defer></script>
-  <script src="/js/shell/pack.js?v=hl8o" defer></script>
-  <script src="/js/shell/ctf.js?v=hl8o" defer></script>
-  <script src="/js/shell/machine.js?v=hl8o" defer></script>
-  <script src="/js/session-meta.js?v=hl8o" defer></script>
-  <script src="/js/particles.js?v=hl8o" defer></script>
-  <script src="/js/station-toggles.js?v=hl8o" defer></script>
-  <script src="/js/rain.js?v=hl8o" defer></script>
-  <script src="/js/intel-feed.js?v=hl8o" defer></script>
-  <script src="/js/crypto-rail.js?v=hl8o" defer></script>
-  <script src="/js/terminal.js?v=hl8o" defer></script>
-  <script src="/js/dashboard.js?v=hl8o" defer></script>
+  <div data-include="/components/footer.html?v=hl8p"></div>
+  <script src="/js/fix-include.js?v=hl8p" defer></script>
+  <script src="/js/sfx.js?v=hl8p" defer></script>
+  <script src="/js/shell/kernel.js?v=hl8p" defer></script>
+  <script src="/js/shell/fs.js?v=hl8p" defer></script>
+  <script src="/js/shell/proc.js?v=hl8p" defer></script>
+  <script src="/js/shell/net.js?v=hl8p" defer></script>
+  <script src="/js/shell/sh.js?v=hl8p" defer></script>
+  <script src="/js/shell/busybox.js?v=hl8p" defer></script>
+  <script src="/js/shell/pack.js?v=hl8p" defer></script>
+  <script src="/js/shell/ctf.js?v=hl8p" defer></script>
+  <script src="/js/shell/machine.js?v=hl8p" defer></script>
+  <script src="/js/session-meta.js?v=hl8p" defer></script>
+  <script src="/js/particles.js?v=hl8p" defer></script>
+  <script src="/js/station-toggles.js?v=hl8p" defer></script>
+  <script src="/js/rain.js?v=hl8p" defer></script>
+  <script src="/js/intel-feed.js?v=hl8p" defer></script>
+  <script src="/js/crypto-rail.js?v=hl8p" defer></script>
+  <script src="/js/terminal.js?v=hl8p" defer></script>
+  <script src="/js/dashboard.js?v=hl8p" defer></script>
+  <script src="/js/row-link.js?v=hl8p" defer></script>
 </body>
 </html>
