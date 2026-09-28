@@ -16,16 +16,13 @@
 
   function paintLatency(detail) {
     if (!detail || !Number.isFinite(detail.ms)) {
-      set("dPing", "n/a");
       set("dLatency", "n/a");
       return;
     }
-    ["dPing", "dLatency"].forEach(function (id) {
-      var node = document.getElementById(id);
-      if (!node) return;
-      node.textContent = formatMs(detail.ms);
-      node.title = "GET /assets/ping.txt";
-    });
+    var node = document.getElementById("dLatency");
+    if (!node) return;
+    node.textContent = formatMs(detail.ms);
+    node.title = "GET /assets/ping.txt";
   }
 
   async function fetchTraffic() {
@@ -44,17 +41,8 @@
   async function updateTraffic() {
     var payload = await fetchTraffic();
     if (!payload) {
-      set("dHttp", "n/a");
       paintCodes([]);
       return;
-    }
-    var codes = payload.codes;
-    var httpNode = document.getElementById("dHttp");
-    if (httpNode) {
-      httpNode.innerHTML = '<span class="http-2xx">2xx ' + Number(codes["2xx"] || 0) + '</span> · ' +
-        '<span class="http-3xx">3xx ' + Number(codes["3xx"] || 0) + '</span> · ' +
-        '<span class="http-4xx">4xx ' + Number(codes["4xx"] || 0) + '</span> · ' +
-        '<span class="http-5xx">5xx ' + Number(codes["5xx"] || 0) + '</span>';
     }
     paintCodes(payload.exact, String(payload.window || "") + " " + String(payload.generated || ""));
     paintTopPaths(payload.top);

@@ -25,27 +25,18 @@ function hl_shell_auth_slot_valid(string $slotId, array $env): bool
     }
     $stored = json_decode((string) @file_get_contents($path), true);
     $slots = is_array($stored) && isset($stored['slots']) && is_array($stored['slots']) ? $stored['slots'] : [];
-    $operatorCookie = trim((string) ($env['HL_OP_COOKIE'] ?? ''));
-    $dailySecret = trim((string) ($env['HL_SHELL_SALT'] ?? $operatorCookie));
-    if ($dailySecret === '') {
-        $dailySecret = hash('sha256', dirname(__FILE__) . '/shell-slot.php|' . php_uname('n'));
-    }
-    $dailyKey = hash_hmac('sha256', gmdate('Y-m-d'), $dailySecret);
-    $ipHash = hash_hmac('sha256', hl_client_ip(), $dailyKey);
-    $userAgent = substr((string) ($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 512);
-    $uaHash = hash_hmac('sha256', $userAgent, $dailyKey);
+    $ipHash = hl_shell_ip_hash($env);
     $ttl = max(30, min(600, (int) ($env['HL_SHELL_TTL'] ?? 90)));
     $minimumSeen = time() - $ttl;
     foreach ($slots as $row) {
-        if (!is_array($row) || !isset($row['id'], $row['ip_hash'], $row['ua_hash'], $row['seen'])) {
+        if (!is_array($row) || !isset($row['id'], $row['ip_hash'], $row['seen'])) {
             continue;
         }
         if ((int) $row['seen'] < $minimumSeen) {
             continue;
         }
         if (hash_equals((string) $row['id'], $slotId)
-            && hash_equals((string) $row['ip_hash'], $ipHash)
-            && hash_equals((string) $row['ua_hash'], $uaHash)) {
+            && hash_equals((string) $row['ip_hash'], $ipHash)) {
             return true;
         }
     }
@@ -115,8 +106,17 @@ if (!hl_shell_auth_failure_allowed(false)) {
     hl_shell_auth_rate_reply();
 }
 
-$hashKey = $user === 'root' ? 'ROOT_PW_HASH' : 'ADMIN_PW_HASH';
-$hash = trim((string) ($env[$hashKey] ?? ''));
+$hashKeys = $user === 'root'
+    ? ['HL_ROOT_PW_HASH', 'ROOT_PW_HASH']
+    : ['HL_ADMIN_PW_HASH', 'ADMIN_PW_HASH'];
+$hash = '';
+foreach ($hashKeys as $hashKey) {
+    $candidate = trim((string) ($env[$hashKey] ?? ''));
+    if ($candidate !== '') {
+        $hash = $candidate;
+        break;
+    }
+}
 $cookieOk = true;
 if ($user === 'root') {
     $expected = trim((string) ($env['HL_OP_COOKIE'] ?? ''));

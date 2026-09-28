@@ -6,45 +6,103 @@
 
   var SLOT_URL = "/api/shell-slot.php";
   var AUTH_URL = "/api/shell-auth.php";
+  var CSRF_URLS = ["/api/csrf.php", "/api/csrf", "/api/csrf/"];
   var heartbeatMs = 25000;
   var sharedMachine = null;
+  var bootPromise = null;
   var acquirePromise = null;
-  var slot = { mode: "fallback", id: "", ttl: 90, operator: false };
-  var fallbackListeners = [];
+  var csrfPromise = null;
+  var slot = { id: "", ttl: 90, operator: false };
   var heartbeatTimer = 0;
+  var acquireTimer = 0;
   var released = false;
   var instance = 0;
 
-  function slotPost(payload, headers) {
-    return fetch(SLOT_URL, {
-      method: "POST",
-      credentials: "same-origin",
-      cache: "no-store",
-      keepalive: payload.op === "release",
-      headers: Object.assign({ "Content-Type": "application/json" }, headers || {}),
-      body: JSON.stringify(payload)
+  function requestToken(url) {
+    return fetch(url, { method: "GET", credentials: "same-origin", cache: "no-store" })
+      .then(function (response) {
+        if (!response.ok) throw new Error("token unavailable");
+        return response.json();
+      })
+      .then(function (payload) {
+        if (!payload || payload.ok !== true || typeof payload.token !== "string") throw new Error("token unavailable");
+        return payload.token;
+      });
+  }
+
+  function csrfToken(refresh) {
+    if (refresh) csrfPromise = null;
+    if (!csrfPromise) {
+      csrfPromise = requestToken(CSRF_URLS[0])
+        .catch(function () { return requestToken(CSRF_URLS[1]); })
+        .catch(function () { return requestToken(CSRF_URLS[2]); })
+        .catch(function (error) { csrfPromise = null; throw error; });
+    }
+    return csrfPromise;
+  }
+
+  function postJson(url, payload, keepalive, retried) {
+    return csrfToken(Boolean(retried)).then(function (token) {
+      return fetch(url, {
+        method: "POST",
+        credentials: "same-origin",
+        cache: "no-store",
+        keepalive: Boolean(keepalive),
+        headers: { "Content-Type": "application/json", "X-CSRF-TOKEN": token },
+        body: JSON.stringify(payload)
+      });
     }).then(function (response) {
-      if (!response.ok) throw new Error("request failed");
-      return response.json();
+      if ((response.status === 401 || response.status === 403) && !retried) {
+        csrfPromise = null;
+        return postJson(url, payload, keepalive, true);
+      }
+      return response.json().catch(function () { return { ok: false }; }).then(function (body) {
+        if (!response.ok) {
+          var error = new Error("request failed");
+          error.payload = body;
+          throw error;
+        }
+        return body;
+      });
     });
   }
 
+  function slotPost(payload) {
+    return postJson(SLOT_URL, payload, payload.op === "release", false);
+  }
+
+  function syncLease() {
+    if (sharedMachine) sharedMachine.attachLease(slot, sessionControl);
+  }
+
+  function clearSlot() {
+    slot = { id: "", ttl: 90, operator: false };
+    syncLease();
+  }
+
+  function scheduleAcquire() {
+    if (acquireTimer || released) return;
+    acquireTimer = window.setTimeout(function () {
+      acquireTimer = 0;
+      acquireSlot();
+    }, 5000);
+  }
+
   function acquireSlot() {
-    if (!acquirePromise) {
-      acquirePromise = slotPost({ op: "acquire" }).then(function (payload) {
-        slot = {
-          mode: payload && payload.mode === "full" ? "full" : "fallback",
-          id: payload && typeof payload.id === "string" ? payload.id : "",
-          ttl: Number(payload && payload.ttl) || 90,
-          operator: Boolean(payload && payload.operator)
-        };
-        startHeartbeat();
-        return slot;
-      }).catch(function () {
-        slot = { mode: "fallback", id: "", ttl: 90, operator: false };
-        return slot;
-      });
-    }
+    if (slot.id) return Promise.resolve(slot);
+    if (acquirePromise || released) return acquirePromise || Promise.resolve(slot);
+    acquirePromise = slotPost({ op: "acquire" }).then(function (payload) {
+      if (!payload || payload.mode !== "full" || typeof payload.id !== "string" || !payload.id) throw new Error("slot unavailable");
+      slot = { id: payload.id, ttl: Number(payload.ttl) || 90, operator: Boolean(payload.operator) };
+      syncLease();
+      return slot;
+    }).catch(function () {
+      clearSlot();
+      scheduleAcquire();
+      return slot;
+    }).finally(function () {
+      acquirePromise = null;
+    });
     return acquirePromise;
   }
 
@@ -53,36 +111,24 @@
   }
 
   function shellAuth(user, password) {
-    return fetch(AUTH_URL, {
-      method: "POST",
-      credentials: "same-origin",
-      cache: "no-store",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ user: user, password: password, slot: slot.id || "" })
-    }).then(function (response) {
-      return response.json().catch(function () { return { ok: false, user: "" }; }).then(function (payload) {
-        return response.ok && payload && payload.ok === true && payload.user === user;
-      });
-    }).catch(function () { return false; });
-  }
-
-  function enterFallback() {
-    if (slot.mode === "fallback") return;
-    slot.mode = "fallback";
-    slot.id = "";
-    slot.operator = false;
-    fallbackListeners.slice().forEach(function (listener) { listener(); });
+    return postJson(AUTH_URL, { user: user, password: password, slot: slot.id || "" }, false, false)
+      .then(function (payload) { return Boolean(payload && payload.ok === true && payload.user === user); })
+      .catch(function () { return false; });
   }
 
   function beat() {
-    if (document.hidden || slot.mode !== "full" || !slot.id) return;
+    if (document.hidden) return;
+    if (!slot.id) { acquireSlot(); return; }
     slotPost({ op: "beat", id: slot.id }).then(function (payload) {
-      if (!payload || payload.mode !== "full") enterFallback();
-    }).catch(enterFallback);
+      if (!payload || payload.mode !== "full") throw new Error("slot expired");
+    }).catch(function () {
+      clearSlot();
+      scheduleAcquire();
+    });
   }
 
   function startHeartbeat() {
-    if (heartbeatTimer || slot.mode !== "full") return;
+    if (heartbeatTimer) return;
     heartbeatTimer = window.setInterval(beat, heartbeatMs);
   }
 
@@ -98,56 +144,15 @@
   window.addEventListener("pagehide", release, { once: true });
 
   function fullMachine() {
-    if (!sharedMachine) sharedMachine = HL.boot();
-    return sharedMachine;
-  }
-
-  function fallbackMachine() {
-    var history = [];
-    var snapshot = {
-      "/etc/issue": "Kali GNU/Linux Rolling \\n \\l\n",
-      "/etc/hostname": "highlion\n",
-      "/etc/passwd": "root:x:0:0:root:/root:/bin/zsh\nadmin:x:1001:1001:Lab Admin:/home/admin:/bin/zsh\nkali:x:1000:1000:Kali User:/home/kali:/bin/zsh\nwww-data:x:33:33:www-data:/var/www:/usr/sbin/nologin\nnobody:x:65534:65534:nobody:/nonexistent:/usr/sbin/nologin\n",
-      "/home/kali/README.txt": "Kali GNU/Linux Rolling\n"
-    };
-    var machine = {
-      identity: { user: "kali", host: "highlion", home: "/home/kali" },
-      cwd: "/home/kali",
-      history: history,
-      promptPath: function () { return "~"; },
-      promptSymbol: function () { return "$"; },
-      addHistory: function (line) {
-        history.push(line);
-        if (history.length > 300) history.splice(0, history.length - 300);
-      }
-    };
-    machine.shell = {
-      run: function (raw) {
-        var line = String(raw || "").trim();
-        if (!line) return Promise.resolve({ stdout: "", stderr: "", status: 0 });
-        if (/[|;&<>]/.test(line)) return Promise.resolve({ stdout: "", stderr: "zsh: command not found: " + line.split(/\s+/)[0] + "\n", status: 127 });
-        var parts = line.split(/\s+/);
-        var name = parts.shift();
-        if (name === "pwd") return Promise.resolve({ stdout: machine.cwd + "\n", stderr: "", status: 0 });
-        if (name === "whoami") return Promise.resolve({ stdout: "kali\n", stderr: "", status: 0 });
-        if (name === "help") return Promise.resolve({ stdout: "pwd ls cat whoami help clear cmatrix\n", stderr: "", status: 0 });
-        if (name === "ls") return Promise.resolve({ stdout: "Desktop  Documents  Downloads  README.txt\n", stderr: "", status: 0 });
-        if (name === "cat") {
-          var path = parts[0] || "";
-          if (path && path.charAt(0) !== "/") path = machine.cwd + "/" + path;
-          if (Object.prototype.hasOwnProperty.call(snapshot, path)) return Promise.resolve({ stdout: snapshot[path], stderr: "", status: 0 });
-          return Promise.resolve({ stdout: "", stderr: "cat: no such file or directory\n", status: 1 });
-        }
-        if (name === "clear") return Promise.resolve({ stdout: "", stderr: "", status: 0, effect: "clear" });
-        if (name === "cmatrix") {
-          if (parts.length && parts[0] !== "-q") return Promise.resolve({ stdout: "", stderr: "cmatrix: usage: cmatrix [-q]\n", status: 1 });
-          return Promise.resolve({ stdout: "", stderr: "", status: 0, effect: parts[0] === "-q" ? "matrix-off" : "matrix-on" });
-        }
-        return Promise.resolve({ stdout: "", stderr: "zsh: command not found: " + name + "\n", status: 127 });
-      },
-      complete: function () { return { choices: [], start: 0 }; }
-    };
-    return machine;
+    if (sharedMachine) return Promise.resolve(sharedMachine);
+    if (!bootPromise) {
+      bootPromise = HL.boot().then(function (machine) {
+        sharedMachine = machine;
+        syncLease();
+        return machine;
+      });
+    }
+    return bootPromise;
   }
 
   function mountTerminal(panel) {
@@ -296,7 +301,7 @@
 
     function resizeMatrix() {
       var dpr = Math.min(window.devicePixelRatio || 1, 2);
-      matrixHeight = Math.max(1, Math.round(body.clientHeight * 0.42));
+      matrixHeight = Math.max(1, Math.round(body.clientHeight));
       matrix.width = Math.max(1, Math.round(body.clientWidth * dpr));
       matrix.height = Math.max(1, Math.round(matrixHeight * dpr));
       matrix.style.width = body.clientWidth + "px";
@@ -444,16 +449,6 @@
       addLive();
     }
 
-    function activateFallback() {
-      runSerial += 1;
-      running = false;
-      setMatrix(false);
-      machine = fallbackMachine();
-      shell = machine.shell;
-      historyIndex = machine.history.length;
-      bootPaint();
-    }
-
     body.addEventListener("keydown", function (event) {
       if (!running || !event.ctrlKey || event.key.toLowerCase() !== "c") return;
       event.preventDefault();
@@ -465,20 +460,20 @@
     });
     body.addEventListener("click", function () { if (input) input.focus(); else body.focus(); });
     new ResizeObserver(function () { if (matrixWanted) setMatrix(true); }).observe(body);
-    fallbackListeners.push(activateFallback);
 
-    acquireSlot().then(function (lease) {
-      if (lease.mode !== "full") {
-        activateFallback();
-        return;
-      }
-      return fullMachine().then(function (ready) {
-        machine = ready;
-        machine.attachLease(lease, sessionControl);
-        shell = machine.shell || new HL.Shell(machine);
-        historyIndex = machine.history.length;
-        bootPaint();
-      }).catch(activateFallback);
+    stream.replaceChildren();
+    appendLine("acquiring session…", "hlterm-muted");
+    startHeartbeat();
+    acquireSlot();
+    fullMachine().then(function (ready) {
+      machine = ready;
+      machine.attachLease(slot, sessionControl);
+      shell = machine.shell || new HL.Shell(machine);
+      historyIndex = machine.history.length;
+      bootPaint();
+    }).catch(function () {
+      stream.replaceChildren();
+      appendLine("Kali userspace image unavailable.", "hlterm-error");
     });
   }
 

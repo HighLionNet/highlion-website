@@ -3,7 +3,9 @@
 
   var ATTRACT_RADIUS = 170;
   var ATTRACT_FORCE = 0.10;
-  var DRAG = 0.96;
+  var DRAG = 0.985;
+  var WANDER = 0.028;
+  var MIN_SPEED = 0.16;
   var MAX_SPEED = 2.4;
   var ALPHA_MIN = 0.45;
   var ALPHA_MAX = 0.88;
@@ -39,8 +41,8 @@
     return {
       x: Math.random() * width,
       y: Math.random() * height,
-      vx: between(-0.42, 0.42),
-      vy: between(-0.42, 0.42),
+      vx: between(-0.55, 0.55),
+      vy: between(-0.55, 0.55),
       size: between(SIZE_MIN, SIZE_MAX),
       alpha: between(ALPHA_MIN, ALPHA_MAX)
     };
@@ -113,7 +115,15 @@
       }
       point.vx *= DRAG;
       point.vy *= DRAG;
+      point.vx += between(-WANDER, WANDER);
+      point.vy += between(-WANDER, WANDER);
       var speed = Math.hypot(point.vx, point.vy);
+      if (speed < MIN_SPEED) {
+        var heading = speed > 0.001 ? Math.atan2(point.vy, point.vx) : between(0, Math.PI * 2);
+        point.vx = Math.cos(heading) * MIN_SPEED;
+        point.vy = Math.sin(heading) * MIN_SPEED;
+        speed = MIN_SPEED;
+      }
       if (speed > MAX_SPEED) {
         point.vx = point.vx / speed * MAX_SPEED;
         point.vy = point.vy / speed * MAX_SPEED;

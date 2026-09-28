@@ -167,6 +167,11 @@
     var requestedRange = range;
     var cacheKey = key();
     var cached = cache.get(cacheKey);
+    if (!cached && !displayed) {
+      state.textContent = "loading";
+      quote.textContent = "loading";
+      delete quote.dataset.trend;
+    }
     var requestedAt = lastRequest.get(cacheKey) || 0;
     if (!force && requestedAt && Date.now() - requestedAt < 30000) {
       state.textContent = cached && !cached.stale ? "live" : "stale";

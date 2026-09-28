@@ -122,7 +122,6 @@ $messageOk = $length($message) >= 10 && $length($message) <= 4000
     && !preg_match('/MIME-Version:/i', $message);
 
 if (!$nameOk || !$emailOk || !$messageOk || !hl_origin_ok($token)) {
-    hl_log('contact rejected 0');
     hl_json(['ok' => false], 400);
 }
 
@@ -152,7 +151,6 @@ if (!hl_rate_allow('contact', 5, 900)) {
 $safeName = trim(strip_tags($name));
 $safeMessage = trim(strip_tags($message));
 $safeEmail = hl_clean_header($email);
-$userAgent = hl_clean_header(substr((string) ($_SERVER['HTTP_USER_AGENT'] ?? 'unknown'), 0, 500));
 try {
     $suffix = bin2hex(random_bytes(3));
 } catch (Throwable $error) {
@@ -162,14 +160,11 @@ $subject = '[HighLion] letterbox ' . gmdate('Ymd') . '-' . $suffix;
 $body = implode("\n", [
     'Name: ' . $safeName,
     'Email: ' . $safeEmail,
-    'IP: ' . hl_client_ip(),
-    'UA: ' . $userAgent,
     'Time: ' . gmdate('c'),
     '-----',
     $safeMessage,
 ]);
 $sent = hl_telegram('/etc/highlion/letterbox.env', $subject . "\n" . $body);
-hl_log('contact telegram ' . ($sent ? 'sent' : 'failed'));
 if (!$sent) {
     hl_json(['ok' => false], 500);
 }

@@ -96,6 +96,27 @@
     publishFeed("off", 0);
   }
 
+  function loading() {
+    var fragment = document.createDocumentFragment();
+    for (var index = 0; index < 6; index += 1) {
+      var item = document.createElement("li");
+      var thumb = document.createElement("span");
+      var copy = document.createElement("span");
+      var shortBar = document.createElement("span");
+      var longBar = document.createElement("span");
+      item.className = "news-item news-skeleton";
+      thumb.className = "news-skeleton-thumb";
+      copy.className = "news-skeleton-copy";
+      shortBar.className = "news-skeleton-bar is-short";
+      longBar.className = "news-skeleton-bar";
+      copy.append(shortBar, longBar);
+      item.append(thumb, copy);
+      fragment.appendChild(item);
+    }
+    list.replaceChildren(fragment);
+    if (stamp) stamp.textContent = "loading";
+  }
+
   function render(payload) {
     var items = payload && Array.isArray(payload.items) ? payload.items.slice(0, 15) : [];
     list.replaceChildren();
@@ -138,6 +159,7 @@
   }
 
   function load() {
+    loading();
     request("/api/intel.php")
       .catch(function () { return request("/api/intel"); })
       .catch(function () { return request("/api/intel/"); })

@@ -1,4 +1,4 @@
-HIGHLION DEBIAN CUT-IN (HLv8 / hl8l)
+HIGHLION DEBIAN CUT-IN (HLv8 / hl8r)
 
 1. Sync the checkout to the web root in this direction only:
      sudo rsync -a --delete --exclude '.git/' /path/to/highlion-website/ /var/www/highlion/
@@ -14,7 +14,7 @@ HIGHLION DEBIAN CUT-IN (HLv8 / hl8l)
      curl -sI -X POST https://www.highlion.net/api/shell-auth.php
    A handled 4xx response is expected for protected POST endpoints without a valid same-origin browser session.
 
-3. Purge https://www.highlion.net/css/style.css after rsync, or let the hl8l query token roll the cache.
+3. Purge https://www.highlion.net/css/style.css after rsync, or let the hl8r query token roll the cache.
 
 4. Create the writable thumbnail and shell-lease stores:
      sudo install -d -m 0750 -o www-data -g www-data /var/tmp/highlion-thumbs/by-source
@@ -35,9 +35,19 @@ HIGHLION DEBIAN CUT-IN (HLv8 / hl8l)
      HL_OP_COOKIE=<64-or-more-random-hex-characters>
      HL_ROOT_PW_HASH='<bcrypt-hash-created-with-password_hash>'
      HL_ADMIN_PW_HASH='<bcrypt-hash-created-with-password_hash>'
+     HL_SHELL_SALT=<stable-random-secret>
+   The prefixed hash names HL_ROOT_PW_HASH and HL_ADMIN_PW_HASH are canonical. The old ROOT_PW_HASH and ADMIN_PW_HASH names remain accepted as compatibility fallbacks, but do not use them for new installs.
    The terminal always boots as kali. `su root` and `su admin` fail closed until their hashes exist. Root additionally requires the HttpOnly operator cookie whose value matches HL_OP_COOKIE. Passwords are never stored in git or in plaintext.
 
-6. Set the operator cookie only in the intended browser profile, scoped to www.highlion.net with Path=/, Secure, HttpOnly, and SameSite=Lax. Remove it to remove root eligibility. The server validates the cookie and password independently; neither grants host access.
+6. Set the operator cookie only in the intended browser profile. Use these exact attributes:
+     Name: hl_op
+     Value: exact HL_OP_COOKIE string
+     Domain: www.highlion.net
+     Path: /
+     Secure: true
+     HttpOnly: true
+     SameSite: Lax
+   Do not scope it to bare highlion.net unless the operator also intentionally uses that host; www is canonical. This is an operator capability cookie, not a tracking cookie. Removing it removes root eligibility only. The application never mints it, and JavaScript never reads it. `credentials: "same-origin"` sends it with shell requests. The server validates the cookie and password independently; neither grants host access.
 
 7. Keep /etc/highlion/letterbox.env and /etc/highlion/honeypot.env private and readable by PHP-FPM. Re-run the existing contact, honeypot, claim, and geo-fence checks after deployment. Never commit any /etc/highlion/*.env file.
 
@@ -45,6 +55,10 @@ HIGHLION DEBIAN CUT-IN (HLv8 / hl8l)
      sudo bash /var/www/highlion/assets/fonts/generate-fonts.sh
 
 9. Final checks: verify /api/thumb/ reaches index.php; remove any duplicate X-HighLion header at nginx or Cloudflare; confirm normal visitors receive kali, password failures say exactly `su: Authentication failure`, five failed shell-auth attempts in ten minutes are rate-limited, and root/admin/logout return to kali as designed.
+
+10. The browser always boots the full sealed Kali userspace; there is no fallback TTY. The slot pool gates concurrency and privileged authentication only. If its store is unavailable or full, the browser keeps Kali running and retries every five seconds. A live lease matches opaque slot id + stable salted IP hash + TTL. User-Agent and UTC date are not part of the binding, so browser changes and midnight UTC do not invalidate a valid lease.
+
+11. Browser persistence is intentionally split. `hl-trophies-v1` in localStorage contains only `{ "v": 1, "claimed": ["flag-id"] }`. The simulated disk overlay may use `hl-machine-overlay-v1` in sessionStorage, is capped near 256 KiB, and disappears with the tab. Files, cwd, environment, aliases, history, and privileged identity are never stored in localStorage. `reset-machine` clears only the tab overlay and keeps trophies.
 
 The browser machine is a simulated, isolated userspace. Its filesystem, firewall rules, services, credentials, and network delays never touch the Debian host.
 

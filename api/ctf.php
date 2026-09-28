@@ -40,20 +40,4 @@ if (!hl_rate_allow('ctf', 10, 3600)) {
     hl_json(['ok' => false], 429);
 }
 
-$ip = hl_client_ip();
-$userAgent = hl_clean_header(substr((string) ($_SERVER['HTTP_USER_AGENT'] ?? 'unknown'), 0, 120));
-$row = [
-    'ts' => gmdate('c'),
-    'flag' => $flag,
-    'ip' => $ip,
-    'ua' => $userAgent,
-];
-$encoded = json_encode($row, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-if (is_string($encoded)) {
-    @file_put_contents('/var/tmp/highlion-ctf.log', $encoded . PHP_EOL, FILE_APPEND | LOCK_EX);
-}
-hl_telegram(
-    '/etc/highlion/letterbox.env',
-    '[HL CTF] CLAIM flag=' . $flag . ' ip=' . $ip . ' ua=' . $userAgent
-);
 hl_json(['ok' => true]);

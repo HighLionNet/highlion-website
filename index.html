@@ -18,12 +18,12 @@
   <meta name="twitter:description" content="Home lab notes, writeups, and a browser terminal on highlion.net.">
   <title>HighLion — Home</title>
   <link rel="icon" href="/assets/icons/HighLion.ico" sizes="any">
-  <link rel="stylesheet" href="/css/style.css?v=hl8p">
+  <link rel="stylesheet" href="/css/style.css?v=hl8r">
 </head>
 <body><a class="skip" href="#main">Skip to content</a>
   <div class="scanlines" aria-hidden="true"></div>
   <canvas id="fx" class="fx" aria-hidden="true"></canvas>
-  <div data-include="/components/header.html?v=hl8p"></div>
+  <div data-include="/components/header.html?v=hl8r"></div>
 
   <main id="main">
     <section class="shell home-stage">
@@ -40,13 +40,13 @@
           <div class="xdr-top">
             <span class="xdr-mark"><img src="/assets/icons/HighLion.ico" alt=""></span>
             <span>NEWSFEED</span>
-            <span id="newsStamp">offline</span>
+            <span id="newsStamp">loading</span>
           </div>
           <div class="news-ticker" id="newsTicker" aria-hidden="true">
             <div class="news-ticker-track" id="newsTickerTrack"></div>
           </div>
           <div class="news-track-wrap">
-            <ol class="news-list" id="news-list"></ol>
+            <ol class="news-list" id="news-list"><li class="news-item news-loading">Loading feed…</li></ol>
           </div>
         </aside>
 
@@ -55,7 +55,7 @@
         <aside class="xdr-console crypto-console crypto-pane" id="cryptoPane" aria-label="Cryptocurrency market chart">
           <div class="xdr-top">
             <span>MARKET</span>
-            <span id="cryptoState">live</span>
+            <span id="cryptoState">loading</span>
           </div>
           <div class="crypto-main">
           <div class="crypto-head">
@@ -98,10 +98,8 @@
           <section class="dash-group dash-status" aria-labelledby="dash-status">
             <h3 id="dash-status">status</h3>
             <dl class="dash-list">
-              <div><dt>http</dt><dd id="dHttp">loading</dd></div>
-              <div><dt>ping</dt><dd id="dPing">loading</dd></div>
               <div><dt>latency</dt><dd id="dLatency">loading</dd></div>
-              <div id="dRttRow"><dt>rtt</dt><dd id="dRtt">loading</dd></div>
+              <div id="dRttRow"><dt>net rtt</dt><dd id="dRtt">loading</dd></div>
             </dl>
             <ol class="dash-codes" id="dCodeList" aria-label="HTTP status codes">
               <li class="dash-codes-empty" id="dCodes">loading</li>
@@ -128,8 +126,8 @@
               <div><dt>lang</dt><dd id="dLang">loading</dd></div>
             </dl>
           </section>
-          <section class="dash-top-paths" id="dTopPaths" hidden>
-            <div class="dash-subhead">top paths</div>
+          <section class="dash-group dash-top-paths" id="dTopPaths" hidden aria-labelledby="dash-paths">
+            <h3 id="dash-paths">paths</h3>
             <ol id="dTopPathList"></ol>
           </section>
         </div>
@@ -196,26 +194,26 @@
     </section>
   </main>
 
-  <div data-include="/components/footer.html?v=hl8p"></div>
-  <script src="/js/fix-include.js?v=hl8p" defer></script>
-  <script src="/js/sfx.js?v=hl8p" defer></script>
-  <script src="/js/shell/kernel.js?v=hl8p" defer></script>
-  <script src="/js/shell/fs.js?v=hl8p" defer></script>
-  <script src="/js/shell/proc.js?v=hl8p" defer></script>
-  <script src="/js/shell/net.js?v=hl8p" defer></script>
-  <script src="/js/shell/sh.js?v=hl8p" defer></script>
-  <script src="/js/shell/busybox.js?v=hl8p" defer></script>
-  <script src="/js/shell/pack.js?v=hl8p" defer></script>
-  <script src="/js/shell/ctf.js?v=hl8p" defer></script>
-  <script src="/js/shell/machine.js?v=hl8p" defer></script>
-  <script src="/js/session-meta.js?v=hl8p" defer></script>
-  <script src="/js/particles.js?v=hl8p" defer></script>
-  <script src="/js/station-toggles.js?v=hl8p" defer></script>
-  <script src="/js/rain.js?v=hl8p" defer></script>
-  <script src="/js/intel-feed.js?v=hl8p" defer></script>
-  <script src="/js/crypto-rail.js?v=hl8p" defer></script>
-  <script src="/js/terminal.js?v=hl8p" defer></script>
-  <script src="/js/dashboard.js?v=hl8p" defer></script>
-  <script src="/js/row-link.js?v=hl8p" defer></script>
+  <div data-include="/components/footer.html?v=hl8r"></div>
+  <script src="/js/fix-include.js?v=hl8r" defer></script>
+  <script src="/js/sfx.js?v=hl8r" defer></script>
+  <script src="/js/shell/kernel.js?v=hl8r" defer></script>
+  <script src="/js/shell/fs.js?v=hl8r" defer></script>
+  <script src="/js/shell/proc.js?v=hl8r" defer></script>
+  <script src="/js/shell/net.js?v=hl8r" defer></script>
+  <script src="/js/shell/sh.js?v=hl8r" defer></script>
+  <script src="/js/shell/busybox.js?v=hl8r" defer></script>
+  <script src="/js/shell/pack.js?v=hl8r" defer></script>
+  <script src="/js/shell/ctf.js?v=hl8r" defer></script>
+  <script src="/js/shell/machine.js?v=hl8r" defer></script>
+  <script src="/js/session-meta.js?v=hl8r" defer></script>
+  <script src="/js/particles.js?v=hl8r" defer></script>
+  <script src="/js/station-toggles.js?v=hl8r" defer></script>
+  <script src="/js/rain.js?v=hl8r" defer></script>
+  <script src="/js/intel-feed.js?v=hl8r" defer></script>
+  <script src="/js/crypto-rail.js?v=hl8r" defer></script>
+  <script src="/js/terminal.js?v=hl8r" defer></script>
+  <script src="/js/dashboard.js?v=hl8r" defer></script>
+  <script src="/js/row-link.js?v=hl8r" defer></script>
 </body>
 </html>

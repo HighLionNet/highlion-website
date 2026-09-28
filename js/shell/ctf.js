@@ -52,6 +52,7 @@
       this.machine.fs.writeFile("/home/kali/highlion/relay.path", "/lab/relay\n", "/", false, false);
     }
     this.machine.persist();
+    this.machine.persistTrophies();
     this.postClaim(String(value).trim());
     if (root.HighLionSfx) root.HighLionSfx.ok();
     var output = "claimed " + row.id + " — badge " + row.prize + "\n";

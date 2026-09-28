@@ -196,41 +196,79 @@
 
   Machine.prototype.persistenceData = function () {
     return {
-      version: 2,
-      cwd: this.isRoot() ? this.users[this.visitorName].home : this.cwd,
-      previousCwd: this.isRoot() ? this.users[this.visitorName].home : this.previousCwd,
-      env: this.isRoot() ? {} : this.env,
-      exported: this.isRoot() ? [] : this.exported,
-      history: this.history,
-      claimed: this.claimed,
+      v: 1,
       files: this.fs.snapshotWritable()
     };
   };
 
   Machine.prototype.persist = function () {
     var encoded = JSON.stringify(this.persistenceData());
-    if (new TextEncoder().encode(encoded).length > Number(this.config.persistenceCap || 262144)) return false;
-    return HL.kernel.storageSet(this.config.persistenceKey || "hl-machine-v1", encoded);
+    if (new TextEncoder().encode(encoded).length > Number(this.config.overlayCap || 262144)) return false;
+    return HL.kernel.sessionSet(this.config.overlayKey || "hl-machine-overlay-v1", encoded);
+  };
+
+  Machine.prototype.persistTrophies = function () {
+    var ids = Array.from(new Set(this.claimed.filter(function (id) {
+      return typeof id === "string" && /^[a-z0-9][a-z0-9_-]{0,63}$/i.test(id);
+    })));
+    return HL.kernel.localSet(this.config.trophiesKey || "hl-trophies-v1", JSON.stringify({ v: 1, claimed: ids }));
   };
 
   Machine.prototype.restore = function () {
-    var raw = HL.kernel.storageGet(this.config.persistenceKey || "hl-machine-v1");
-    if (!raw) return;
+    HL.kernel.localRemove("hl-machine-v1");
+    var raw = HL.kernel.sessionGet(this.config.overlayKey || "hl-machine-overlay-v1");
     try {
-      var saved = JSON.parse(raw);
-      this.fs.restoreWritable(saved.files || {});
-      var visitorHome = this.users[this.visitorName].home;
-      this.cwd = this.fs.stat(saved.cwd || visitorHome, "/") ? saved.cwd : visitorHome;
-      this.previousCwd = saved.previousCwd || visitorHome;
-      this.env = Object.assign(this.env, saved.env || {}, { PWD: this.cwd, OLDPWD: this.previousCwd });
-      this.exported = Array.isArray(saved.exported) && saved.exported.length ? saved.exported : this.exported;
-      this.history = Array.isArray(saved.history) ? saved.history.slice(-300) : [];
-      this.claimed = Array.isArray(saved.claimed) ? saved.claimed : [];
+      var saved = raw ? JSON.parse(raw) : null;
+      if (saved && saved.v === 1) this.fs.restoreWritable(saved.files || {});
     } catch (error) {}
+    var trophyRaw = HL.kernel.localGet(this.config.trophiesKey || "hl-trophies-v1");
+    try {
+      var trophies = trophyRaw ? JSON.parse(trophyRaw) : null;
+      this.claimed = trophies && trophies.v === 1 && Array.isArray(trophies.claimed)
+        ? trophies.claimed.filter(function (id) { return typeof id === "string" && /^[a-z0-9][a-z0-9_-]{0,63}$/i.test(id); })
+        : [];
+    } catch (error) { this.claimed = []; }
+  };
+
+  Machine.prototype.syncTrophyFiles = function () {
+    this.claimed.forEach(function (id) {
+      try {
+        this.fs.writeFile("/home/kali/highlion/.trophies/" + id + ".flag", "claimed: " + id + "\n", "/", false, true);
+      } catch (error) {}
+    }, this);
+  };
+
+  Machine.prototype.remountHome = function (userName) {
+    var user = this.users[userName];
+    if (!user) return false;
+    var home = user.home;
+    var prefix = home + "/";
+    var template = new HL.VirtualFS(this.config);
+    HL.mountPacks(template, this.packs);
+    Array.from(this.fs.nodes.keys()).forEach(function (path) {
+      if (path === home || path.indexOf(prefix) === 0) this.fs.nodes.delete(path);
+    }, this);
+    template.nodes.forEach(function (node, path) {
+      if (path === home || path.indexOf(prefix) === 0) this.fs.nodes.set(path, clone(node));
+    }, this);
+    [this.fs.dirty, this.fs.deleted].forEach(function (set) {
+      Array.from(set).forEach(function (path) {
+        if (path === home || path.indexOf(prefix) === 0) set.delete(path);
+      });
+    });
+    if (this.identity.user === userName) {
+      this.cwd = home;
+      this.previousCwd = home;
+      this.resetEnvironment();
+      this.loadAliases();
+    }
+    this.syncTrophyFiles();
+    return this.persist();
   };
 
   Machine.prototype.reset = function () {
-    HL.kernel.storageRemove(this.config.persistenceKey || "hl-machine-v1");
+    HL.kernel.sessionRemove(this.config.overlayKey || "hl-machine-overlay-v1");
+    HL.kernel.localRemove("hl-machine-v1");
     if (root.location && typeof root.location.reload === "function") root.location.reload();
   };
 
@@ -254,6 +292,7 @@
       bootPromise = loadImage().then(function (image) {
         var machine = new Machine(image);
         machine.ctf = new HL.ChallengeController(machine);
+        machine.syncTrophyFiles();
         machine.shell = new HL.Shell(machine);
         return machine;
       });

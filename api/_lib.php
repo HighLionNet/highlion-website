@@ -37,18 +37,19 @@ function hl_origin_ok(string $csrfToken = ''): bool
     $origin = trim((string) ($_SERVER['HTTP_ORIGIN'] ?? ''));
     if ($origin !== '') {
         $originHost = strtolower((string) parse_url($origin, PHP_URL_HOST));
-        return $originHost === 'www.highlion.net' || $originHost === 'highlion.net';
+        if ($originHost === 'www.highlion.net' || $originHost === 'highlion.net') {
+            return true;
+        }
     }
 
     $referer = trim((string) ($_SERVER['HTTP_REFERER'] ?? ''));
     if ($referer !== '') {
         $refererHost = strtolower((string) parse_url($referer, PHP_URL_HOST));
-        return $refererHost === 'www.highlion.net' || $refererHost === 'highlion.net';
+        if ($refererHost === 'www.highlion.net' || $refererHost === 'highlion.net') {
+            return true;
+        }
     }
-
-    $host = strtolower(trim((string) ($_SERVER['HTTP_HOST'] ?? '')));
-    $host = preg_replace('/:\d+$/', '', $host);
-    return ($host === 'www.highlion.net' || $host === 'highlion.net') && hl_csrf_check($csrfToken);
+    return hl_csrf_check($csrfToken);
 }
 
 function hl_client_ip(): string
@@ -85,6 +86,18 @@ function hl_csrf_issue(): string
     ];
     setcookie('hl_csrf', $token, $base + ['httponly' => true]);
     return $token;
+}
+
+function hl_shell_salt(array $env): string
+{
+    $operatorCookie = trim((string) ($env['HL_OP_COOKIE'] ?? ''));
+    $salt = trim((string) ($env['HL_SHELL_SALT'] ?? $operatorCookie));
+    return $salt !== '' ? $salt : hash('sha256', __DIR__ . '/shell-slot.php|' . php_uname('n'));
+}
+
+function hl_shell_ip_hash(array $env): string
+{
+    return hash_hmac('sha256', hl_client_ip(), hl_shell_salt($env));
 }
 
 function hl_csrf_check($token): bool

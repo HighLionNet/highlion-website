@@ -40,14 +40,7 @@ if ($op === 'list' || $op === 'drop') {
     }
 }
 
-$dailySecret = trim((string) ($env['HL_SHELL_SALT'] ?? $operatorCookie));
-if ($dailySecret === '') {
-    $dailySecret = hash('sha256', __FILE__ . '|' . php_uname('n'));
-}
-$dailyKey = hash_hmac('sha256', gmdate('Y-m-d'), $dailySecret);
-$ipHash = hash_hmac('sha256', hl_client_ip(), $dailyKey);
-$userAgent = substr((string) ($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 512);
-$uaHash = hash_hmac('sha256', $userAgent, $dailyKey);
+$ipHash = hl_shell_ip_hash($env);
 $now = time();
 $storePath = '/var/tmp/highlion-shell-slots.json';
 $handle = @fopen($storePath, 'c+');
@@ -55,7 +48,7 @@ if ($handle === false || !flock($handle, LOCK_EX)) {
     if (is_resource($handle)) {
         fclose($handle);
     }
-    hl_json($op === 'acquire' ? ['ok' => true, 'mode' => 'fallback'] : ['ok' => false], $op === 'acquire' ? 200 : 503);
+    hl_json(['ok' => false, 'mode' => 'retry', 'retry_after' => 5], 503);
 }
 
 $storedRaw = stream_get_contents($handle);
@@ -67,7 +60,7 @@ $slots = isset($stored['slots']) && is_array($stored['slots']) ? $stored['slots'
 $acquires = isset($stored['acquires']) && is_array($stored['acquires']) ? $stored['acquires'] : [];
 $slots = array_values(array_filter($slots, static function ($row) use ($now, $ttl): bool {
     return is_array($row)
-        && isset($row['id'], $row['seen'])
+        && isset($row['id'], $row['ip_hash'], $row['seen'])
         && is_string($row['id'])
         && (int) $row['seen'] >= $now - $ttl;
 }));
@@ -90,7 +83,8 @@ if ($op === 'acquire') {
     } else {
         $acquires[] = ['ip_hash' => $ipHash, 'at' => $now];
         if (count($slots) >= $slotLimit) {
-            $reply = ['ok' => true, 'mode' => 'fallback'];
+            $reply = ['ok' => false, 'mode' => 'retry', 'retry_after' => 5];
+            $status = 503;
         } else {
             try {
                 $id = bin2hex(random_bytes(16));
@@ -101,7 +95,6 @@ if ($op === 'acquire') {
             $slots[] = [
                 'id' => $id,
                 'user' => $user,
-                'ua_hash' => $uaHash,
                 'ip_hash' => $ipHash,
                 'created' => $now,
                 'seen' => $now,
@@ -115,8 +108,7 @@ if ($op === 'acquire') {
     $found = false;
     foreach ($slots as $index => &$row) {
         $sameLease = $id !== '' && hash_equals((string) $row['id'], $id)
-            && hash_equals((string) $row['ip_hash'], $ipHash)
-            && hash_equals((string) $row['ua_hash'], $uaHash);
+            && hash_equals((string) $row['ip_hash'], $ipHash);
         if (!$sameLease) {
             continue;
         }
@@ -134,7 +126,8 @@ if ($op === 'acquire') {
     if ($op === 'release') {
         $reply = ['ok' => true];
     } elseif (!$found) {
-        $reply = ['ok' => true, 'mode' => 'fallback'];
+        $reply = ['ok' => false, 'mode' => 'retry', 'retry_after' => 5];
+        $status = 503;
     }
 } elseif ($op === 'list') {
     $publicSlots = array_map(static function (array $row): array {

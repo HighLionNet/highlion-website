@@ -413,6 +413,7 @@
     var self = this;
     this.nodes.forEach(function (node, path) {
       var visitorPath = self.writable.some(function (prefix) { return path === prefix || path.indexOf(prefix + "/") === 0; });
+      if (HL.path.basename(path) === ".zsh_history") return;
       if ((visitorPath || self.dirty.has(path)) && !self.isProtected(path)) data.nodes[path] = cloneNode(node);
     });
     return data;
