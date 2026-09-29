@@ -17,6 +17,7 @@ Only trophy ids survive tab close. localStorage key hl-trophies-v1 contains `{ "
 
 AUTHENTICATION
 api/shell-auth.php checks a live slot, same-origin request, failure budget, and password hash. It returns only `{ok,user}`. Five failed attempts from one IP in ten minutes are rate-limited. The owner installs the private hashes and operator credential in /etc/highlion/shell.env as documented in deploy/OWNER.txt. No privileged identity is automatic.
+The hl_op cookie MUST use Domain=www.highlion.net, Path=/, Secure, HttpOnly, and SameSite=Lax. The app never mints it and JavaScript never reads it. Commit 545b416 broke root by making the CSRF GET a hard client gate before shell-auth; hl8s always sends a same-origin auth POST and treats the CSRF token as additional protection. Authentication reacquires and beats the lease immediately before the password POST.
 
 NETWORK
 The terminal is attached to an isolated 10.8.0.0/24 Osprey & Hale office LAN with three neighbors: fw01, intranet, and files01. There is no WAN and there are no HighLion services on the segment. Firewall edits affect only this tab-local simulation. Arbitrary real network access is not available.

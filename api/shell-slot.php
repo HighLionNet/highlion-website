@@ -26,12 +26,16 @@ $env = hl_env_load('/etc/highlion/shell.env');
 $slotLimit = max(1, min(128, (int) ($env['HL_SHELL_SLOTS'] ?? 8)));
 $ttl = max(30, min(600, (int) ($env['HL_SHELL_TTL'] ?? 90)));
 $operatorCookie = trim((string) ($env['HL_OP_COOKIE'] ?? ''));
-$cookieValue = (string) ($_COOKIE['hl_op'] ?? '');
+$cookieValue = hl_cookie('hl_op');
 $originOk = hl_origin_ok((string) ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? ''));
 $operator = $operatorCookie !== '' && $cookieValue !== '' && hash_equals($operatorCookie, $cookieValue);
 
 if (!$originOk) {
     hl_json(['ok' => false], 403);
+}
+
+if ($operator && ($op === 'acquire' || $op === 'beat')) {
+    hl_op_refresh($cookieValue);
 }
 
 if ($op === 'list' || $op === 'drop') {

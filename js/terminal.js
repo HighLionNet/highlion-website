@@ -42,17 +42,23 @@
   }
 
   function postJson(url, payload, keepalive, retried) {
-    return csrfToken(Boolean(retried)).then(function (token) {
+    var sameOrigin = new URL(url, window.location.href).origin === window.location.origin;
+    return csrfToken(Boolean(retried)).catch(function () {
+      if (!sameOrigin) throw new Error("token unavailable");
+      return "";
+    }).then(function (token) {
+      var headers = { "Content-Type": "application/json" };
+      if (token) headers["X-CSRF-TOKEN"] = token;
       return fetch(url, {
         method: "POST",
         credentials: "same-origin",
         cache: "no-store",
         keepalive: Boolean(keepalive),
-        headers: { "Content-Type": "application/json", "X-CSRF-TOKEN": token },
+        headers: headers,
         body: JSON.stringify(payload)
       });
     }).then(function (response) {
-      if ((response.status === 401 || response.status === 403) && !retried) {
+      if (response.status === 403 && !retried) {
         csrfPromise = null;
         return postJson(url, payload, keepalive, true);
       }
@@ -111,9 +117,26 @@
   }
 
   function shellAuth(user, password) {
-    return postJson(AUTH_URL, { user: user, password: password, slot: slot.id || "" }, false, false)
+    var secret = String(password || "");
+    function beatActive(active) {
+      if (!active || !active.id) throw new Error("slot unavailable");
+      return slotPost({ op: "beat", id: active.id }).then(function (lease) {
+        if (!lease || lease.ok !== true || lease.mode !== "full" || !slot.id) throw new Error("slot unavailable");
+        return slot;
+      });
+    }
+    return (slot.id ? Promise.resolve(slot) : acquireSlot())
+      .then(beatActive)
+      .catch(function () {
+        clearSlot();
+        return acquireSlot().then(beatActive);
+      })
+      .then(function () {
+        return postJson(AUTH_URL, { user: user, password: secret, slot: slot.id }, false, false);
+      })
       .then(function (payload) { return Boolean(payload && payload.ok === true && payload.user === user); })
-      .catch(function () { return false; });
+      .catch(function () { return false; })
+      .finally(function () { secret = ""; });
   }
 
   function beat() {
@@ -170,6 +193,8 @@
     var shell = null;
     var live = null;
     var input = null;
+    var inputView = null;
+    var interactive = null;
     var historyIndex = 0;
     var running = false;
     var runSerial = 0;
@@ -224,6 +249,21 @@
       live.replaceWith(row);
       live = null;
       input = null;
+      inputView = null;
+    }
+
+    function renderCommandInput() {
+      if (!input || !inputView) return;
+      var value = input.value;
+      var caret = input.selectionStart === null ? value.length : input.selectionStart;
+      var cursor = document.createElement("span");
+      cursor.className = "hlterm-block-caret";
+      cursor.textContent = value.charAt(caret) || " ";
+      inputView.replaceChildren(
+        document.createTextNode(value.slice(0, caret)),
+        cursor,
+        document.createTextNode(value.slice(caret + (caret < value.length ? 1 : 0)))
+      );
     }
 
     function addLive() {
@@ -232,19 +272,27 @@
       live = document.createElement("div");
       live.className = "hlterm-live";
       var label = document.createElement("label");
+      inputView = document.createElement("span");
       input = document.createElement("input");
       label.htmlFor = inputId;
       appendPrompt(label);
+      inputView.className = "hlterm-command-buffer";
+      inputView.setAttribute("aria-hidden", "true");
       input.id = inputId;
-      input.className = "hlterm-input";
+      input.className = "hlterm-capture";
       input.type = "text";
       input.autocomplete = "off";
       input.autocapitalize = "off";
       input.spellcheck = false;
       input.setAttribute("aria-label", "Terminal command");
-      live.append(label, input);
+      live.append(label, inputView, input);
       stream.appendChild(live);
       input.addEventListener("keydown", handleKey);
+      input.addEventListener("input", renderCommandInput);
+      input.addEventListener("keyup", renderCommandInput);
+      input.addEventListener("click", renderCommandInput);
+      input.addEventListener("compositionend", renderCommandInput);
+      renderCommandInput();
       input.focus({ preventScroll: true });
       scrollBottom();
     }
@@ -253,18 +301,25 @@
       running = true;
       live = document.createElement("div");
       live.className = "hlterm-live hlterm-password-live";
-      var label = document.createElement("label");
+      var label = document.createElement("span");
+      var passwordCaret = document.createElement("span");
       input = document.createElement("input");
-      label.htmlFor = inputId;
       label.textContent = "Password:";
+      passwordCaret.className = "hlterm-block-caret";
+      passwordCaret.textContent = " ";
       input.id = inputId;
-      input.className = "hlterm-input hlterm-password";
-      input.type = "password";
+      input.className = "hlterm-capture hlterm-password-capture";
+      input.type = "text";
+      input.setAttribute("inputmode", "none");
       input.autocomplete = "off";
+      input.autocapitalize = "off";
       input.spellcheck = false;
       input.setAttribute("aria-label", "Password");
-      live.append(label, input);
+      live.append(label, passwordCaret, input);
       stream.appendChild(live);
+      input.addEventListener("input", function () {
+        if (input && input.value.length > 1024) input.value = input.value.slice(0, 1024);
+      });
       input.addEventListener("keydown", function (event) {
         if (event.ctrlKey && event.key.toLowerCase() === "c") {
           event.preventDefault();
@@ -272,6 +327,7 @@
           live.remove();
           live = null;
           input = null;
+          inputView = null;
           running = false;
           appendLine("^C", "hlterm-muted");
           addLive();
@@ -281,12 +337,14 @@
         event.preventDefault();
         event.stopPropagation();
         var password = input.value;
+        input.value = "";
         var row = document.createElement("div");
         row.className = "hlterm-command";
         row.textContent = "Password:";
         live.replaceWith(row);
         live = null;
         input = null;
+        inputView = null;
         shellAuth(userName, password).then(function (ok) {
           password = "";
           if (ok && machine.authenticateUser(userName)) updateTitle();
@@ -345,6 +403,193 @@
       }
     }
 
+    function closeInteractive(surface) {
+      if (surface && surface.parentNode) surface.remove();
+      interactive = null;
+      running = false;
+      updateTitle();
+      addLive();
+    }
+
+    function clippedBuffer(value) {
+      var text = String(value || "");
+      if (new TextEncoder().encode(text).length <= 65536) return text;
+      var low = 0;
+      var high = text.length;
+      while (low < high) {
+        var middle = Math.ceil((low + high) / 2);
+        if (new TextEncoder().encode(text.slice(0, middle)).length <= 65536) low = middle;
+        else high = middle - 1;
+      }
+      return text.slice(0, low);
+    }
+
+    function openEditor(config) {
+      running = true;
+      var surface = document.createElement("section");
+      var head = document.createElement("div");
+      var area = document.createElement("textarea");
+      var statusBar = document.createElement("div");
+      var isNano = config.command === "nano";
+      var original = clippedBuffer(String(config.text || ""));
+      var viCommand = null;
+      var nanoWritePending = false;
+      surface.className = "hlterm-interactive hlterm-editor";
+      surface.setAttribute("aria-label", config.command + " editor for " + config.label);
+      head.className = "hlterm-editor-head";
+      head.textContent = (isNano ? "GNU nano 8.6" : "VIM 9.1") + " — " + config.label;
+      area.className = "hlterm-editor-buffer";
+      area.value = original;
+      area.autocomplete = "off";
+      area.autocapitalize = "off";
+      area.spellcheck = false;
+      area.wrap = "off";
+      statusBar.className = "hlterm-editor-status";
+      surface.append(head, area, statusBar);
+      stream.appendChild(surface);
+      interactive = area;
+
+      function position() {
+        var before = area.value.slice(0, area.selectionStart || 0).split("\n");
+        return "line " + before.length + ", col " + (before[before.length - 1].length + 1);
+      }
+
+      function modified() { return area.value !== original; }
+
+      function paintStatus(message) {
+        statusBar.textContent = message || (config.label + (modified() ? " [modified]" : "") + " — " + position());
+      }
+
+      function save() {
+        if (!config.path) {
+          paintStatus("No file name");
+          return false;
+        }
+        try {
+          machine.writeFile(config.path, area.value, false);
+          original = area.value;
+          paintStatus("wrote " + config.label + " — " + position());
+          return true;
+        } catch (error) {
+          paintStatus("write failed: " + error.message);
+          return false;
+        }
+      }
+
+      area.addEventListener("input", function () {
+        var limited = clippedBuffer(area.value);
+        if (limited !== area.value) {
+          area.value = limited;
+          area.setSelectionRange(limited.length, limited.length);
+          paintStatus("64 KiB buffer limit");
+          return;
+        }
+        paintStatus();
+      });
+      area.addEventListener("click", function () { paintStatus(); });
+      area.addEventListener("keyup", function () { if (viCommand === null && !nanoWritePending) paintStatus(); });
+      area.addEventListener("keydown", function (event) {
+        event.stopPropagation();
+        var key = event.key;
+        var lower = /^Key[A-Z]$/.test(event.code) ? event.code.slice(3).toLowerCase() : key.toLowerCase();
+        var control = event.ctrlKey || event.metaKey;
+        if (control && lower === "s") {
+          event.preventDefault();
+          save();
+          return;
+        }
+        if (isNano && control && lower === "o") {
+          event.preventDefault();
+          nanoWritePending = true;
+          paintStatus("File Name to Write: " + config.label);
+          return;
+        }
+        if (isNano && nanoWritePending && key === "Enter") {
+          event.preventDefault();
+          nanoWritePending = false;
+          save();
+          return;
+        }
+        if (isNano && control && lower === "x") {
+          event.preventDefault();
+          closeInteractive(surface);
+          return;
+        }
+        if (!isNano && viCommand !== null) {
+          event.preventDefault();
+          if (key === "Escape") {
+            viCommand = null;
+            paintStatus();
+          } else if (key === "Backspace") {
+            viCommand = viCommand.slice(0, -1);
+            paintStatus(":" + viCommand);
+          } else if (key === "Enter") {
+            var command = viCommand;
+            viCommand = null;
+            if (command === "q!") closeInteractive(surface);
+            else if (command === "wq") { if (save()) closeInteractive(surface); }
+            else if (command === "w") save();
+            else paintStatus("Not an editor command: " + command);
+          } else if (!event.ctrlKey && !event.metaKey && key.length === 1 && viCommand.length < 32) {
+            viCommand += key;
+            paintStatus(":" + viCommand);
+          }
+          return;
+        }
+        if (!isNano && key === ":") {
+          event.preventDefault();
+          viCommand = "";
+          paintStatus(":");
+        }
+      });
+      paintStatus();
+      area.focus({ preventScroll: true });
+      scrollBottom();
+    }
+
+    function openPager(config) {
+      running = true;
+      var surface = document.createElement("section");
+      var content = document.createElement("pre");
+      var statusBar = document.createElement("div");
+      var lines = String(config.text || "").replace(/\n$/, "").split("\n");
+      var lineHeight = parseFloat(window.getComputedStyle(stream).lineHeight) || 18;
+      var pageSize = Math.max(4, Math.floor((body.clientHeight - 72) / lineHeight));
+      var start = 0;
+      surface.className = "hlterm-interactive hlterm-pager";
+      surface.tabIndex = 0;
+      surface.setAttribute("role", "region");
+      surface.setAttribute("aria-label", config.command + " pager for " + config.label);
+      content.className = "hlterm-pager-content";
+      statusBar.className = "hlterm-pager-status";
+      surface.append(content, statusBar);
+      stream.appendChild(surface);
+      interactive = surface;
+
+      function paint() {
+        var end = Math.min(lines.length, start + pageSize);
+        content.textContent = lines.slice(start, end).join("\n");
+        var percent = lines.length ? Math.round(end / lines.length * 100) : 100;
+        statusBar.textContent = config.label + "  " + (start + 1) + "-" + end + "/" + lines.length + "  " + percent + "%";
+      }
+
+      surface.addEventListener("keydown", function (event) {
+        event.stopPropagation();
+        var key = event.key.toLowerCase();
+        if (["j", "k", "q", "b", " "].indexOf(key) === -1 && event.key !== "Spacebar") return;
+        event.preventDefault();
+        if (key === "q") { closeInteractive(surface); return; }
+        if (key === "j") start = Math.min(Math.max(0, lines.length - 1), start + 1);
+        else if (key === "k") start = Math.max(0, start - 1);
+        else if (key === "b") start = Math.max(0, start - pageSize);
+        else start = Math.min(Math.max(0, lines.length - 1), start + pageSize);
+        paint();
+      });
+      paint();
+      surface.focus({ preventScroll: true });
+      scrollBottom();
+    }
+
     function applyEffect(effect) {
       if (!effect) return false;
       if (effect === "clear") stream.replaceChildren();
@@ -352,6 +597,8 @@
       else if (effect === "matrix-off") setMatrix(false);
       else if (effect === "reset") { setMatrix(false); stream.replaceChildren(); }
       else if (effect.authenticate) { passwordPrompt(effect.authenticate); return true; }
+      else if (effect.editor) { openEditor(effect.editor); return true; }
+      else if (effect.pager) { openPager(effect.pager); return true; }
       else if (effect.navigate) window.location.assign(effect.navigate);
       return false;
     }
@@ -366,7 +613,7 @@
       var effectOwnsPrompt = applyEffect(result.effect);
       if (result.stdout) appendLine(result.stdout, "hlterm-line");
       if (result.stderr) appendLine(result.stderr, "hlterm-error");
-      if (window.HighLionSfx && !(result.effect && result.effect.authenticate)) {
+      if (window.HighLionSfx && !(result.effect && (result.effect.authenticate || result.effect.sfxHandled))) {
         if (result.status === 0) window.HighLionSfx.ok();
         else window.HighLionSfx.error();
       }
@@ -382,6 +629,7 @@
         input.value = input.value.slice(0, completion.start) + choice + suffix + input.value.slice(caret);
         var next = completion.start + choice.length + suffix.length;
         input.setSelectionRange(next, next);
+        renderCommandInput();
       } else if (completion.choices.length > 1) appendLine(completion.choices.join("  "), "hlterm-muted");
     }
 
@@ -409,6 +657,15 @@
         var start = Math.max(0, prefix.search(/\S+$/));
         input.value = input.value.slice(0, start) + input.value.slice(caret);
         input.setSelectionRange(start, start);
+        renderCommandInput();
+      } else if (event.ctrlKey && key === "d" && input.value === "") {
+        event.preventDefault();
+        if (machine.identity.user !== machine.visitorName) {
+          freeze("");
+          machine.dropToKali();
+          appendLine("logout", "hlterm-muted");
+          addLive();
+        }
       } else if (event.key === "Enter") {
         event.preventDefault();
         var raw = input.value;
@@ -422,11 +679,13 @@
         if (historyIndex > 0) historyIndex -= 1;
         input.value = machine.history[historyIndex] || "";
         input.setSelectionRange(input.value.length, input.value.length);
+        renderCommandInput();
       } else if (event.key === "ArrowDown") {
         event.preventDefault();
         if (historyIndex < machine.history.length) historyIndex += 1;
         input.value = machine.history[historyIndex] || "";
         input.setSelectionRange(input.value.length, input.value.length);
+        renderCommandInput();
       } else if (event.key === "Tab") {
         event.preventDefault(); complete();
       }
@@ -436,6 +695,7 @@
       stream.replaceChildren();
       live = null;
       input = null;
+      inputView = null;
       appendLine("Kali GNU/Linux Rolling", "hlterm-muted");
       appendLine("highlion tty1", "hlterm-muted");
       appendLine("", "hlterm-muted");
@@ -450,7 +710,7 @@
     }
 
     body.addEventListener("keydown", function (event) {
-      if (!running || !event.ctrlKey || event.key.toLowerCase() !== "c") return;
+      if (interactive || !running || !event.ctrlKey || event.key.toLowerCase() !== "c") return;
       event.preventDefault();
       if (matrixWanted) setMatrix(false);
       runSerial += 1;
@@ -458,7 +718,7 @@
       appendLine("^C", "hlterm-muted");
       addLive();
     });
-    body.addEventListener("click", function () { if (input) input.focus(); else body.focus(); });
+    body.addEventListener("click", function () { if (interactive) interactive.focus(); else if (input) input.focus(); else body.focus(); });
     new ResizeObserver(function () { if (matrixWanted) setMatrix(true); }).observe(body);
 
     stream.replaceChildren();

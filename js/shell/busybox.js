@@ -97,6 +97,54 @@
     return [a0,b0,c0,d0].map(function (word) { return [0,8,16,24].map(function (shift) { return ((word >>> shift) & 255).toString(16).padStart(2,"0"); }).join(""); }).join("");
   }
 
+  function bytesToBase64(data) {
+    var binary = "";
+    for (var offset = 0; offset < data.length; offset += 0x8000) {
+      binary += String.fromCharCode.apply(null, data.subarray(offset, offset + 0x8000));
+    }
+    return root.btoa(binary);
+  }
+
+  function base64ToBytes(value) {
+    var binary = root.atob(String(value || ""));
+    var data = new Uint8Array(binary.length);
+    for (var index = 0; index < binary.length; index += 1) data[index] = binary.charCodeAt(index);
+    return data;
+  }
+
+  async function gzipText(text) {
+    var data = bytes(text);
+    if (!root.CompressionStream) return "HLGZIP0:" + bytesToBase64(data);
+    var stream = new Blob([data]).stream().pipeThrough(new CompressionStream("gzip"));
+    return "HLGZIP1:" + bytesToBase64(new Uint8Array(await new Response(stream).arrayBuffer()));
+  }
+
+  async function gunzipText(value) {
+    var stored = String(value || "");
+    if (stored.indexOf("HLGZIP0:") === 0) return new TextDecoder().decode(base64ToBytes(stored.slice(8)));
+    if (stored.indexOf("HLGZIP1:") !== 0 || !root.DecompressionStream) throw new Error("not in gzip format");
+    var stream = new Blob([base64ToBytes(stored.slice(8))]).stream().pipeThrough(new DecompressionStream("gzip"));
+    return new TextDecoder().decode(await new Response(stream).arrayBuffer());
+  }
+
+  var MANUALS = {
+    ls: ["LS(1)", "NAME", "    ls - list directory contents", "SYNOPSIS", "    ls [-a] [-l] [PATH ...]", "DESCRIPTION", "    Lists files from the mounted browser filesystem.", "    -a includes dot files; -l prints modes, owners and sizes.", "    Multiple paths are printed in separate blocks."],
+    cd: ["CD(1)", "NAME", "    cd - change the working directory", "SYNOPSIS", "    cd [DIRECTORY|-]", "DESCRIPTION", "    With no directory, changes to the current user's home.", "    A dash returns to the previous directory.", "    Traversal follows simulated permissions."],
+    cat: ["CAT(1)", "NAME", "    cat - concatenate files", "SYNOPSIS", "    cat [FILE ...]", "DESCRIPTION", "    Writes file contents to standard output.", "    With pipeline input and no file, reads standard input.", "    Device nodes use their simulated behavior."],
+    grep: ["GREP(1)", "NAME", "    grep - print matching lines", "SYNOPSIS", "    grep [-n] [-i] [-v] PATTERN [FILE ...]", "DESCRIPTION", "    Searches text files or pipeline input.", "    -n adds line numbers; -i ignores case; -v inverts.", "    Matching is bounded by the shell output budget."],
+    find: ["FIND(1)", "NAME", "    find - walk a directory tree", "SYNOPSIS", "    find [PATH] [-name GLOB] [-type f|d]", "DESCRIPTION", "    Walks only the mounted simulated filesystem.", "    Results respect directory read and execute permissions.", "    Host paths are never visible."],
+    nano: ["NANO(1)", "NAME", "    nano - edit a file in the panel", "SYNOPSIS", "    nano [FILE]", "DESCRIPTION", "    Opens the in-panel 64 KiB text editor.", "    Ctrl+S writes; Ctrl+O then Enter also writes.", "    Ctrl+X exits and discards unsaved changes."],
+    vim: ["VIM(1)", "NAME", "    vim - edit a file in the panel", "SYNOPSIS", "    vim [FILE]", "DESCRIPTION", "    Opens the in-panel 64 KiB text editor.", "    Ctrl+S or :w writes; :wq writes and exits.", "    :q! exits and discards unsaved changes."],
+    su: ["SU(1)", "NAME", "    su - switch simulated identity", "SYNOPSIS", "    su [-] [root|admin|kali]", "DESCRIPTION", "    Root and admin require server-verified passwords.", "    Root also requires the operator capability cookie.", "    A login switch resets home, environment and prompt."],
+    sudo: ["SUDO(1)", "NAME", "    sudo - execute under simulated policy", "SYNOPSIS", "    sudo COMMAND [ARG ...]", "DESCRIPTION", "    Root may execute mounted commands.", "    Admin has a narrow challenge-read policy.", "    Kali is not in the simulated sudoers file."],
+    ip: ["IP(1)", "NAME", "    ip - show simulated network state", "SYNOPSIS", "    ip addr|route|neigh|link", "DESCRIPTION", "    Reports the isolated Osprey & Hale 10.8.0.0/24 LAN.", "    No host interface or real route is exposed.", "    State comes from deterministic local fixtures."],
+    ping: ["PING(1)", "NAME", "    ping - probe a simulated LAN host", "SYNOPSIS", "    ping [-c COUNT] HOST", "DESCRIPTION", "    Resolves and probes only local fixture hosts.", "    Timing is deterministic and no network packet is sent.", "    Unknown and off-LAN destinations fail closed."],
+    nmap: ["NMAP(1)", "NAME", "    nmap - scan simulated LAN services", "SYNOPSIS", "    nmap [-sV] [-p PORTS] HOST", "DESCRIPTION", "    Reads the sealed 10.8.0.0/24 service profiles.", "    It never opens sockets or scans the public internet.", "    Branded offensive suites remain unavailable."],
+    curl: ["CURL(1)", "NAME", "    curl - fetch a simulated endpoint", "SYNOPSIS", "    curl [-I] URL", "DESCRIPTION", "    Routes requests through the local fixture network.", "    Documented challenge URLs are supported.", "    Real WAN fetches are rejected."],
+    tar: ["TAR(1)", "NAME", "    tar - archive mounted files", "SYNOPSIS", "    tar -cf ARCHIVE PATH ...", "    tar -tf ARCHIVE | tar -xf ARCHIVE", "DESCRIPTION", "    Creates, lists and extracts bounded in-memory archives.", "    Add z to the option group for gzip compression.", "    Extraction rejects absolute and parent paths."],
+    git: ["GIT(1)", "NAME", "    git - inspect the fixture repository", "SYNOPSIS", "    git --version|status|log", "DESCRIPTION", "    Operates only on ~/highlion's simulated repository.", "    Status reports overlay edits under that path.", "    No remote, credentials or GitHub connection exists."]
+  };
+
   function BusyBox(machine) {
     this.machine = machine;
     this.fs = machine.fs;
@@ -193,9 +241,15 @@
   };
 
   BusyBox.prototype.cmdEcho = function (args) {
-    var newline = args[0] !== "-n";
-    if (!newline) args.shift();
-    return result(args.join(" ") + (newline ? "\n" : ""));
+    var newline = true; var escapes = false;
+    while (args[0] === "-n" || args[0] === "-e" || args[0] === "-ne" || args[0] === "-en") {
+      var option = args.shift();
+      if (option.indexOf("n") !== -1) newline = false;
+      if (option.indexOf("e") !== -1) escapes = true;
+    }
+    var text = args.join(" ");
+    if (escapes) text = text.replace(/\\n/g, "\n").replace(/\\t/g, "\t").replace(/\\r/g, "\r").replace(/\\\\/g, "\\");
+    return result(text + (newline ? "\n" : ""));
   };
 
   BusyBox.prototype.cmdPrintf = function (args) {
@@ -217,9 +271,14 @@
     var ok = false;
     try {
       if (args.length === 1) ok = args[0] !== "";
-      else if (args.length === 2 && ["-e", "-f", "-d"].indexOf(args[0]) !== -1) {
+      else if (args.length === 2 && ["-e", "-f", "-d", "-s", "-r", "-w", "-x"].indexOf(args[0]) !== -1) {
         var node = this.fs.stat(args[1], this.machine.cwd);
-        ok = Boolean(node && (args[0] === "-e" || (args[0] === "-f" && node.type === "file") || (args[0] === "-d" && node.type === "dir")));
+        ok = Boolean(node && (args[0] === "-e" || (args[0] === "-f" && node.type === "file") || (args[0] === "-d" && node.type === "dir") || (args[0] === "-s" && this.fs.size(node) > 0) || (["-r", "-w", "-x"].indexOf(args[0]) !== -1 && this.fs.canAccess(node, args[0].slice(1)))));
+      } else if (args.length === 2 && (args[0] === "-z" || args[0] === "-n")) {
+        ok = args[0] === "-z" ? args[1] === "" : args[1] !== "";
+      } else if (args.length === 3 && ["-eq", "-ne", "-gt", "-lt"].indexOf(args[1]) !== -1) {
+        var left = Number(args[0]); var right = Number(args[2]);
+        ok = Number.isFinite(left) && Number.isFinite(right) && (args[1] === "-eq" ? left === right : args[1] === "-ne" ? left !== right : args[1] === "-gt" ? left > right : left < right);
       } else if (args.length === 3) ok = args[1] === "=" ? args[0] === args[2] : args[1] === "!=" ? args[0] !== args[2] : false;
     } catch (error) { ok = false; }
     return result("", ok ? 0 : 1);
@@ -277,8 +336,16 @@
   };
 
   BusyBox.prototype.cmdChmod = function (args) {
-    if (args.length !== 2 || !/^[0-7]{3,4}$/.test(args[0])) return failure("chmod", "usage: chmod MODE FILE");
-    try { this.fs.chmod(args[1], args[0], this.machine.cwd); this.machine.persist(); return result(); } catch (error) { return failure("chmod", error); }
+    if (args.length !== 2 || (!/^[0-7]{3,4}$/.test(args[0]) && args[0] !== "u+x")) return failure("chmod", "usage: chmod MODE FILE");
+    try {
+      var mode = args[0];
+      if (mode === "u+x") {
+        var node = this.fs.lstat(args[1], this.machine.cwd);
+        if (!node) throw new Error("no such file or directory");
+        mode = (Number(node.mode) | 64).toString(8).padStart(4, "0");
+      }
+      this.fs.chmod(args[1], mode, this.machine.cwd); this.machine.persist(); return result();
+    } catch (error) { return failure("chmod", error); }
   };
 
   BusyBox.prototype.cmdChown = function (args) {
@@ -507,13 +574,90 @@
 
   BusyBox.prototype.cmdBase64 = function(args,stdin){try{var text=this.readInput(args,stdin,"base64").text;var binary=String.fromCharCode.apply(null,bytes(text));return result(root.btoa(binary)+"\n");}catch(error){return failure("base64",error);}};
   BusyBox.prototype.cmdHex = function(name,args,stdin){try{var data=bytes(this.readInput(args,stdin,name).text);var lines=[];for(var offset=0;offset<data.length;offset+=16){var slice=Array.from(data.slice(offset,offset+16));if(name==="od")lines.push(offset.toString(8).padStart(7,"0")+" "+slice.map(function(v){return v.toString(8).padStart(3,"0");}).join(" "));else lines.push(offset.toString(16).padStart(8,"0")+"  "+slice.map(function(v){return v.toString(16).padStart(2,"0");}).join(" ").padEnd(47," ")+"  |"+slice.map(function(v){return v>=32&&v<127?String.fromCharCode(v):".";}).join("")+"|");}return result(lines.join("\n")+"\n");}catch(error){return failure(name,error);}};
-  BusyBox.prototype.cmdPager=function(name,args,stdin){try{var text=this.readInput(args,stdin,name).text;return result(text+(text.endsWith("\n")?"":"\n")+"--end--\n");}catch(error){return failure(name,error);}};
+  BusyBox.prototype.cmdPager=function(name,args,stdin){try{var data=this.readInput(args,stdin,name);return result("",0,"",{pager:{command:name,label:data.label,text:data.text}});}catch(error){return failure(name,error);}};
 
-  BusyBox.prototype.cmdMan = function(args){if(args.length!==1)return failure("man","what manual page do you want?");try{return result(this.machine.readFile("/usr/share/man/man1/"+args[0]+".1"));}catch(error){return failure("man","No manual entry for "+args[0]);}};
+  BusyBox.prototype.cmdGzip = async function(name,args){
+    if(args.length!==1)return failure(name,"usage: "+name+" FILE");
+    var source=args[0];
+    try{
+      if(name==="gzip"){
+        var compressed=await gzipText(this.machine.readFile(source));
+        this.machine.writeFile(source+".gz",compressed,false);
+        this.fs.remove(source,this.machine.cwd,false);this.machine.persist();
+        return result();
+      }
+      var text=await gunzipText(this.machine.readFile(source));
+      if(name==="zcat")return result(text);
+      var destination=source.replace(/\.gz$/,"");
+      if(destination===source)throw new Error("unknown suffix -- ignored");
+      this.machine.writeFile(destination,text,false);
+      this.fs.remove(source,this.machine.cwd,false);this.machine.persist();
+      return result();
+    }catch(error){return failure(name,error);}
+  };
+
+  BusyBox.prototype.cmdTar = async function(args){
+    if(args.length<2)return failure("tar","usage: tar -cf|-tf|-xf ARCHIVE [PATH ...]");
+    var option=args.shift();var archive=args.shift();
+    if(!/^-?[ctx]z?f$/.test(option))return failure("tar","supported options: -cf -tf -xf -czf -tzf -xzf");
+    var action=option.indexOf("c")!==-1?"c":option.indexOf("t")!==-1?"t":"x";var zipped=option.indexOf("z")!==-1;
+    try{
+      if(action==="c"){
+        if(!args.length)throw new Error("cowardly refusing to create an empty archive");
+        var entries=[];var seen=new Set();
+        args.forEach(function(path){
+          this.fs.walk(path,this.machine.cwd).forEach(function(row){
+            var absolute=row.path;var stored=absolute.indexOf(this.machine.cwd+"/")===0?absolute.slice(this.machine.cwd.length+1):absolute.replace(/^\/+/,"");
+            if(!stored||seen.has(stored))return;seen.add(stored);
+            var entry={path:stored,type:row.node.type,mode:Number(row.node.mode).toString(8),target:row.node.target||""};
+            if(row.node.type==="file")entry.content=this.machine.readFile(absolute);
+            entries.push(entry);
+          },this);
+        },this);
+        var packed="HLTAR1:"+bytesToBase64(bytes(JSON.stringify(entries)));
+        if(zipped)packed=await gzipText(packed);
+        this.machine.writeFile(archive,packed,false);return result();
+      }
+      var packedText=this.machine.readFile(archive);if(zipped)packedText=await gunzipText(packedText);
+      if(packedText.indexOf("HLTAR1:")!==0)throw new Error("this does not look like a tar archive");
+      var rows=JSON.parse(new TextDecoder().decode(base64ToBytes(packedText.slice(7))));
+      if(!Array.isArray(rows))throw new Error("invalid archive");
+      if(action==="t")return result(rows.map(function(row){return row.path+(row.type==="dir"?"/":"");}).join("\n")+"\n");
+      rows.forEach(function(row){
+        if(!row||typeof row.path!=="string"||row.path.charAt(0)==="/"||/(^|\/)\.\.?($|\/)/.test(row.path))throw new Error("unsafe archive path");
+        if(row.type==="dir")this.fs.mkdir(row.path,this.machine.cwd,true,false);
+        else{
+          var parent=HL.path.dirname(this.fs.normalize(row.path,this.machine.cwd));
+          if(!this.fs.nodes.has(parent))this.fs.mkdir(parent,"/",true,false);
+          if(row.type==="symlink")this.fs.symlink(String(row.target||""),row.path,this.machine.cwd,false);
+          else this.fs.writeFile(row.path,String(row.content||""),this.machine.cwd,false,false);
+        }
+      },this);
+      if(!this.machine.persist())throw new Error("persistence limit exceeded");
+      return result();
+    }catch(error){return failure("tar",error);}
+  };
+
+  BusyBox.prototype.cmdGit = function(args){
+    if(args.length===1&&args[0]==="--version")return result("git version 2.51.0\n");
+    var repo="/home/kali/highlion";var cwd=this.machine.cwd;
+    if(cwd!==repo&&cwd.indexOf(repo+"/")!==0)return failure("git","not a git repository (or any parent up to mount point /)",128);
+    if(!args.length||args[0]==="status"){
+      var dirty=Array.from(this.fs.dirty).filter(function(path){return path.indexOf(repo+"/")===0&&path.indexOf(repo+"/.trophies/")!==0&&path.indexOf(repo+"/.git/")!==0;});
+      var out="On branch main\n";
+      if(!dirty.length)out+="nothing to commit, working tree clean\n";
+      else out+="Changes not staged for commit:\n"+dirty.map(function(path){return "\tmodified:   "+path.slice(repo.length+1);}).join("\n")+"\n";
+      return result(out);
+    }
+    if(args[0]==="log")return result("commit 545b41606a274209003cc1e66e4cd1bfc04468f9 (HEAD -> main)\nAuthor: HighLion Lab <lab@localhost>\nDate:   Sun Sep 28 11:17:19 2026 +0000\n\n    harden HLv8 shell and loading states\n\ncommit 69c6a4f52c2a32fd7ae88bf40000000000000000\nAuthor: HighLion Lab <lab@localhost>\nDate:   Sat Sep 26 09:00:00 2026 +0000\n\n    add auth and shell slots\n");
+    return failure("git","supported: git --version, git status, git log");
+  };
+
+  BusyBox.prototype.cmdMan = function(args){if(args.length!==1)return failure("man","what manual page do you want?");if(MANUALS[args[0]])return result(MANUALS[args[0]].join("\n")+"\n");try{return result(this.machine.readFile("/usr/share/man/man1/"+args[0]+".1"));}catch(error){return failure("man","No manual entry for "+args[0]);}};
   BusyBox.prototype.cmdHelp = function(args){
     if(args.length===1)return this.cmdMan(args);
     if(args.length)return failure("help","usage: help [command]");
-    return result("GNU bash, version 5.3\nShell commands:\n  cd pwd help history alias clear reset exit export unset env\n  ls cat head tail grep find mkdir touch cp mv rm chmod chown\n  ps top kill pkill who w id groups df free lsblk mount\n  ip ifconfig route arp ss netstat ping nmap nc ssh traceroute dig host whois curl wget\n");
+    return result("GNU bash, version 5.3\nShell commands:\n  cd pwd help history alias clear reset exit export unset env jobs fg bg\n  ls cat head tail less more grep find mkdir touch cp mv rm chmod chown\n  nano vim vi tar gzip gunzip zcat git sha256sum md5sum bash\n  ps top kill pkill who w id groups df free lsblk mount\n  ip ifconfig route arp ss netstat ping nmap nc ssh traceroute dig host whois curl wget\n  su sudo score trophies claim hint motd open writeups projects\n");
   };
 
   BusyBox.prototype.cmdWhichType = function(name,args,shell){if(args.length!==1)return failure(name,"usage: "+name+" NAME");var path=shell.resolveCommand(args[0]);if(!path)return result("",1,name+": "+args[0]+" not found\n");if(name==="type")return result(args[0]+" is "+(this.commandNames.has(args[0])?"a shell builtin":""+path)+"\n");return result(path+"\n");};
@@ -858,11 +1002,31 @@
   BusyBox.prototype.cmdLsblk=function(args){if(args.length)return failure("lsblk","unsupported option");return result("NAME   MAJ:MIN RM  SIZE RO TYPE MOUNTPOINTS\nvda    252:0    0   25G  0 disk\n├─vda1 252:1    0  512M  0 part /boot\n└─vda2 252:2    0 24.5G  0 part /\n");};
   BusyBox.prototype.cmdTop=function(args){if(args.length&&args.join(" ")!=="-bn1"&&args.join(" ")!=="-b -n 1")return failure("top","only batch snapshot mode is available");var up=Math.max(1,Math.floor(this.machine.proc.uptimeSeconds()/60));return result("top - "+new Date().toTimeString().slice(0,8)+" up "+up+" min,  1 user,  load average: 0.04, 0.02, 0.01\nTasks:   7 total,   1 running,   6 sleeping,   0 stopped,   0 zombie\n%Cpu(s):  1.0 us,  0.5 sy,  0.0 ni, 98.5 id,  0.0 wa,  0.0 hi,  0.0 si,  0.0 st\nMiB Mem :   2000.0 total,    964.0 free,    512.0 used,    524.0 buff/cache\nMiB Swap:    512.0 total,    512.0 free,      0.0 used.   1400.0 avail Mem\n\n    PID USER      PR  NI    VIRT    RES    SHR S  %CPU  %MEM     TIME+ COMMAND\n      1 root      20   0   22840  12800   9216 S   0.0   0.6   0:01.42 systemd\n   1337 "+this.machine.identity.user.padEnd(8," ")+"  20   0   11240   6912   3712 R   0.3   0.3   0:00.04 zsh\n");};
   BusyBox.prototype.cmdAlias=function(args){if(args.length)return failure("alias","setting aliases interactively is not supported; edit ~/.zshrc");return result(Object.keys(this.machine.aliases).sort().map(function(name){return "alias "+name+"='"+this.machine.aliases[name]+"'";},this).join("\n")+"\n");};
-  BusyBox.prototype.cmdBash=async function(args,shell){if(args.length===1&&args[0]==="--version")return result("GNU bash, version 5.3.0(1)-release (x86_64-pc-linux-gnu)\n");if(args[0]!=="-c"||args.length!==2)return failure("bash","usage: bash -c COMMAND");return shell.run(args[1],{capture:true,script:true,depth:1});};
+  BusyBox.prototype.cmdBash=async function(args,shell){
+    if(args.length===1&&args[0]==="--version")return result("GNU bash, version 5.3.0(1)-release (x86_64-pc-linux-gnu)\n");
+    if(args[0]==="-c"&&args.length===2)return shell.run(args[1],{capture:true,script:true,depth:1});
+    if(args.length===1){var started=root.performance&&root.performance.now?root.performance.now():Date.now();return shell.runScript(args[0],[],{capture:true,script:true,depth:1,budget:{steps:0,started:started}});}
+    return failure("bash","usage: bash FILE | bash -c COMMAND");
+  };
   BusyBox.prototype.cmdRuntime=function(name,args){var versions={python3:"Python 3.13.5",perl:"This is perl 5, version 40, subversion 2",ruby:"ruby 3.3.8 (2026-04-09 revision hl8) [x86_64-linux]"};if(args.length&&["--version","-v","-V"].indexOf(args[0])===-1)return failure(name,"evaluation is disabled in this sealed browser TTY");return result(versions[name]+"\n"+(args.length?"":name+": can't open an interactive TTY\n"));};
   BusyBox.prototype.cmdPasswd=function(args){if(args.length>1)return failure("passwd","usage: passwd [USER]");return failure("passwd","Authentication token manipulation error");};
-  BusyBox.prototype.cmdEditor=function(name,args){if(args.length>1)return failure(name,"usage: "+name+" [FILE]");return failure(name,"can't open an interactive TTY");};
+  BusyBox.prototype.cmdEditor=function(name,args){
+    if(args.length>1)return failure(name,"usage: "+name+" [FILE]");
+    var label=args[0]||"[No Name]";var path="";var text="";
+    try{
+      if(args[0]){
+        path=this.fs.resolve(args[0],this.machine.cwd,true);
+        var node=this.fs.stat(path,"/");
+        if(node&&node.type==="dir")throw new Error("is a directory");
+        if(node)text=this.machine.readFile(path);
+      }
+      return result("",0,"",{editor:{command:name,label:label,path:path,text:text}});
+    }catch(error){return failure(name,error);}
+  };
   BusyBox.prototype.cmdMissingTool=function(name){return result("",127,name+": not installed in this sealed TTY\n");};
+  BusyBox.prototype.cmdJobs=function(args,shell){if(args.length)return failure("jobs","extra operand");return result(shell.jobsText());};
+  BusyBox.prototype.cmdFg=async function(args,shell){if(args.length>1)return failure("fg","usage: fg [%1]");return shell.foregroundJob();};
+  BusyBox.prototype.cmdBg=function(args,shell){if(args.length>1)return failure("bg","usage: bg [%1]");return shell.backgroundJobStatus();};
 
   BusyBox.prototype.cmdCowsay=function(args){var message=args.join(" ")||"moo";var bar="-".repeat(message.length+2);return result(" "+"_".repeat(message.length+2)+"\n< "+message+" >\n "+bar+"\n        \\   ^__^\n         \\  (oo)\\_______\n            (__)\\       )\\/\\\n                ||----w |\n                ||     ||\n");};
   BusyBox.prototype.cmdFiglet=function(args){return result(figletText(args.join(" ")||"HighLion")+"HLv8 / "+this.machine.identity.user+"@"+this.machine.identity.host+"\n");};
@@ -897,6 +1061,7 @@
     if(name==="mkdir")return this.cmdMkdir(args); if(name==="rmdir")return this.cmdRmdir(args); if(name==="touch")return this.cmdTouch(args); if(name==="cp"||name==="mv")return this.cmdCpMv(name,args); if(name==="rm")return this.cmdRm(args); if(name==="ln")return this.cmdLn(args); if(name==="chmod")return this.cmdChmod(args); if(name==="chown")return this.cmdChown(args); if(name==="stat")return this.cmdStat(args); if(name==="file")return this.cmdFile(args);
     if(name==="tree")return this.cmdTree(args); if(name==="find")return this.cmdFind(args); if(name==="grep")return this.cmdGrep(args,stdin); if(name==="sed")return this.cmdSed(args,stdin); if(name==="awk")return this.cmdAwk(args,stdin); if(name==="sort")return this.cmdSort(args,stdin); if(name==="uniq")return this.cmdUniq(args,stdin); if(name==="cut")return this.cmdCut(args,stdin); if(name==="tr")return this.cmdTr(args,stdin); if(name==="diff")return this.cmdDiff(args);
     if(name==="sha256sum"||name==="md5sum")return this.cmdHash(name,args,stdin); if(name==="base64")return this.cmdBase64(args,stdin); if(name==="xxd"||name==="od"||name==="hexdump")return this.cmdHex(name,args,stdin); if(name==="less"||name==="more")return this.cmdPager(name,args,stdin);
+    if(name==="tar")return this.cmdTar(args); if(name==="gzip"||name==="gunzip"||name==="zcat")return this.cmdGzip(name,args); if(name==="git")return this.cmdGit(args);
     if(name==="man")return this.cmdMan(args); if(name==="help")return this.cmdHelp(args); if(name==="which"||name==="type")return this.cmdWhichType(name,args,shell); if(name==="command"){if(!args.length)return result();if(args[0]==="-v")return this.cmdWhichType("which",args.slice(1),shell);return shell.run(args.join(" "),{capture:true,depth:1});}
     if(name==="env")return this.cmdEnv(args); if(name==="export")return this.cmdExport(args); if(name==="unset")return this.cmdUnset(args); if(name==="set")return this.cmdSet(args); if(name==="source")return this.cmdSource(args);
     if(name==="date")return this.cmdDate(args); if(name==="cal")return this.cmdCal(args); if(name==="yes")return this.cmdYes(args); if(name==="seq")return this.cmdSeq(args); if(name==="sleep")return this.cmdSleep(args); if(name==="timeout")return this.cmdTimeout(args,shell); if(name==="uname")return this.cmdUname(args); if(["hostname","whoami","id","groups"].indexOf(name)!==-1)return this.cmdIdentity(name,args); if(name==="umask")return this.cmdUmask(args);
@@ -906,7 +1071,7 @@
     if(name==="systemctl")return this.cmdSystemctl(args); if(name==="journalctl")return this.cmdJournalctl(args); if(name==="service")return this.cmdService(args); if(name==="dpkg")return this.cmdDpkg(args); if(name==="apt")return this.cmdApt(args); if(name==="sudo")return this.cmdSudo(args,shell); if(name==="su")return this.cmdSu(args); if(name==="exit"||name==="logout")return this.cmdLogout(args); if(name==="passwd")return this.cmdPasswd(args); if(name==="nano"||name==="vim"||name==="vi")return this.cmdEditor(name,args); if(name==="iptables")return this.cmdIptables(args); if(name==="hostnamectl")return this.cmdHostnamectl(args); if(name==="lsb_release")return this.cmdLsbRelease(args); if(name==="timedatectl")return this.cmdTimedatectl(args); if(name==="lsblk")return this.cmdLsblk(args); if(name==="top")return this.cmdTop(args); if(name==="alias")return this.cmdAlias(args); if(name==="bash")return this.cmdBash(args,shell); if(name==="python3"||name==="perl"||name==="ruby")return this.cmdRuntime(name,args);
     if(["msfconsole","msfvenom","searchsploit","hydra","john","hashcat","sqlmap","aircrack-ng","burpsuite","wireshark","responder","crackmapexec"].indexOf(name)!==-1)return this.cmdMissingTool(name);
     if(name==="cowsay")return this.cmdCowsay(args); if(name==="fortune")return this.cmdFortune(args); if(name==="sl")return this.cmdSl(args); if(name==="figlet")return this.cmdFiglet(args); if(name==="banner")return this.cmdBanner(args); if(name==="neofetch")return this.cmdNeofetch(args); if(name==="cmatrix")return this.cmdCmatrix(args);
-    if(name==="history")return this.cmdHistory(args); if(name==="clear")return result("",0,"","clear"); if(name==="reset")return result("",0,"","reset"); if(name==="reset-machine"){this.machine.reset();return result("",0,"","reset");}
+    if(name==="history")return this.cmdHistory(args); if(name==="jobs")return this.cmdJobs(args,shell); if(name==="fg")return this.cmdFg(args,shell); if(name==="bg")return this.cmdBg(args,shell); if(name==="clear")return result("",0,"","clear"); if(name==="reset")return result("",0,"","reset"); if(name==="reset-machine"){this.machine.reset();return result("",0,"","reset");}
     if(name==="score")return this.cmdScore(args); if(name==="trophies")return this.cmdTrophies(args); if(name==="claim")return this.cmdClaim(args); if(name==="hint")return this.cmdHint(args); if(name==="motd")return this.cmdMotd(args); if(name==="open")return this.cmdOpen(args); if(name==="writeups"||name==="projects")return this.cmdPublished(name,args);
     return result("",127,"zsh: command not found: "+name+"\n");
   };

@@ -16,6 +16,7 @@
     this.maxInstructions = 50000;
     this.maxWallMs = 200;
     this.maxOutputBytes = 32768;
+    this.background = null;
   }
 
   Shell.prototype.charge = function (options, amount) {
@@ -23,7 +24,7 @@
     if (!budget) return;
     budget.steps += amount || 1;
     var now = root.performance && root.performance.now ? root.performance.now() : Date.now();
-    if (budget.steps > this.maxInstructions || now - budget.started > this.maxWallMs) {
+    if (budget.steps > this.maxInstructions || (!options.background && now - budget.started > this.maxWallMs)) {
       var error = new Error("Killed");
       error.killed = true;
       throw error;
@@ -304,6 +305,81 @@
     return output;
   };
 
+  Shell.prototype.runControl = async function (line, options) {
+    var match = /^\s*for\s+([A-Za-z_][A-Za-z0-9_]*)\s+in\s+(.+?)\s*;\s*do\s+(.+?)\s*;\s*done\s*$/.exec(line);
+    var output = { stdout: "", stderr: "", status: 0, effect: null };
+    if (match) {
+      var name = match[1];
+      var previous = this.machine.env[name];
+      var values = this.tokenize(match[2]).map(this.resolveVariables.bind(this));
+      for (var index = 0; index < values.length; index += 1) {
+        this.charge(options, 1);
+        this.machine.env[name] = values[index];
+        var run = await this.run(match[3], { capture: true, depth: (options.depth || 0) + 1, budget: options.budget, script: options.script, background: options.background });
+        output.stdout += run.stdout; output.stderr += run.stderr; output.status = run.status; output.effect = run.effect || output.effect;
+        if (run.status !== 0) break;
+      }
+      if (previous === undefined) delete this.machine.env[name]; else this.machine.env[name] = previous;
+      return output;
+    }
+    match = /^\s*while\s+(.+?)\s*;\s*do\s+(.+?)\s*;\s*done\s*$/.exec(line);
+    if (match) {
+      while (true) {
+        this.charge(options, 2);
+        var condition = await this.run(match[1], { capture: true, depth: (options.depth || 0) + 1, budget: options.budget, script: options.script, background: options.background });
+        output.stdout += condition.stdout; output.stderr += condition.stderr;
+        if (condition.status !== 0) { output.status = 0; break; }
+        var body = await this.run(match[2], { capture: true, depth: (options.depth || 0) + 1, budget: options.budget, script: options.script, background: options.background });
+        output.stdout += body.stdout; output.stderr += body.stderr; output.status = body.status; output.effect = body.effect || output.effect;
+        if (body.status !== 0) break;
+      }
+      return output;
+    }
+    match = /^\s*if\s+(.+?)\s*;\s*then\s+(.+?)(?:\s*;\s*else\s+(.+?))?\s*;\s*fi\s*$/.exec(line);
+    if (match) {
+      var tested = await this.run(match[1], { capture: true, depth: (options.depth || 0) + 1, budget: options.budget, script: options.script, background: options.background });
+      output.stdout = tested.stdout; output.stderr = tested.stderr;
+      var branch = tested.status === 0 ? match[2] : match[3];
+      if (!branch) { output.status = 0; return output; }
+      var branched = await this.run(branch, { capture: true, depth: (options.depth || 0) + 1, budget: options.budget, script: options.script, background: options.background });
+      output.stdout += branched.stdout; output.stderr += branched.stderr; output.status = branched.status; output.effect = branched.effect;
+      return output;
+    }
+    return null;
+  };
+
+  Shell.prototype.startBackground = function (command) {
+    if (this.background) return { stdout: "", stderr: "zsh: one background job is already active\n", status: 1 };
+    var pid = this.machine.proc.spawn((command.trim().split(/\s+/)[0] || "job"));
+    var started = root.performance && root.performance.now ? root.performance.now() : Date.now();
+    var job = { id: 1, pid: pid, command: command, state: "Running", output: null, promise: null };
+    this.background = job;
+    job.promise = this.run(command, { capture: true, depth: 1, budget: { steps: 0, started: started }, background: true }).then(function (run) {
+      job.output = run;
+      job.state = "Done";
+      this.machine.proc.kill(pid, this.machine.identity.user);
+      return run;
+    }.bind(this));
+    return { stdout: "[1] " + pid + "\n", stderr: "", status: 0 };
+  };
+
+  Shell.prototype.jobsText = function () {
+    return this.background ? "[1]+  " + this.background.state.padEnd(8, " ") + " " + this.background.command + "\n" : "";
+  };
+
+  Shell.prototype.foregroundJob = async function () {
+    if (!this.background) return { stdout: "", stderr: "fg: no current job\n", status: 1 };
+    var job = this.background;
+    var run = job.output || await job.promise;
+    this.background = null;
+    return { stdout: String(run.stdout || ""), stderr: String(run.stderr || ""), status: Number(run.status || 0), effect: run.effect || null };
+  };
+
+  Shell.prototype.backgroundJobStatus = function () {
+    if (!this.background) return { stdout: "", stderr: "bg: no current job\n", status: 1 };
+    return { stdout: "[1]+ " + this.background.command + " &\n", stderr: "", status: 0 };
+  };
+
   Shell.prototype.run = async function (line, options) {
     options = options || {};
     var top = !options.budget;
@@ -313,8 +389,18 @@
     };
     if ((options.depth || 0) > this.maxDepth) return { stdout: "", stderr: "zsh: maximum fork depth exceeded\n", status: 126 };
     try {
-      this.charge(options, String(line || "").length + 1);
-      var expanded = await this.expandSubstitutions(String(line || ""), options);
+      var source = String(line || "");
+      this.charge(options, source.length + 1);
+      if (top && !options.background && /\s&\s*$/.test(source) && !/&&\s*$/.test(source)) {
+        return this.limitOutput(this.startBackground(source.replace(/\s&\s*$/, "")));
+      }
+      var controlled = await this.runControl(source, options);
+      if (controlled) {
+        this.machine.env["?"] = String(controlled.status);
+        this.machine.persist();
+        return top ? this.limitOutput(controlled) : controlled;
+      }
+      var expanded = await this.expandSubstitutions(source, options);
       var tokens = this.tokenize(expanded);
       if (!tokens.length) return { stdout: "", stderr: "", status: 0 };
       var run = await this.runTokens(tokens, options);

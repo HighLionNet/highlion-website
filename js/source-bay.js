@@ -71,6 +71,7 @@
         option.value = ".brief";
         option.textContent = ".brief";
         select.appendChild(option);
+        if (window.HighLionSfx) window.HighLionSfx.flag();
       }
     });
   });

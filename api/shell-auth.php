@@ -120,8 +120,11 @@ foreach ($hashKeys as $hashKey) {
 $cookieOk = true;
 if ($user === 'root') {
     $expected = trim((string) ($env['HL_OP_COOKIE'] ?? ''));
-    $actual = (string) ($_COOKIE['hl_op'] ?? '');
+    $actual = hl_cookie('hl_op');
     $cookieOk = $expected !== '' && $actual !== '' && hash_equals($expected, $actual);
+    if ($cookieOk) {
+        hl_op_refresh($actual);
+    }
 }
 
 $verified = $hash !== '' && $cookieOk && password_verify($password, $hash);

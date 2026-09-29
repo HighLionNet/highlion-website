@@ -48,10 +48,29 @@ function hl_traffic_timestamp($value): ?int
     return $timestamp === false ? null : $timestamp;
 }
 
-function hl_traffic_path(string $target): string
+function hl_traffic_public_path(string $target): ?string
 {
+    if ($target === '' || strlen($target) > 512 || preg_match('/%(?:2e|2f)/i', $target) === 1) {
+        return null;
+    }
     $path = parse_url($target, PHP_URL_PATH);
-    return is_string($path) && $path !== '' ? $path : '';
+    if (!is_string($path) || $path === '' || strlen($path) > 80 || strpos($path, "\0") !== false) {
+        return null;
+    }
+    $path = (string) preg_replace('#/+#', '/', $path);
+    if ($path === '' || preg_match('#(?:^|/)\.\.?($|/)#', $path) === 1) {
+        return null;
+    }
+    if ($path === '/' || $path === '/index.html') {
+        return '/';
+    }
+    if (in_array($path, ['/about.html', '/projects.html', '/writeups.html', '/contact.html'], true)) {
+        return $path;
+    }
+    if (preg_match('#^/(?:writeups|lab)/[A-Za-z0-9][A-Za-z0-9._/-]*\.html$#', $path) === 1) {
+        return $path;
+    }
+    return null;
 }
 
 function hl_traffic_parse(string $line): ?array
@@ -63,6 +82,13 @@ function hl_traffic_parse(string $line): ?array
 
     $json = json_decode($line, true);
     if (is_array($json) && isset($json['status']) && is_numeric($json['status'])) {
+        $method = '';
+        foreach (['method', 'request_method'] as $methodKey) {
+            if (isset($json[$methodKey]) && is_string($json[$methodKey])) {
+                $method = strtoupper(trim($json[$methodKey]));
+                break;
+            }
+        }
         $target = '';
         if (isset($json['path']) && is_string($json['path'])) {
             $target = $json['path'];
@@ -79,26 +105,37 @@ function hl_traffic_parse(string $line): ?array
             }
         }
         $status = (int) $json['status'];
-        if ($status >= 100 && $status <= 599) {
-            return ['status' => $status, 'time' => $timestamp, 'path' => hl_traffic_path($target)];
+        $path = hl_traffic_public_path($target);
+        if (in_array($method, ['GET', 'HEAD'], true) && $status >= 100 && $status <= 599 && $path !== null) {
+            return ['status' => $status, 'time' => $timestamp, 'path' => $path];
         }
+        return null;
     }
 
-    $path = '';
+    $method = '';
+    $path = null;
     $status = 0;
-    if (preg_match('/"[A-Z]+\s+(\S+)\s+HTTP\/\d(?:\.\d+)?"\s+([1-5]\d{2})\b/', $line, $combined)) {
-        $path = hl_traffic_path($combined[1]);
-        $status = (int) $combined[2];
-    } elseif (preg_match('/"[A-Z]+\s+(\S+)\s+HTTP\/\d(?:\.\d+)?"\s+"[^"]*"\s+"[^"]*"\s+([1-5]\d{2})\b/', $line, $combinedCf)) {
-        $path = hl_traffic_path($combinedCf[1]);
-        $status = (int) $combinedCf[2];
+    if (preg_match('/"([A-Z]+)\s+(\S+)\s+HTTP\/\d(?:\.\d+)?"\s+([1-5]\d{2})\b/', $line, $combined)) {
+        $method = strtoupper($combined[1]);
+        $path = hl_traffic_public_path($combined[2]);
+        $status = (int) $combined[3];
+    } elseif (preg_match('/"([A-Z]+)\s+(\S+)\s+HTTP\/\d(?:\.\d+)?"\s+"[^"]*"\s+"[^"]*"\s+([1-5]\d{2})\b/', $line, $combinedCf)) {
+        $method = strtoupper($combinedCf[1]);
+        $path = hl_traffic_public_path($combinedCf[2]);
+        $status = (int) $combinedCf[3];
     } elseif (
         preg_match('/\bstatus=([1-5]\d{2})\b/', $line, $statusMatch)
         && preg_match('/\bpath=("[^"]+"|\S+)/', $line, $pathMatch)
+        && preg_match('/\b(?:method|request_method)=([A-Z]+)\b/', $line, $methodMatch)
     ) {
         $status = (int) $statusMatch[1];
-        $path = hl_traffic_path(trim($pathMatch[1], '"'));
+        $method = strtoupper($methodMatch[1]);
+        $path = hl_traffic_public_path(trim($pathMatch[1], '"'));
     } else {
+        return null;
+    }
+
+    if (!in_array($method, ['GET', 'HEAD'], true) || $path === null) {
         return null;
     }
 
@@ -149,25 +186,8 @@ $exactCounts = [];
 $paths = [];
 $count = 0;
 $cutoff = time() - 900;
-$excludedPath = static function (string $path): bool {
-    if (strpos($path, '/cdn-cgi/') === 0) {
-        return true;
-    }
-    foreach ([
-        '/api/traffic.php', '/api/traffic', '/api/csrf.php', '/api/csrf', '/assets/ping.txt',
-        '/api/shell-slot.php', '/api/shell-slot', '/api/thumb.php', '/api/thumb',
-    ] as $probe) {
-        if ($path === $probe || strpos($path, $probe . '/') === 0) {
-            return true;
-        }
-    }
-    return false;
-};
 foreach ($parsed as $row) {
     if ($hasTimestamps && (!is_int($row['time']) || $row['time'] < $cutoff)) {
-        continue;
-    }
-    if ($excludedPath((string) $row['path'])) {
         continue;
     }
     $count += 1;
@@ -182,21 +202,7 @@ foreach ($parsed as $row) {
     }
 }
 
-$pathRank = static function (string $path): int {
-    if (
-        preg_match('#^/(?:index|about|writeups|projects|contact)\.html$#', $path) === 1
-        || $path === '/'
-        || preg_match('#^/(?:writeups|lab)/#', $path) === 1
-    ) {
-        return 0;
-    }
-    return strpos($path, '/components/') === 0 ? 2 : 1;
-};
-uksort($paths, static function (string $left, string $right) use ($paths, $pathRank): int {
-    $rank = $pathRank($left) <=> $pathRank($right);
-    if ($rank !== 0) {
-        return $rank;
-    }
+uksort($paths, static function (string $left, string $right) use ($paths): int {
     $countOrder = $paths[$right] <=> $paths[$left];
     return $countOrder !== 0 ? $countOrder : strcmp($left, $right);
 });

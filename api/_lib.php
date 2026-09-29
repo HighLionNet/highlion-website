@@ -88,6 +88,47 @@ function hl_csrf_issue(): string
     return $token;
 }
 
+function hl_cookie(string $name): string
+{
+    if (isset($_COOKIE[$name]) && is_string($_COOKIE[$name])) {
+        return $_COOKIE[$name];
+    }
+    $raw = (string) ($_SERVER['HTTP_COOKIE'] ?? '');
+    if ($raw === '') {
+        return '';
+    }
+    foreach (explode(';', $raw) as $part) {
+        $part = trim($part);
+        $separator = strpos($part, '=');
+        if ($separator === false) {
+            continue;
+        }
+        $cookieName = trim(substr($part, 0, $separator));
+        if ($cookieName !== $name) {
+            continue;
+        }
+        return rawurldecode(substr($part, $separator + 1));
+    }
+    return '';
+}
+
+function hl_op_refresh(string $value): void
+{
+    if ($value === '') {
+        return;
+    }
+    $host = strtolower(trim((string) ($_SERVER['HTTP_HOST'] ?? '')));
+    $host = preg_replace('/:\d+$/', '', $host) ?? '';
+    $parts = ['hl_op=' . rawurlencode($value), 'Max-Age=31536000', 'Path=/'];
+    if ($host === 'www.highlion.net' || $host === 'highlion.net') {
+        $parts[] = 'Domain=www.highlion.net';
+    }
+    $parts[] = 'Secure';
+    $parts[] = 'HttpOnly';
+    $parts[] = 'SameSite=Lax';
+    header('Set-Cookie: ' . implode('; ', $parts), false);
+}
+
 function hl_shell_salt(array $env): string
 {
     $operatorCookie = trim((string) ($env['HL_OP_COOKIE'] ?? ''));
@@ -105,7 +146,7 @@ function hl_csrf_check($token): bool
     if (!is_string($token) || $token === '') {
         return false;
     }
-    $cookie = (string) ($_COOKIE['hl_csrf'] ?? '');
+    $cookie = hl_cookie('hl_csrf');
     return $cookie !== '' && hash_equals($cookie, $token);
 }
 

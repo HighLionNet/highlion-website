@@ -41,7 +41,7 @@
       if (root.HighLionSfx) root.HighLionSfx.error();
       return { status: 1, stdout: "", stderr: "claim: flag not recognized\n" };
     }
-    if (this.isClaimed(row.id)) return { status: 0, stdout: "already claimed: " + row.id + "\n", stderr: "" };
+    if (this.isClaimed(row.id)) return { status: 0, stdout: "already claimed\n", stderr: "" };
     this.machine.claimed.push(row.id);
     var trophy = "/home/kali/highlion/.trophies/" + row.id + ".flag";
     try { this.machine.fs.writeFile(trophy, String(value).trim() + "\n", "/", false, false); } catch (error) {}
@@ -54,10 +54,8 @@
     this.machine.persist();
     this.machine.persistTrophies();
     this.postClaim(String(value).trim());
-    if (root.HighLionSfx) root.HighLionSfx.ok();
-    var output = "claimed " + row.id + " — badge " + row.prize + "\n";
-    if (this.machine.claimed.length >= this.flags.length) output += "mail admin@highlion.net subject CTF-CLAIM body FLAGS\n";
-    return { status: 0, stdout: output, stderr: "" };
+    if (root.HighLionSfx) root.HighLionSfx.flag();
+    return { status: 0, stdout: "flag claimed\n", stderr: "", effect: { sfxHandled: true } };
   };
 
   ChallengeController.prototype.score = function () {
