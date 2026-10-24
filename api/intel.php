@@ -97,7 +97,7 @@ function hl_intel_fetch_limited(string $url, int $limit, array $allowedHosts): ?
         $parts = parse_url($url);
         $scheme = strtolower((string) ($parts['scheme'] ?? ''));
         $host = strtolower((string) ($parts['host'] ?? ''));
-        if ($scheme !== 'https' || !in_array($host, $allowedHosts, true)) {
+        if ($scheme !== 'https' || !in_array($host, $allowedHosts, true) || isset($parts['user']) || isset($parts['pass']) || (isset($parts['port']) && $parts['port'] !== 443)) {
             return null;
         }
         $context = stream_context_create([
@@ -448,42 +448,9 @@ if (!$domAvailable) {
 }
 
 $feedItems = [];
-$context = stream_context_create([
-    'http' => [
-        'timeout' => 8,
-        'follow_location' => 1,
-        'max_redirects' => 3,
-        'user_agent' => 'HighLion-Intel/1.0 (+https://www.highlion.net/)',
-    ],
-    'ssl' => [
-        'verify_peer' => true,
-        'verify_peer_name' => true,
-    ],
-]);
-
-$fetchFeed = static function (string $url) use ($context): string {
-    $body = @file_get_contents($url, false, $context);
-    if (is_string($body) && $body !== '') {
-        return $body;
-    }
-    if (!is_executable('/usr/bin/curl') || !function_exists('proc_open')) {
-        return '';
-    }
-    $pipes = [];
-    $process = @proc_open(
-        ['/usr/bin/curl', '-fsSL', '--max-time', '8', $url],
-        [1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
-        $pipes
-    );
-    if (!is_resource($process)) {
-        return '';
-    }
-    $stdout = stream_get_contents($pipes[1]);
-    fclose($pipes[1]);
-    stream_get_contents($pipes[2]);
-    fclose($pipes[2]);
-    $status = proc_close($process);
-    return $status === 0 && is_string($stdout) ? $stdout : '';
+$fetchFeed = static function (string $url) use ($articleHosts): string {
+    $response = hl_intel_fetch_limited($url, 1048576, $articleHosts);
+    return $response !== null && $response['status'] === 200 ? $response['body'] : '';
 };
 
 foreach ($feeds as $feed) {

@@ -1,14 +1,14 @@
 {
   "schema": 1,
-  "notice": "root is an emergency session console for the simulated lab only. It cannot reach the host.",
-  "root": {
-    "enabled": true,
-    "authentication": "server-backed-password"
-  },
+  "notice": "Admin is the cookie-gated developer account. Root is the public CTF privileged account. Both remain inside the simulation.",
   "packPolicy": {
     "manifest": "packs/manifest.json",
     "maxPacks": 64,
     "allowExecutableScripts": true,
     "allowArbitraryNetworkHosts": false
+  },
+  "admin": {
+    "enabled": true,
+    "authentication": "server-password-and-operator-cookie"
   }
 }

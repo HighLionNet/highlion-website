@@ -1,24 +1,9 @@
 <?php
 declare(strict_types=1);
 
-# location ^~ /api/ {
-#   fastcgi_pass unix:/run/php/php-fpm.sock;
-#   include fastcgi_params;
-#   fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
-# }
-# rewrite ^/api/contact$ /api/contact.php last;
-# rewrite ^/api/intel$   /api/intel.php last;
-# rewrite ^/api/traffic$ /api/traffic.php last;
-# rewrite ^/api/csrf$    /api/csrf.php last;
-# EXCLUDE ^/api/ from the IL geo-403 that wraps /contact.html
-# do not geo-block 403.html
-# suggested headers:
-#   Referrer-Policy no-referrer-when-downgrade -> strict-origin-when-cross-origin
-#   X-Content-Type-Options nosniff
-#   X-Frame-Options SAMEORIGIN
-#   Permissions-Policy camera=(), microphone=(), geolocation=()
 
-require_once __DIR__ . '/_lib.php';
+require_once __DIR__ . '/_session.php';
+if (!hl_rate_allow('contact-ingress', 8, 600)) hl_json(['ok' => false], 429);
 
 $requestMethod = strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? ''));
 if ($requestMethod !== 'POST') {
@@ -44,7 +29,7 @@ if ($requestMethod !== 'POST') {
     hl_json(['ok' => false], 405);
 }
 
-$payload = json_decode((string) file_get_contents('php://input'), true);
+$payload = hl_payload(16384);
 if (!is_array($payload)) {
     hl_json(['ok' => false], 400);
 }

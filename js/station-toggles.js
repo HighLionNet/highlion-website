@@ -76,6 +76,10 @@
     return true;
   }
 
+  window.addEventListener("hl:fx", function (event) {
+    if (["on", "off"].indexOf(event.detail) === -1) return;
+    fx = event.detail; write("hl-fx", fx); applyFx();
+  });
   applyFx();
   applyScan();
   if (!bind() || !bindCli()) {

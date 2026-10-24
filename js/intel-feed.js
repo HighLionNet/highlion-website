@@ -33,8 +33,8 @@
     var candidates = [];
     if (/^\/api\/thumb\.php\?id=[a-f0-9]{40}$/.test(thumb)) candidates.push(thumb);
     candidates.push(
-      "/assets/thumbs/" + source.key + ".jpg",
-      "/assets/thumbs/" + source.key + ".png",
+      "/assets/thumbs/" + source.key + ".jpg?v=hl8t",
+      "/assets/thumbs/" + source.key + ".png?v=hl8t",
       "/api/thumb.php?source=" + encodeURIComponent(source.key)
     );
     var image = document.createElement("img");

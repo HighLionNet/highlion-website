@@ -9,25 +9,18 @@
     "about.html": "/about.html",
     "projects.html": "/projects.html",
     "writeups.html": "/writeups.html",
-    "css/style.css": "/css/style.css",
-    "components/header.html": "/components/header.html",
-    "components/footer.html": "/components/footer.html"
+    "css/style.css": "/css/style.css?v=hl8t",
+    "components/header.html": "/components/header.html?v=hl8t",
+    "components/footer.html": "/components/footer.html?v=hl8t"
   };
   var select = document.getElementById("srcSelect");
   var output = document.getElementById("srcOut");
   var download = document.getElementById("srcDownload");
   var currentName = "";
   var currentText = "";
-  var sequence = ["red", "green", "amber"];
-  var sequenceIndex = 0;
-
   function show(name) {
     currentName = name;
-    if (name === ".brief") {
-      currentText = "hex lives on the east node";
-      output.textContent = currentText;
-      return;
-    }
+
     var url = ALLOWED[name];
     if (!url) return;
     output.textContent = "Loading " + name + "…";
@@ -58,22 +51,6 @@
     anchor.click();
     anchor.remove();
     URL.revokeObjectURL(blobUrl);
-  });
-
-  panel.querySelectorAll(".hlterm-lights span").forEach(function (light) {
-    light.addEventListener("click", function () {
-      if (light.classList.contains(sequence[sequenceIndex])) sequenceIndex += 1;
-      else sequenceIndex = light.classList.contains(sequence[0]) ? 1 : 0;
-      if (sequenceIndex !== sequence.length) return;
-      sequenceIndex = 0;
-      if (!select.querySelector('option[value=".brief"]')) {
-        var option = document.createElement("option");
-        option.value = ".brief";
-        option.textContent = ".brief";
-        select.appendChild(option);
-        if (window.HighLionSfx) window.HighLionSfx.flag();
-      }
-    });
   });
 
   show(select.value);

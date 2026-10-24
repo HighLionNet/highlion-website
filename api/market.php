@@ -69,12 +69,13 @@ $context = stream_context_create([
         'method' => 'GET',
         'timeout' => 6,
         'ignore_errors' => true,
+        'follow_location' => 0,
         'header' => "Accept: application/json\r\nUser-Agent: HighLion-HLv8/1.0\r\n",
     ],
     'ssl' => ['verify_peer' => true, 'verify_peer_name' => true],
 ]);
 $http_response_header = [];
-$raw = @file_get_contents($url, false, $context);
+$raw = @file_get_contents($url, false, $context, 0, 1048576);
 $statusOk = isset($http_response_header[0]) && preg_match('/\s200\s/', (string) $http_response_header[0]) === 1;
 $decoded = $statusOk && is_string($raw) ? json_decode($raw, true) : null;
 $prices = is_array($decoded) ? $cleanPrices($decoded['prices'] ?? null) : [];

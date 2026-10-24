@@ -21,7 +21,7 @@ function hl_tail_lines(string $path, int $limit): array
         return [];
     }
     $buffer = '';
-    while ($position > 0 && substr_count($buffer, "\n") <= $limit) {
+    while ($position > 0 && strlen($buffer) < 1048576 && substr_count($buffer, "\n") <= $limit) {
         $read = min(8192, $position);
         $position -= $read;
         fseek($handle, $position);
@@ -64,10 +64,10 @@ function hl_traffic_public_path(string $target): ?string
     if ($path === '/' || $path === '/index.html') {
         return '/';
     }
-    if (in_array($path, ['/about.html', '/projects.html', '/writeups.html', '/contact.html'], true)) {
+    if (in_array($path, ['/about.html', '/projects.html', '/writeups.html', '/contact.html', '/ctf.html'], true)) {
         return $path;
     }
-    if (preg_match('#^/(?:writeups|lab)/[A-Za-z0-9][A-Za-z0-9._/-]*\.html$#', $path) === 1) {
+    if (preg_match('#^/writeups/[A-Za-z0-9][A-Za-z0-9._/-]*\.html$#', $path) === 1) {
         return $path;
     }
     return null;

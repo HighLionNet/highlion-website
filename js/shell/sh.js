@@ -14,7 +14,8 @@
     this.maxScriptLines = 200;
     this.maxDepth = 20;
     this.maxInstructions = 50000;
-    this.maxWallMs = 200;
+    this.maxWallMs = 15000;
+    this.epoch = 0;
     this.maxOutputBytes = 32768;
     this.background = null;
   }
@@ -22,6 +23,8 @@
   Shell.prototype.charge = function (options, amount) {
     var budget = options && options.budget;
     if (!budget) return;
+    if (budget.epoch !== undefined && budget.epoch !== this.epoch) { var interrupted = new Error("Interrupted"); interrupted.interrupted = true; throw interrupted; }
+    if (budget.deadline && Date.now() >= budget.deadline) { var timeout = new Error("Timed out"); timeout.timedOut = true; throw timeout; }
     budget.steps += amount || 1;
     var now = root.performance && root.performance.now ? root.performance.now() : Date.now();
     if (budget.steps > this.maxInstructions || (!options.background && now - budget.started > this.maxWallMs)) {
@@ -203,7 +206,7 @@
       if (!lines[index].trim()) continue;
       this.charge(options, 1);
       var run = await this.run(lines[index], { capture: true, depth: depth + 1, budget: options.budget, script: true });
-      stdout += run.stdout; stderr += run.stderr; status = run.status;
+      stdout = (stdout + run.stdout).slice(0, this.maxOutputBytes); stderr = (stderr + run.stderr).slice(0, this.maxOutputBytes); status = run.status;
       if (status !== 0) break;
     }
     this.machine.proc.kill(pid, this.machine.identity.user);
@@ -227,6 +230,7 @@
       return { stdout: "", stderr: "", status: 0 };
     }
     var name = tokens.shift();
+    if (name === "reset-machine" && !this.machine.remoteControl) { this.machine.reset(); return { stdout: "", stderr: "", status: 0, effect: "reset" }; }
     if (options.script && (name === "curl" || name === "wget")) {
       return { stdout: "", stderr: "zsh: permission denied: " + name + "\n", status: 126 };
     }
@@ -249,7 +253,7 @@
     var run;
     if (resolved === "/bin/busybox") {
       var commandName = name.indexOf("/") !== -1 ? HL.path.basename(path) : name;
-      run = await this.busybox.run(commandName, args, stdin, this);
+      run = await this.busybox.run(commandName, args, stdin, this, options);
     } else if (options.substitution) {
       run = { stdout: "", stderr: "zsh: command substitution permits busybox commands only\n", status: 126 };
     } else {
@@ -257,6 +261,8 @@
     }
     Object.keys(assignments).forEach(function (key) { if (previousEnv[key] === undefined) delete this.machine.env[key]; else this.machine.env[key] = previousEnv[key]; }, this);
     this.machine.exported = previousExported;
+    this.charge(options, 1);
+    run = this.limitOutput(run);
     run.stdout = String(run.stdout || ""); run.stderr = String(run.stderr || ""); run.status = Number(run.status || 0);
     try {
       if (redirect.merge) { run.stdout += run.stderr; run.stderr = ""; }
@@ -299,7 +305,7 @@
       if (index > 0 && group.connector === "&&" && output.status !== 0) continue;
       if (index > 0 && group.connector === "||" && output.status === 0) continue;
       var run = await this.runPipeline(group.tokens, options);
-      output.stdout += run.stdout; output.stderr += run.stderr; output.status = run.status; output.effect = run.effect || output.effect;
+      output.stdout = (output.stdout + run.stdout).slice(0, this.maxOutputBytes); output.stderr = (output.stderr + run.stderr).slice(0, this.maxOutputBytes); output.status = run.status; output.effect = run.effect || output.effect;
       this.machine.env["?"] = String(run.status);
     }
     return output;
@@ -316,7 +322,7 @@
         this.charge(options, 1);
         this.machine.env[name] = values[index];
         var run = await this.run(match[3], { capture: true, depth: (options.depth || 0) + 1, budget: options.budget, script: options.script, background: options.background });
-        output.stdout += run.stdout; output.stderr += run.stderr; output.status = run.status; output.effect = run.effect || output.effect;
+        output.stdout = (output.stdout + run.stdout).slice(0, this.maxOutputBytes); output.stderr = (output.stderr + run.stderr).slice(0, this.maxOutputBytes); output.status = run.status; output.effect = run.effect || output.effect;
         if (run.status !== 0) break;
       }
       if (previous === undefined) delete this.machine.env[name]; else this.machine.env[name] = previous;
@@ -327,10 +333,10 @@
       while (true) {
         this.charge(options, 2);
         var condition = await this.run(match[1], { capture: true, depth: (options.depth || 0) + 1, budget: options.budget, script: options.script, background: options.background });
-        output.stdout += condition.stdout; output.stderr += condition.stderr;
+        output.stdout = (output.stdout + condition.stdout).slice(0, this.maxOutputBytes); output.stderr = (output.stderr + condition.stderr).slice(0, this.maxOutputBytes);
         if (condition.status !== 0) { output.status = 0; break; }
         var body = await this.run(match[2], { capture: true, depth: (options.depth || 0) + 1, budget: options.budget, script: options.script, background: options.background });
-        output.stdout += body.stdout; output.stderr += body.stderr; output.status = body.status; output.effect = body.effect || output.effect;
+        output.stdout = (output.stdout + body.stdout).slice(0, this.maxOutputBytes); output.stderr = (output.stderr + body.stderr).slice(0, this.maxOutputBytes); output.status = body.status; output.effect = body.effect || output.effect;
         if (body.status !== 0) break;
       }
       return output;
@@ -354,7 +360,7 @@
     var started = root.performance && root.performance.now ? root.performance.now() : Date.now();
     var job = { id: 1, pid: pid, command: command, state: "Running", output: null, promise: null };
     this.background = job;
-    job.promise = this.run(command, { capture: true, depth: 1, budget: { steps: 0, started: started }, background: true }).then(function (run) {
+    job.promise = this.run(command, { capture: true, depth: 1, budget: { steps: 0, started: started, epoch: this.epoch }, background: true }).then(function (run) {
       job.output = run;
       job.state = "Done";
       this.machine.proc.kill(pid, this.machine.identity.user);
@@ -384,12 +390,13 @@
     options = options || {};
     var top = !options.budget;
     if (top) options.budget = {
-      steps: 0,
+      steps: 0, epoch: this.epoch,
       started: root.performance && root.performance.now ? root.performance.now() : Date.now()
     };
     if ((options.depth || 0) > this.maxDepth) return { stdout: "", stderr: "zsh: maximum fork depth exceeded\n", status: 126 };
     try {
       var source = String(line || "");
+      if (source.length > 4096 || /[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/.test(source)) throw new Error("invalid or oversized command");
       this.charge(options, source.length + 1);
       if (top && !options.background && /\s&\s*$/.test(source) && !/&&\s*$/.test(source)) {
         return this.limitOutput(this.startBackground(source.replace(/\s&\s*$/, "")));
@@ -409,6 +416,8 @@
       this.machine.persist();
       return top ? this.limitOutput(run) : run;
     } catch (error) {
+      if (error && error.timedOut) return { stdout: "", stderr: "Timed out\n", status: 124 };
+      if (error && error.interrupted) return { stdout: "", stderr: "Interrupted\n", status: 130 };
       var killed = Boolean(error && error.killed);
       this.machine.env["?"] = killed ? "137" : "2";
       var failed = killed
@@ -417,6 +426,8 @@
       return top ? this.limitOutput(failed) : failed;
     }
   };
+
+  Shell.prototype.cancel = function () { this.epoch += 1; if (this.background) { this.machine.proc.kill(this.background.pid, this.machine.identity.user); this.background = null; } };
 
   Shell.prototype.complete = function (line, caret) {
     var before = line.slice(0, caret); var match = /([^\s|;&<>]*)$/.exec(before); var current = match ? match[1] : "";

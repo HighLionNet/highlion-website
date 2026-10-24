@@ -59,6 +59,7 @@
 
   VirtualFS.prototype.normalize = function (input, cwd) {
     var raw = String(input === undefined || input === "" ? "." : input);
+    if (raw.length > 4096 || /[\x00-\x1f\x7f]/.test(raw)) throw new Error("invalid path");
     var home = this.identity.home || "/home/kali";
     if (raw === "~") raw = home;
     else if (raw.indexOf("~/") === 0) raw = home + raw.slice(1);
@@ -372,8 +373,8 @@
     var prefix = absolute === "/" ? "/" : absolute + "/";
     var result = [{ path: absolute, node: node }];
     this.nodes.forEach(function (child, childPath) {
-      if (childPath.indexOf(prefix) === 0) result.push({ path: childPath, node: child });
-    });
+      if (childPath.indexOf(prefix) === 0 && this.canTraverse(childPath)) result.push({ path: childPath, node: child });
+    }, this);
     result.sort(function (left, right) { return left.path.localeCompare(right.path); });
     return result;
   };
@@ -425,14 +426,16 @@
     var nodes = versioned ? data.nodes : (data || {});
     var deleted = versioned && Array.isArray(data.deleted) ? data.deleted : [];
     deleted.forEach(function (path) {
-      if (!self.isProtected(path)) {
+      if (typeof path === "string" && self.writable.some(function (prefix) { return path.indexOf(prefix + "/") === 0; }) && !self.isProtected(path)) {
         self.nodes.delete(path);
         self.deleted.add(path);
       }
     });
     Object.keys(nodes).forEach(function (path) {
       var visitorPath = self.writable.some(function (prefix) { return path === prefix || path.indexOf(prefix + "/") === 0; });
-      if (!versioned && !visitorPath) return;
+      if (!visitorPath || self.normalize(path, "/") !== path) return;
+      var node = nodes[path];
+      if (!node || ["file", "dir", "symlink"].indexOf(node.type) === -1 || typeof node.content !== "string" || (node.type === "symlink" && typeof node.target !== "string") || !Number.isInteger(node.mode)) return;
       if (self.isProtected(path)) return;
       self.nodes.set(path, cloneNode(nodes[path]));
       self.dirty.add(path);

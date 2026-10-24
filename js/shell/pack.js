@@ -10,7 +10,7 @@
   }
 
   async function fetchJson(name) {
-    var response = await fetch(packBase + name + "?v=hl8s", { cache: "no-store", credentials: "same-origin" });
+    var response = await fetch(packBase + name + "?v=hl8t", { cache: "no-store", credentials: "same-origin" });
     if (!response.ok) throw new Error("pack unavailable: " + name);
     return response.json();
   }
@@ -26,8 +26,7 @@
       if (!node || ["dir", "file", "symlink"].indexOf(node.type || "file") === -1) errors.push("invalid node: " + path);
     });
     ((pack && pack.flags) || []).forEach(function (flag, index) {
-      var values = flag && (Array.isArray(flag.flag) ? flag.flag : [flag.flag]);
-      if (!flag || !/^[a-z0-9][a-z0-9_-]{0,31}$/i.test(String(flag.id || "")) || !values || !values.length || values.some(function (value) { return typeof value !== "string" || !value; })) errors.push("invalid flag at " + index);
+      if (!flag || !/^[a-z0-9][a-z0-9_-]{0,31}$/i.test(String(flag.id || "")) || typeof flag.hint !== "string" || Object.prototype.hasOwnProperty.call(flag, "flag")) errors.push("invalid challenge at " + index);
     });
     ((pack && pack.units) || []).forEach(function (unit, index) {
       if (!unit || !/^[a-z0-9@_.-]+\.service$/i.test(String(unit.name || ""))) errors.push("invalid unit at " + index);

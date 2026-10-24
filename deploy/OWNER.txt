@@ -1,82 +1,28 @@
-HIGHLION DEBIAN CUT-IN (HLv8 / hl8s)
+HIGHLION / HLv8 / hl8t
 
-1. Deploy from a fresh GitHub clone and archive, never from a laptop path. Do not delete /etc/highlion or any of its env files.
-   Never edit the live tree without copying the change back to git.
+DEPLOYMENT
+Deploy the main branch to /var/www/highlion. Keep /etc/highlion/*.env outside the webroot and preserve the installed credentials. Never copy .git, .hl8t-work, environment files, or local tooling into the webroot. Remove the retired js/sfx.js and lab HTML files from an existing deployment.
+Install deploy/nginx-api.conf and deploy/nginx-headers.conf in the server block, retaining the site's geo fence and correct PHP-FPM socket. Remove conflicting old exact shell-slot locations; the API location handles .php and directory aliases. Run nginx -t before reloading. The access rules deny deployment notes, scripts, dotfiles, source maps, private helpers, and retired lab paths. autoindex must remain off. Do not publish a source archive in the webroot.
+All asset/include URLs use ?v=hl8t. Footer and X-HighLion remain HLv8. If fonts are absent, run assets/fonts/generate-fonts.sh on the host; the script is denied over HTTP.
 
-2. Keep the existing nginx snippets installed. Confirm PHP-FPM handles these paths outside the contact-page geo fence, then reload nginx:
-     sudo nginx -t
-     sudo systemctl reload nginx
-     curl -sI https://www.highlion.net/api/intel.php
-     curl -sI 'https://www.highlion.net/api/thumb.php?source=cisa'
-     curl -sI https://www.highlion.net/api/traffic.php
-     curl -sI -X POST https://www.highlion.net/api/shell-slot.php
-     curl -sI -X POST https://www.highlion.net/api/shell-auth.php
-   A handled 4xx response is expected for protected POST endpoints without a valid same-origin browser session.
+IDENTITIES
+Every tab starts as kali. su root is the public CTF privileged account: password only. su admin is the developer account: password plus the existing hl_op cookie. No password or hash changes are required.
+Private /etc/highlion/shell.env keys: HL_ROOT_PW_HASH and HL_ADMIN_PW_HASH (password_hash output), HL_OP_COOKIE (existing random capability), HL_SHELL_SALT (stable random secret), HL_SHELL_SLOTS (default 8), HL_SHELL_TTL (default 90 seconds). ROOT_PW_HASH and ADMIN_PW_HASH remain compatible aliases. Keep the file owned by www-data with mode 0600.
+hl_op keeps Domain=www.highlion.net, Path=/, Secure, HttpOnly, SameSite=Lax. PHP refreshes its existing value only after an admin password and cookie match. JavaScript never reads it. Removing the cookie revokes control on the next request. Root cannot moderate other sessions.
+Authentication permits five failures per IP per ten minutes. Attempts are serialized per IP, including password verification. Slots bind a random ID, server session owner, salted client IP, and TTL. PHP's REMOTE_ADDR is authoritative: configure nginx real_ip only for explicitly trusted proxy ranges. Do not trust arbitrary forwarded headers. If a reverse proxy is used, verify real_ip before rollout or visitors may share its rate-limit bucket.
 
-3. Purge https://www.highlion.net/css/style.css after deployment, or let the hl8s query token roll the cache.
+SESSIONS AND MODERATION
+PHP requires a writable private session.save_path. hl_session is Secure, HttpOnly, SameSite=Lax and uses strict session IDs. Give this site its own session directory and retain session data for 86400 seconds. Admin login rotates the session ID and grants the authenticated slot control for 15 minutes; log in again after expiry. The underlying lease owner remains stable across rotation.
+The PHP-FPM user must own /var/tmp/highlion-shell-slots.json (0600), /var/tmp/highlion-shell-auth (0700), and /var/tmp/highlion-letterbox (0700). Existing thumbnail and market caches remain under /var/tmp; preserve their www-data ownership. Never place these stores in the webroot.
+sessionctl who shows this lease. After su admin, sessionctl list shows active leases, queued command counts, and the last acknowledged result. Commands: sessionctl lock ID, unlock ID, drop ID, clear ID, reset ID, fx ID on|off, and exec ID COMMAND. Quote COMMAND when it contains shell operators. Results arrive on subsequent heartbeats (25 seconds while visible). Hidden tabs apply control when visible again.
+Exec operates only on the target's virtual files and simulated LAN. Authentication, claims, navigation, editors, and nested moderation are rejected during remote execution. No password input, browser storage, real host files, real commands, or external network access is exposed. Logs contain control type and abbreviated lease IDs, not commands, passwords, or output.
+Drop terminates the current browser session; it is not an IP ban. Reset clears the simulated disk overlay, returns to kali, and keeps trophies. When the lease service is unavailable, kali remains usable and authentication fails closed. Explicit moderation stays in effect during an outage. Reloading starts a new simulated session.
 
-4. Create the writable thumbnail and shell-lease stores:
-     sudo install -d -m 0750 -o www-data -g www-data /var/tmp/highlion-thumbs/by-source
-     sudo touch /var/tmp/highlion-intel.json /var/tmp/highlion-thumbs.json /var/tmp/highlion-shell-slots.json /var/tmp/highlion-market.json
-     sudo chown www-data:www-data /var/tmp/highlion-intel.json /var/tmp/highlion-thumbs.json /var/tmp/highlion-shell-slots.json /var/tmp/highlion-market.json
-     sudo chmod 0660 /var/tmp/highlion-intel.json /var/tmp/highlion-thumbs.json /var/tmp/highlion-shell-slots.json /var/tmp/highlion-market.json
-   After a cold /api/intel.php request, confirm each cached thumbnail is at most 204800 bytes. For optional real source photos, create /var/www/highlion/assets/thumbs and install bleeping.jpg, hackernews.jpg, krebs.jpg, or cisa.jpg there.
+CHALLENGES
+Four current challenges live in season00.json. The browser contains clues and challenge IDs; only api/ctf.php holds accepted SHA-256 digests. claim and FLAGS use that endpoint. All attempts, including invalid flags, share a 30-per-10-minute IP limit. Session locking makes duplicate claims idempotent. Request bodies are bounded before decoding.
+hl-trophies-v1 keeps local trophy IDs, including prior achievements. It is display state, never authorization. The server stores current-season claims in its private session. Operator notes at api/secret.php return 404 before a valid claim; PHP checks every request. Expired or cleared sessions require submitting a solved flag again. Add future gated pages to the fixed pages map in secret.php, never as static HTML or client-side content.
+The terminal network is wholly simulated. The letterbox investigation uses page source and simulated ledger data; it never requires sending a real message.
 
-5. Create the private browser-shell configuration. PHP-FPM owns and reads this file; never commit it:
-     sudo install -d -m 0750 -o root -g www-data /etc/highlion
-     sudo touch /etc/highlion/shell.env
-     sudo chown www-data:www-data /etc/highlion/shell.env
-     sudo chmod 0600 /etc/highlion/shell.env
-   Put exactly these assignments in /etc/highlion/shell.env:
-     HL_SHELL_SLOTS=8
-     HL_SHELL_TTL=90
-     HL_SHELL_HEARTBEAT=30
-     HL_OP_COOKIE=<64-or-more-random-hex-characters>
-     HL_ROOT_PW_HASH='<bcrypt-hash-created-with-password_hash>'
-     HL_ADMIN_PW_HASH='<bcrypt-hash-created-with-password_hash>'
-     HL_SHELL_SALT=<stable-random-secret>
-   The prefixed hash names HL_ROOT_PW_HASH and HL_ADMIN_PW_HASH are canonical. The old ROOT_PW_HASH and ADMIN_PW_HASH names remain accepted as compatibility fallbacks, but do not use them for new installs.
-   The terminal always boots as kali. `su root` and `su admin` fail closed until their hashes exist. Root additionally requires the HttpOnly operator cookie whose value matches HL_OP_COOKIE. Passwords are never stored in git or in plaintext.
-
-6. Set the operator cookie only in the intended browser profile. Use these exact attributes:
-     Name: hl_op
-     Value: exact HL_OP_COOKIE string
-     Domain: www.highlion.net
-     Path: /
-     Secure: true
-     HttpOnly: true
-     SameSite: Lax
-   Domain MUST be www.highlion.net, not the apex host. Path MUST be /. Secure, HttpOnly, and SameSite=Lax are required. This is an operator capability cookie, not a tracking cookie. Removing it removes root eligibility only. The application never mints it, and JavaScript never reads it. It only refreshes the same value after a server-side match. `credentials: "same-origin"` sends it with shell requests. PHP reads the normal cookie map first and falls back to the raw HTTP_COOKIE passed by nginx. The server validates the cookie and password independently; neither grants host access.
-
-7. Keep /etc/highlion/letterbox.env and /etc/highlion/honeypot.env private and readable by PHP-FPM. Re-run the existing contact, honeypot, claim, and geo-fence checks after deployment. Never commit any /etc/highlion/*.env file.
-
-8. Deploy 403.html and 404.html explicitly if nginx error_page routing does not already use them. If local WOFF2 assets are missing, run:
-     sudo bash /var/www/highlion/assets/fonts/generate-fonts.sh
-
-9. Final checks: verify /api/thumb/ reaches index.php; remove any duplicate X-HighLion header at nginx or Cloudflare; confirm normal visitors receive kali, password failures say exactly `su: Authentication failure`, five failed shell-auth attempts in ten minutes are rate-limited, and root/admin/logout return to kali as designed.
-   Regression note: commit 545b416 made the CSRF GET a hard gate, so shell-auth POST never fired when that token route failed. hl8s removes that client gate for same-origin requests; Origin/Referer and optional CSRF validation remain server-side.
-
-10. The browser always boots the full sealed Kali userspace; there is no fallback TTY. The slot pool gates concurrency and privileged authentication only. If its store is unavailable or full, the browser keeps Kali running and retries every five seconds. A live lease matches opaque slot id + stable salted IP hash + TTL. User-Agent and UTC date are not part of the binding, so browser changes and midnight UTC do not invalidate a valid lease.
-
-11. Browser persistence is intentionally split. `hl-trophies-v1` in localStorage contains only `{ "v": 1, "claimed": ["flag-id"] }`. The simulated disk overlay may use `hl-machine-overlay-v1` in sessionStorage, is capped near 256 KiB, and disappears with the tab. Files, cwd, environment, aliases, history, and privileged identity are never stored in localStorage. `reset-machine` clears only the tab overlay and keeps trophies.
-
-The browser machine is a simulated, isolated userspace. Its filesystem, firewall rules, services, credentials, and network delays never touch the Debian host.
-
-PROMPT 12 OWNER NOTE
-Prompt 12 closes unshipped Prompt 11 and the 69c6a4f regressions.
-Sim LAN is Osprey & Hale 10.8.0.0/24, not HighLion infra.
-ctf.php allowlist is sha256 digests. Old flag strings still claim.
-News rail height doubled, 15-item cap. Telemetry rows restored against live /api/traffic.php.
-No new Pi secrets. No new cookies.
-Live /403.html and /404.html still need a deploy if they 404.
-Baseline continuation: local main included extra commit 77a8a0d302a72af3dfb2d0e48b4f8b1187c3e150 while origin/main was 69c6a4f84a39680e1d1cdd83d51a815846120a3f.
-
-Prompt 13 baseline HEAD: ecb4eeb167900ec95443f232a08e304b34e9d829 feat: HLv8 station — close P11, rail, marks, xdr tables, crypto
-
-PROMPT 13 OWNER NOTE
-Status rows live under SESSION and are never removed. Terminal clipped; QTerminal chrome; about terminal restored. particles.js restored from 155912e0. News and crypto are sibling XDR consoles. CVE page is full HTML from the existing PDF, video first. HighLion ico used in xdr-top / footer. No new Pi secrets. No new cookies.
-
-Prompt 14 baseline HEAD: 5188c5e5c5523d3db249a55794646adf1469a677
-
-PROMPT 14 OWNER NOTE
-Status listing is the first block in User Local Information and renders payload.exact as rows. Attack/defense colors restored on the locked sentence. Writeup rows are clickable. Small type nudged up; home h1 unchanged. Per-widget contrast caps. Footer ico 22px everywhere, error pages cache-bumped. particles.js restored from 235c0d0 (one version before 155912e0). No new secrets.
+ROLLOUT CHECKS
+Verify PHP syntax, then check root without hl_op, admin with and without hl_op, five wrong passwords followed by a blocked sixth attempt, forged origin rejection, invalid and repeated claims, direct secret-page denial, and moderation between two browser sessions. Confirm /deploy/OWNER.txt, /.git/config, /js/shell/README-OWNER.txt, /assets/fonts/generate-fonts.sh, /api/_session.php, and /lab/relay.html return 404.
+Preserve the contact, honeypot, news, market, thumbnail, and geo-fence settings. Public contact requests are capped before alert delivery. Feed fetches use fixed host allow-lists, bounded responses and checked redirects. The web server must never serve PHP source, including backups.

@@ -40,9 +40,9 @@
     this.aliases = {};
     this.umask = "0022";
     this.claimed = [];
-    this.userStack = [];
     this.lease = { id: "", operator: false };
     this.sessionControl = null;
+    this.controlLocked = false;
     this.proc = new HL.ProcessTable(image.proc, this.started);
     HL.mountPacks(this.fs, this.packs);
     this.net = new HL.Network(image.proc, this.packs);
@@ -103,6 +103,7 @@
     if (!next) throw new Error("unknown user: " + name);
     this.identity = clone(next);
     this.fs.setIdentity(this.identity);
+    if (!this.fs.nodes.has(this.identity.home)) this.remountHome(name);
     if (!options.preserveCwd || !this.fs.nodes.has(this.cwd)) {
       this.cwd = this.identity.home;
       this.previousCwd = this.identity.home;
@@ -111,6 +112,7 @@
     this.loadAliases();
     if (this.proc && this.proc.setSessionUser) this.proc.setSessionUser(this.identity.user);
     if (options.persist !== false) this.persist();
+    root.dispatchEvent(new CustomEvent("hl:identity"));
   };
 
   Machine.prototype.attachLease = function (lease, controller) {
@@ -128,7 +130,8 @@
   };
 
   Machine.prototype.dropToKali = function () {
-    this.userStack = [];
+    if (this.sessionControl && this.lease.id) this.sessionControl("demote", this.lease.id).catch(function () {});
+    this.lease.operator = false;
     this.switchUser(this.visitorName, { persist: false });
     return true;
   };
@@ -175,7 +178,7 @@
 
   Machine.prototype.historyPath = function () { return this.identity.home + "/.zsh_history"; };
   Machine.prototype.addHistory = function (line) {
-    if (!line) return;
+    if (!line || line.length > 4096 || /^\s*claim\b/.test(line)) return;
     this.history.push(line);
     if (this.history.length > 300) this.history = this.history.slice(-300);
     try { this.fs.writeFile(this.historyPath(), this.history.join("\n") + "\n", "/", false, true); } catch (error) {}
@@ -207,19 +210,12 @@
     return HL.kernel.sessionSet(this.config.overlayKey || "hl-machine-overlay-v1", encoded);
   };
 
-  Machine.prototype.persistTrophies = function () {
-    var ids = Array.from(new Set(this.claimed.filter(function (id) {
-      return typeof id === "string" && /^[a-z0-9][a-z0-9_-]{0,63}$/i.test(id);
-    })));
-    return HL.kernel.localSet(this.config.trophiesKey || "hl-trophies-v1", JSON.stringify({ v: 1, claimed: ids }));
-  };
-
   Machine.prototype.restore = function () {
     HL.kernel.localRemove("hl-machine-v1");
     var raw = HL.kernel.sessionGet(this.config.overlayKey || "hl-machine-overlay-v1");
     try {
       var saved = raw ? JSON.parse(raw) : null;
-      if (saved && saved.v === 1) this.fs.restoreWritable(saved.files || {});
+      if (raw.length <= Number(this.config.overlayCap || 262144) && saved && saved.v === 1) this.fs.restoreWritable(saved.files || {});
     } catch (error) {}
     var trophyRaw = HL.kernel.localGet(this.config.trophiesKey || "hl-trophies-v1");
     try {
@@ -266,6 +262,26 @@
     return this.persist();
   };
 
+  Machine.prototype.resetLocal = function () {
+    this.shell.cancel();
+    HL.kernel.sessionRemove(this.config.overlayKey || "hl-machine-overlay-v1");
+    this.dropToKali();
+    this.fs = new HL.VirtualFS(this.config);
+    this.fs.setIdentity(this.identity);
+    HL.mountPacks(this.fs, this.packs);
+    this.net = new HL.Network(this.image.proc, this.packs);
+    this.proc = new HL.ProcessTable(this.image.proc, Date.now());
+    this.installImageFiles(this.image.texts);
+    this.installCommands();
+    this.shell.busybox.fs = this.fs;
+    this.history = [];
+    this.cwd = this.identity.home;
+    this.previousCwd = this.cwd;
+    this.resetEnvironment();
+    this.loadAliases();
+    this.syncTrophyFiles();
+  };
+
   Machine.prototype.reset = function () {
     HL.kernel.sessionRemove(this.config.overlayKey || "hl-machine-overlay-v1");
     HL.kernel.localRemove("hl-machine-v1");
@@ -295,7 +311,7 @@
         machine.syncTrophyFiles();
         machine.shell = new HL.Shell(machine);
         return machine;
-      });
+      }).catch(function (error) { bootPromise = null; throw error; });
     }
     return bootPromise;
   };

@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-require_once __DIR__ . '/_lib.php';
+require_once __DIR__ . '/_session.php';
 
 function hl_shell_auth_reply(bool $ok, string $user = '', int $status = 200): void
 {
@@ -23,7 +23,11 @@ function hl_shell_auth_slot_valid(string $slotId, array $env): bool
     if (!is_readable($path)) {
         return false;
     }
-    $stored = json_decode((string) @file_get_contents($path), true);
+    $handle = @fopen($path, 'r');
+    if ($handle === false || !flock($handle, LOCK_SH)) return false;
+    $stored = json_decode((string) stream_get_contents($handle), true);
+    flock($handle, LOCK_UN);
+    fclose($handle);
     $slots = is_array($stored) && isset($stored['slots']) && is_array($stored['slots']) ? $stored['slots'] : [];
     $ipHash = hl_shell_ip_hash($env);
     $ttl = max(30, min(600, (int) ($env['HL_SHELL_TTL'] ?? 90)));
@@ -32,7 +36,8 @@ function hl_shell_auth_slot_valid(string $slotId, array $env): bool
         if (!is_array($row) || !isset($row['id'], $row['ip_hash'], $row['seen'])) {
             continue;
         }
-        if ((int) $row['seen'] < $minimumSeen) {
+        if ((int) $row['seen'] < $minimumSeen || ($row['terminated'] ?? false) || ($row['locked'] ?? false)
+            || !hash_equals((string) ($row['owner'] ?? ''), hash('sha256', (string) ($_SESSION['lease_owner'] ?? '')))) {
             continue;
         }
         if (hash_equals((string) $row['id'], $slotId)
@@ -78,7 +83,12 @@ if (strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? '')) !== 'POST') {
     hl_shell_auth_reply(false, '', 405);
 }
 
-$payload = json_decode((string) file_get_contents('php://input'), true);
+$payload = hl_payload(4096);
+hl_session();
+$rateDirectory = '/var/tmp/highlion-shell-auth';
+if (!is_dir($rateDirectory) && !@mkdir($rateDirectory, 0700, true) && !is_dir($rateDirectory)) hl_shell_auth_reply(false, '', 503);
+$rateLock = @fopen($rateDirectory . '/' . sha1(hl_client_ip()) . '.lock', 'c+');
+if ($rateLock === false || !flock($rateLock, LOCK_EX)) hl_shell_auth_reply(false, '', 503);
 $user = is_array($payload) && isset($payload['user']) && is_string($payload['user'])
     ? strtolower(trim($payload['user'])) : '';
 $password = is_array($payload) && isset($payload['password']) && is_string($payload['password'])
@@ -118,13 +128,11 @@ foreach ($hashKeys as $hashKey) {
     }
 }
 $cookieOk = true;
-if ($user === 'root') {
+if ($user === 'admin') {
     $expected = trim((string) ($env['HL_OP_COOKIE'] ?? ''));
     $actual = hl_cookie('hl_op');
     $cookieOk = $expected !== '' && $actual !== '' && hash_equals($expected, $actual);
-    if ($cookieOk) {
-        hl_op_refresh($actual);
-    }
+
 }
 
 $verified = $hash !== '' && $cookieOk && password_verify($password, $hash);
@@ -134,4 +142,12 @@ if (!$verified) {
     hl_shell_auth_reply(false, '', 401);
 }
 
+if ($user === 'admin') {
+    if (!session_regenerate_id(true)) hl_shell_auth_reply(false, '', 503);
+    hl_op_refresh($actual);
+    $_SESSION['admins'][$slotId] = time() + 900;
+} else {
+    unset($_SESSION['admins'][$slotId]);
+}
+$_SESSION['shell_users'][$slotId] = $user;
 hl_shell_auth_reply(true, $user);

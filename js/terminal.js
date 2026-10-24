@@ -17,6 +17,56 @@
   var acquireTimer = 0;
   var released = false;
   var instance = 0;
+  var beatPending = false;
+  var controlAck = 0;
+  var controlResult = null;
+  var commandPending = false;
+
+  function notifyControl(action) {
+    window.dispatchEvent(new CustomEvent("hl:control", { detail: action }));
+  }
+
+  async function applyControl(payload) {
+    if (!sharedMachine) return;
+    if (payload.mode === "terminated") {
+      released = true;
+      sharedMachine.controlLocked = true;
+      sharedMachine.shell.cancel();
+      sharedMachine.dropToKali();
+      notifyControl("terminated");
+      return;
+    }
+    var changed = sharedMachine.controlLocked !== Boolean(payload.locked);
+    sharedMachine.controlLocked = Boolean(payload.locked);
+    if (changed) { sharedMachine.shell.cancel(); notifyControl(payload.locked ? "locked" : "unlocked"); }
+    slot.operator = Boolean(payload.operator);
+    syncLease();
+    if (sharedMachine.identity.user === "admin" && !slot.operator) sharedMachine.dropToKali();
+    for (var command of payload.commands || []) {
+      if (!Number.isInteger(command.seq) || command.seq <= controlAck || commandPending) continue;
+      commandPending = true;
+      controlAck = command.seq;
+      sharedMachine.shell.cancel();
+      notifyControl("interrupt");
+      var result = { status: 0, stdout: "", stderr: "" };
+      try {
+        if (command.action === "exec") {
+          sharedMachine.remoteControl = true;
+          result = await sharedMachine.shell.run(command.value, { depth: 0 });
+        } else if (command.action === "reset") sharedMachine.resetLocal();
+        else if (command.action === "fx" && ["on", "off"].indexOf(command.value) !== -1) window.dispatchEvent(new CustomEvent("hl:fx", { detail: command.value }));
+        else if (command.action !== "clear") result = { status: 1, stderr: "Unsupported control" };
+        controlResult = { status: result.status, output: String(result.stdout || "") + String(result.stderr || "") };
+        controlResult.output = controlResult.output.slice(0, 4096);
+      } catch (error) { controlResult = { status: 1, output: "Control failed" }; }
+      finally {
+        sharedMachine.remoteControl = false;
+        commandPending = false;
+        notifyControl(command.action === "clear" || command.action === "reset" ? "clear" : "complete");
+      }
+      break;
+    }
+  }
 
   function requestToken(url) {
     return fetch(url, { method: "GET", credentials: "same-origin", cache: "no-store" })
@@ -82,6 +132,9 @@
   }
 
   function clearSlot() {
+    controlAck = 0;
+    controlResult = null;
+    if (sharedMachine && sharedMachine.identity.user !== "kali") sharedMachine.dropToKali();
     slot = { id: "", ttl: 90, operator: false };
     syncLease();
   }
@@ -97,7 +150,9 @@
   function acquireSlot() {
     if (slot.id) return Promise.resolve(slot);
     if (acquirePromise || released) return acquirePromise || Promise.resolve(slot);
-    acquirePromise = slotPost({ op: "acquire" }).then(function (payload) {
+    acquirePromise = Promise.resolve(window.HighLionFlags && window.HighLionFlags.ready).then(function () {
+      return slotPost({ op: "acquire" });
+    }).then(function (payload) {
       if (!payload || payload.mode !== "full" || typeof payload.id !== "string" || !payload.id) throw new Error("slot unavailable");
       slot = { id: payload.id, ttl: Number(payload.ttl) || 90, operator: Boolean(payload.operator) };
       syncLease();
@@ -112,8 +167,8 @@
     return acquirePromise;
   }
 
-  function sessionControl(action, id) {
-    return slotPost({ op: action, id: id || "" });
+  function sessionControl(action, id, value) {
+    return slotPost({ op: action, id: id || "", actor: slot.id, value: value || "" });
   }
 
   function shellAuth(user, password) {
@@ -134,20 +189,26 @@
       .then(function () {
         return postJson(AUTH_URL, { user: user, password: secret, slot: slot.id }, false, false);
       })
-      .then(function (payload) { return Boolean(payload && payload.ok === true && payload.user === user); })
+      .then(function (payload) {
+        var ok = Boolean(payload && payload.ok === true && payload.user === user);
+        if (ok) { slot.operator = user === "admin"; syncLease(); }
+        return ok;
+      })
       .catch(function () { return false; })
       .finally(function () { secret = ""; });
   }
 
   function beat() {
-    if (document.hidden) return;
+    if (document.hidden || released || beatPending) return;
     if (!slot.id) { acquireSlot(); return; }
-    slotPost({ op: "beat", id: slot.id }).then(function (payload) {
-      if (!payload || payload.mode !== "full") throw new Error("slot expired");
+    beatPending = true;
+    slotPost({ op: "beat", id: slot.id, ack: controlAck, result: controlResult }).then(function (payload) {
+      if (!payload || ["full", "terminated"].indexOf(payload.mode) === -1) throw new Error("slot expired");
+      return applyControl(payload);
     }).catch(function () {
       clearSlot();
       scheduleAcquire();
-    });
+    }).finally(function () { beatPending = false; });
   }
 
   function startHeartbeat() {
@@ -164,7 +225,8 @@
   document.addEventListener("visibilitychange", function () {
     if (!document.hidden) beat();
   });
-  window.addEventListener("pagehide", release, { once: true });
+  window.addEventListener("pagehide", release);
+  window.addEventListener("pageshow", function (event) { if (event.persisted) { released = false; clearSlot(); acquireSlot(); } });
 
   function fullMachine() {
     if (sharedMachine) return Promise.resolve(sharedMachine);
@@ -267,6 +329,8 @@
     }
 
     function addLive() {
+      if (machine && (machine.controlLocked || machine.remoteControl)) return;
+      if (live) live.remove();
       if (running || !machine) return;
       updateTitle();
       live = document.createElement("div");
@@ -285,6 +349,7 @@
       input.autocapitalize = "off";
       input.spellcheck = false;
       input.setAttribute("aria-label", "Terminal command");
+      input.maxLength = 4096;
       live.append(label, inputView, input);
       stream.appendChild(live);
       input.addEventListener("keydown", handleKey);
@@ -298,6 +363,7 @@
     }
 
     function passwordPrompt(userName) {
+      var authSerial = ++runSerial;
       running = true;
       live = document.createElement("div");
       live.className = "hlterm-live hlterm-password-live";
@@ -310,7 +376,8 @@
       input.id = inputId;
       input.className = "hlterm-capture hlterm-password-capture";
       input.type = "text";
-      input.setAttribute("inputmode", "none");
+      input.type = "password";
+      input.maxLength = 1024;
       input.autocomplete = "off";
       input.autocapitalize = "off";
       input.spellcheck = false;
@@ -347,6 +414,7 @@
         inputView = null;
         shellAuth(userName, password).then(function (ok) {
           password = "";
+          if (authSerial !== runSerial) { if (ok) machine.dropToKali(); return; }
           if (ok && machine.authenticateUser(userName)) updateTitle();
           else appendLine("su: Authentication failure", "hlterm-error");
           running = false;
@@ -604,19 +672,19 @@
     }
 
     async function execute(raw) {
+      if (machine.controlLocked || machine.remoteControl) return;
       var serial = ++runSerial;
       running = true;
       body.focus({ preventScroll: true });
-      var result = await shell.run(raw, { depth: 0 });
+      var result;
+      try { result = await shell.run(raw, { depth: 0 }); }
+      catch (error) { result = { status: 1, stderr: "zsh: command failed\n" }; }
       if (serial !== runSerial) return;
       running = false;
       var effectOwnsPrompt = applyEffect(result.effect);
       if (result.stdout) appendLine(result.stdout, "hlterm-line");
       if (result.stderr) appendLine(result.stderr, "hlterm-error");
-      if (window.HighLionSfx && !(result.effect && (result.effect.authenticate || result.effect.sfxHandled))) {
-        if (result.status === 0) window.HighLionSfx.ok();
-        else window.HighLionSfx.error();
-      }
+
       if (!effectOwnsPrompt) addLive();
     }
 
@@ -634,10 +702,11 @@
     }
 
     function handleKey(event) {
+      if (!input || machine.controlLocked || machine.remoteControl) { event.preventDefault(); return; }
       var key = event.key.toLowerCase();
-      if (window.HighLionSfx && (event.key.length === 1 || event.key === "Backspace")) window.HighLionSfx.key();
       if (event.ctrlKey && key === "c") {
         event.preventDefault();
+        shell.cancel();
         if (matrixWanted) setMatrix(false);
         freeze(input.value);
         appendLine("^C", "hlterm-muted");
@@ -709,11 +778,25 @@
       addLive();
     }
 
+    window.addEventListener("hl:identity", function () { if (machine) updateTitle(); });
+    window.addEventListener("hl:control", function (event) {
+      if (!machine) return;
+      runSerial += 1;
+      running = false;
+      if (live) live.remove();
+      live = null; input = null; inputView = null;
+      if (interactive) { var surface = interactive.closest(".hlterm-interactive"); if (surface) surface.remove(); interactive = null; }
+      if (event.detail === "clear") stream.replaceChildren();
+      if (event.detail === "locked" || event.detail === "terminated") appendLine("Session " + event.detail + " by administrator.", "hlterm-muted");
+      if (event.detail !== "interrupt") addLive();
+    });
+
     body.addEventListener("keydown", function (event) {
       if (interactive || !running || !event.ctrlKey || event.key.toLowerCase() !== "c") return;
       event.preventDefault();
       if (matrixWanted) setMatrix(false);
       runSerial += 1;
+      shell.cancel();
       running = false;
       appendLine("^C", "hlterm-muted");
       addLive();

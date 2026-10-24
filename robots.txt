@@ -1,6 +1,5 @@
 User-agent: *
 Allow: /
-Disallow: /lab/
 Disallow: /api/
 Disallow: /components/
 

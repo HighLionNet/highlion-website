@@ -4,15 +4,6 @@ declare(strict_types=1);
 ini_set('display_errors', '0');
 error_reporting(E_ALL);
 
-/*
-Owner deployment notes:
-rsync repo to /var/www/highlion
-enable php-fpm location /api/
-exclude /api/ from IL geo map
-confirm off-IL: curl -I https://www.highlion.net/contact.html  ? 403
-confirm any-IP: curl -I https://www.highlion.net/api/csrf.php ? 200
-*/
-
 function hl_json($data, $code = 200): void
 {
     http_response_code((int) $code);
@@ -34,41 +25,22 @@ function hl_json($data, $code = 200): void
 
 function hl_origin_ok(string $csrfToken = ''): bool
 {
+    $allowed = ['https://www.highlion.net', 'https://highlion.net'];
     $origin = trim((string) ($_SERVER['HTTP_ORIGIN'] ?? ''));
-    if ($origin !== '') {
-        $originHost = strtolower((string) parse_url($origin, PHP_URL_HOST));
-        if ($originHost === 'www.highlion.net' || $originHost === 'highlion.net') {
-            return true;
-        }
-    }
-
+    if ($origin !== '') return in_array($origin, $allowed, true);
     $referer = trim((string) ($_SERVER['HTTP_REFERER'] ?? ''));
     if ($referer !== '') {
-        $refererHost = strtolower((string) parse_url($referer, PHP_URL_HOST));
-        if ($refererHost === 'www.highlion.net' || $refererHost === 'highlion.net') {
-            return true;
-        }
+        $parts = parse_url($referer);
+        $base = ($parts['scheme'] ?? '') . '://' . ($parts['host'] ?? '');
+        return !isset($parts['port']) && in_array($base, $allowed, true);
     }
     return hl_csrf_check($csrfToken);
 }
 
 function hl_client_ip(): string
 {
-    $candidates = [];
-    if (!empty($_SERVER['HTTP_CF_CONNECTING_IP'])) {
-        $candidates[] = trim((string) $_SERVER['HTTP_CF_CONNECTING_IP']);
-    }
-    if (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
-        $forwarded = explode(',', (string) $_SERVER['HTTP_X_FORWARDED_FOR']);
-        $candidates[] = trim((string) ($forwarded[0] ?? ''));
-    }
-    $candidates[] = trim((string) ($_SERVER['REMOTE_ADDR'] ?? ''));
-    foreach ($candidates as $candidate) {
-        if (filter_var($candidate, FILTER_VALIDATE_IP) !== false) {
-            return $candidate;
-        }
-    }
-    return '0.0.0.0';
+    $address = trim((string) ($_SERVER['REMOTE_ADDR'] ?? ''));
+    return filter_var($address, FILTER_VALIDATE_IP) !== false ? $address : '0.0.0.0';
 }
 
 function hl_csrf_issue(): string

@@ -1,169 +1,110 @@
 <?php
 declare(strict_types=1);
-
-require_once __DIR__ . '/_lib.php';
+require_once __DIR__ . '/_session.php';
 
 $method = strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? ''));
-if ($method === 'HEAD') {
-    hl_json(['ok' => true]);
-}
-if ($method !== 'POST') {
-    header('Allow: POST, HEAD');
-    hl_json(['ok' => false], 405);
-}
-
-$raw = (string) file_get_contents('php://input');
-$payload = json_decode($raw, true);
-if (!is_array($payload)) {
-    hl_json(['ok' => false], 400);
-}
-$op = isset($payload['op']) && is_string($payload['op']) ? $payload['op'] : '';
-if (!in_array($op, ['acquire', 'beat', 'release', 'list', 'drop'], true)) {
-    hl_json(['ok' => false], 400);
-}
-
+if ($method === 'HEAD') hl_json(['ok' => true]);
+if ($method !== 'POST') { header('Allow: POST, HEAD'); hl_json(['ok' => false], 405); }
+if (!hl_origin_ok((string) ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? ''))) hl_json(['ok' => false], 403);
+$payload = hl_payload();
+$op = is_string($payload['op'] ?? null) ? $payload['op'] : '';
+$operations = ['acquire', 'beat', 'release', 'demote', 'list', 'drop', 'lock', 'unlock', 'reset', 'clear', 'exec', 'fx'];
+if (!in_array($op, $operations, true)) hl_json(['ok' => false], 400);
 $env = hl_env_load('/etc/highlion/shell.env');
-$slotLimit = max(1, min(128, (int) ($env['HL_SHELL_SLOTS'] ?? 8)));
 $ttl = max(30, min(600, (int) ($env['HL_SHELL_TTL'] ?? 90)));
-$operatorCookie = trim((string) ($env['HL_OP_COOKIE'] ?? ''));
-$cookieValue = hl_cookie('hl_op');
-$originOk = hl_origin_ok((string) ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? ''));
-$operator = $operatorCookie !== '' && $cookieValue !== '' && hash_equals($operatorCookie, $cookieValue);
+$limit = max(1, min(128, (int) ($env['HL_SHELL_SLOTS'] ?? 8)));
+$id = is_string($payload['id'] ?? null) ? $payload['id'] : '';
+$actor = is_string($payload['actor'] ?? null) ? $payload['actor'] : '';
+$value = is_string($payload['value'] ?? null) ? $payload['value'] : '';
+$control = in_array($op, ['list', 'drop', 'lock', 'unlock', 'reset', 'clear', 'exec', 'fx'], true);
+hl_session();
+if ($control && !hl_admin($actor, $env)) hl_json(['ok' => false], 403);
+if ($control && !hl_rate_allow('shell-control', 60, 60)) hl_json(['ok' => false], 429);
+if ($op === 'exec' && ($value === '' || strlen($value) > 4096 || preg_match('/[\x00-\x1f\x7f]/', $value))) hl_json(['ok' => false], 400);
+if ($op === 'fx' && !in_array($value, ['on', 'off'], true)) hl_json(['ok' => false], 400);
 
-if (!$originOk) {
-    hl_json(['ok' => false], 403);
-}
-
-if ($operator && ($op === 'acquire' || $op === 'beat')) {
-    hl_op_refresh($cookieValue);
-}
-
-if ($op === 'list' || $op === 'drop') {
-    if (!$operator) {
-        hl_json(['ok' => false], 404);
-    }
-}
-
-$ipHash = hl_shell_ip_hash($env);
+$handle = @fopen('/var/tmp/highlion-shell-slots.json', 'c+');
+if ($handle === false || !flock($handle, LOCK_EX)) hl_json(['ok' => false, 'mode' => 'retry'], 503);
+@chmod('/var/tmp/highlion-shell-slots.json', 0600);
+$stored = json_decode((string) stream_get_contents($handle), true);
 $now = time();
-$storePath = '/var/tmp/highlion-shell-slots.json';
-$handle = @fopen($storePath, 'c+');
-if ($handle === false || !flock($handle, LOCK_EX)) {
-    if (is_resource($handle)) {
-        fclose($handle);
-    }
-    hl_json(['ok' => false, 'mode' => 'retry', 'retry_after' => 5], 503);
-}
-
-$storedRaw = stream_get_contents($handle);
-$stored = json_decode($storedRaw ?: '', true);
-if (!is_array($stored)) {
-    $stored = [];
-}
-$slots = isset($stored['slots']) && is_array($stored['slots']) ? $stored['slots'] : [];
-$acquires = isset($stored['acquires']) && is_array($stored['acquires']) ? $stored['acquires'] : [];
-$slots = array_values(array_filter($slots, static function ($row) use ($now, $ttl): bool {
-    return is_array($row)
-        && isset($row['id'], $row['ip_hash'], $row['seen'])
-        && is_string($row['id'])
-        && (int) $row['seen'] >= $now - $ttl;
+$slots = array_values(array_filter(is_array($stored['slots'] ?? null) ? $stored['slots'] : [], static function ($row) use ($now, $ttl): bool {
+    return is_array($row) && is_string($row['id'] ?? null) && is_string($row['ip_hash'] ?? null) && (int) ($row['seen'] ?? 0) >= $now - $ttl;
 }));
-$acquires = array_values(array_filter($acquires, static function ($row) use ($now): bool {
-    return is_array($row) && isset($row['ip_hash'], $row['at']) && (int) $row['at'] >= $now - 60;
-}));
-
+$ip = hl_shell_ip_hash($env);
+$owner = hash('sha256', (string) $_SESSION['lease_owner']);
+$own = static function (array $row) use ($ip, $owner): bool {
+    return hash_equals((string) $row['ip_hash'], $ip) && hash_equals((string) ($row['owner'] ?? ''), $owner);
+};
+$actorValid = false;
+foreach ($slots as $row) {
+    if (hash_equals($row['id'], $actor) && $own($row) && !($row['terminated'] ?? false)) $actorValid = true;
+}
+if ($control && !$actorValid) hl_json(['ok' => false], 403);
 $reply = ['ok' => false];
 $status = 200;
-
 if ($op === 'acquire') {
-    $recent = 0;
-    foreach ($acquires as $row) {
-        if (is_string($row['ip_hash']) && hash_equals($row['ip_hash'], $ipHash)) {
-            $recent += 1;
-        }
+    if (!hl_rate_allow('shell-acquire', 8, 60)) { $status = 429; }
+    elseif (count($slots) >= $limit) { $reply['mode'] = 'retry'; $status = 503; }
+    else {
+        $id = bin2hex(random_bytes(16));
+        $slots[] = ['id' => $id, 'owner' => $owner, 'ip_hash' => $ip, 'user' => 'kali', 'created' => $now, 'seen' => $now, 'commands' => [], 'next' => 0];
+        $reply = ['ok' => true, 'mode' => 'full', 'id' => $id, 'ttl' => $ttl, 'operator' => false];
     }
-    if ($recent >= 8) {
-        $status = 429;
-    } else {
-        $acquires[] = ['ip_hash' => $ipHash, 'at' => $now];
-        if (count($slots) >= $slotLimit) {
-            $reply = ['ok' => false, 'mode' => 'retry', 'retry_after' => 5];
-            $status = 503;
-        } else {
-            try {
-                $id = bin2hex(random_bytes(16));
-            } catch (Throwable $error) {
-                $id = hash('sha256', uniqid('shell', true) . microtime(true));
-            }
-            $user = 'kali';
-            $slots[] = [
-                'id' => $id,
-                'user' => $user,
-                'ip_hash' => $ipHash,
-                'created' => $now,
-                'seen' => $now,
-                'pids' => [],
-            ];
-            $reply = ['ok' => true, 'mode' => 'full', 'id' => $id, 'ttl' => $ttl, 'operator' => $operator];
-        }
-    }
-} elseif ($op === 'beat' || $op === 'release') {
-    $id = isset($payload['id']) && is_string($payload['id']) ? $payload['id'] : '';
-    $found = false;
+} elseif ($op === 'list') {
+    $reply = ['ok' => true, 'slots' => array_map(static function (array $row): array {
+        return ['id' => $row['id'], 'user' => $row['user'] ?? 'kali', 'created' => $row['created'], 'seen' => $row['seen'], 'locked' => (bool) ($row['locked'] ?? false), 'terminated' => (bool) ($row['terminated'] ?? false), 'result' => $row['result'] ?? null, 'pending' => count($row['commands'] ?? [])];
+    }, $slots)];
+} else {
+    $status = 404;
     foreach ($slots as $index => &$row) {
-        $sameLease = $id !== '' && hash_equals((string) $row['id'], $id)
-            && hash_equals((string) $row['ip_hash'], $ipHash);
-        if (!$sameLease) {
-            continue;
-        }
-        $found = true;
+        if ($id === '' || !hash_equals($row['id'], $id) || (!$control && !$own($row))) continue;
+        $status = 200;
+        $reply = ['ok' => true];
         if ($op === 'release') {
-            unset($slots[$index]);
-        } else {
+            unset($slots[$index], $_SESSION['admins'][$id], $_SESSION['shell_users'][$id]);
+        } elseif ($op === 'demote') {
+            unset($_SESSION['admins'][$id], $_SESSION['shell_users'][$id]);
+            $row['user'] = 'kali';
+        } elseif ($op === 'beat') {
             $row['seen'] = $now;
-            $reply = ['ok' => true, 'mode' => 'full', 'id' => $id, 'ttl' => $ttl];
+            if ($row['terminated'] ?? false) {
+                unset($_SESSION['admins'][$id]);
+                $reply = ['ok' => true, 'mode' => 'terminated'];
+            } else {
+                $ack = is_int($payload['ack'] ?? null) ? $payload['ack'] : 0;
+                $queue = $row['commands'] ?? [];
+                $acked = array_filter($queue, static function (array $entry) use ($ack): bool { return $entry['seq'] === $ack; });
+                if ($acked) {
+                    $report = is_array($payload['result'] ?? null) ? $payload['result'] : [];
+                    $row['result'] = ['seq' => $ack, 'status' => (int) ($report['status'] ?? 0), 'output' => substr(is_string($report['output'] ?? null) ? $report['output'] : '', 0, 4096)];
+                    $row['commands'] = array_values(array_filter($queue, static function (array $entry) use ($ack): bool { return $entry['seq'] > $ack; }));
+                }
+                $row['user'] = hl_admin($id, $env) ? 'admin' : (($_SESSION['shell_users'][$id] ?? '') === 'root' ? 'root' : 'kali');
+                $reply = ['ok' => true, 'mode' => 'full', 'id' => $id, 'ttl' => $ttl, 'operator' => hl_admin($id, $env), 'locked' => (bool) ($row['locked'] ?? false), 'commands' => $row['commands'] ?? []];
+            }
+        } elseif ($op === 'drop') {
+            $row['terminated'] = true;
+            $row['commands'] = [];
+        } elseif ($op === 'lock' || $op === 'unlock') {
+            $row['locked'] = $op === 'lock';
+        } else {
+            if (count($row['commands'] ?? []) >= 8) { $reply = ['ok' => false]; $status = 409; }
+            else {
+                $row['next'] = (int) ($row['next'] ?? 0) + 1;
+                $row['commands'][] = ['seq' => $row['next'], 'action' => $op, 'value' => $value];
+            }
         }
+        if ($control) hl_log('session-control ' . $op . ' actor=' . substr($actor, 0, 8) . ' target=' . substr($id, 0, 8));
         break;
     }
     unset($row);
-    $slots = array_values($slots);
-    if ($op === 'release') {
-        $reply = ['ok' => true];
-    } elseif (!$found) {
-        $reply = ['ok' => false, 'mode' => 'retry', 'retry_after' => 5];
-        $status = 503;
-    }
-} elseif ($op === 'list') {
-    $publicSlots = array_map(static function (array $row): array {
-        return [
-            'id' => (string) $row['id'],
-            'user' => (string) ($row['user'] ?? 'kali'),
-            'created' => (int) ($row['created'] ?? 0),
-            'seen' => (int) ($row['seen'] ?? 0),
-            'pids' => isset($row['pids']) && is_array($row['pids']) ? $row['pids'] : [],
-        ];
-    }, $slots);
-    $reply = ['ok' => true, 'slots' => $publicSlots];
-} elseif ($op === 'drop') {
-    $id = isset($payload['id']) && is_string($payload['id']) ? $payload['id'] : '';
-    $before = count($slots);
-    $slots = array_values(array_filter($slots, static function (array $row) use ($id): bool {
-        return $id === '' || !hash_equals((string) $row['id'], $id);
-    }));
-    if ($id === '' || count($slots) === $before) {
-        $status = 404;
-    } else {
-        $reply = ['ok' => true];
-    }
 }
-
-$stored = ['slots' => $slots, 'acquires' => $acquires];
+$encoded = json_encode(['slots' => array_values($slots)], JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
 rewind($handle);
-ftruncate($handle, 0);
-fwrite($handle, (string) json_encode($stored, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
-fflush($handle);
+if ($encoded === false || !ftruncate($handle, 0) || fwrite($handle, $encoded) !== strlen($encoded) || !fflush($handle)) {
+    flock($handle, LOCK_UN); fclose($handle); hl_json(['ok' => false], 503);
+}
 flock($handle, LOCK_UN);
 fclose($handle);
-@chmod($storePath, 0660);
-
 hl_json($reply, $status);

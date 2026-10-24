@@ -1,16 +1,13 @@
-/* Generate local WOFF2 assets on Debian before launch.
-   Run: sudo bash /var/www/highlion/assets/fonts/generate-fonts.sh
-   See deploy/OWNER.txt. */
 @font-face {
   font-family: "Orbitron";
-  src: local("Orbitron"), url("/assets/fonts/Orbitron.woff2") format("woff2");
+  src: local("Orbitron"), url("/assets/fonts/Orbitron.woff2?v=hl8t") format("woff2");
   font-weight: 400 900;
   font-display: swap;
 }
 
 @font-face {
   font-family: "JetBrains Mono";
-  src: local("JetBrains Mono"), url("/assets/fonts/JetBrainsMono.woff2") format("woff2");
+  src: local("JetBrains Mono"), url("/assets/fonts/JetBrainsMono.woff2?v=hl8t") format("woff2");
   font-weight: 400 700;
   font-display: swap;
 }
@@ -2725,7 +2722,7 @@ h3 {
   }
 }
 
-/* Prompt 12 inventory surfaces and classic product marks. */
+
 
 .news-track-wrap,
 .news-list {
@@ -3315,7 +3312,7 @@ h3 {
   }
 }
 
-/* Prompt 14: readable station density and widget-specific edges. */
+
 .brand-icon {
   width: 48px;
   height: 48px;
@@ -3677,3 +3674,26 @@ tr[data-href]:focus-visible {
   width: 22px !important;
   height: 22px !important;
 }
+
+.flag-dialog { width: min(34rem, calc(100vw - 2rem)); padding: 0; border: 1px solid var(--purple-stroke); border-radius: 12px; color: var(--text); background: var(--bg-1); box-shadow: var(--shadow); font-family: var(--mono); }
+.flag-dialog::backdrop { background: rgba(3, 5, 14, .85); }
+.flag-form { padding: 1.5rem; }
+.flag-heading { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1.5rem; }
+.flag-heading h2 { margin: 0; font-size: 1.1rem; }
+.flag-heading button { color: var(--text); border: 0; background: transparent; font-size: 1.8rem; cursor: pointer; }
+.flag-form label { display: block; margin-bottom: .5rem; }
+.flag-form input { width: 100%; border: 1px solid var(--stroke-strong); border-radius: 6px; padding: .8rem; background: var(--bg-0); color: var(--text); font: inherit; }
+.flag-form input:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+.flag-status { min-height: 1.5rem; color: var(--text-soft); }
+.flag-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem; margin: 1.5rem 0; }
+.flag-actions [hidden] { display: none; }
+.challenge-page { max-width: 1120px; margin: 3rem auto; padding: 0 1rem; }
+.challenge-content { padding: clamp(1.2rem, 4vw, 3rem); }
+.challenge-content h1 { margin: 0 0 1.5rem; font-family: var(--display); font-size: clamp(1.8rem, 4vw, 3rem); }
+.challenge-content p { max-width: 78ch; line-height: 1.8; color: var(--text-soft); }
+.challenge-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.5rem; margin: 2rem 0; }
+.challenge-grid article { padding: 1.3rem; border: 1px solid var(--stroke-strong); border-radius: 8px; background: var(--panel); }
+.challenge-grid h2 { font: 1rem var(--mono); color: var(--cyan); }
+.nav-meta { flex-wrap: wrap; }
+.nav-chip[hidden] { display: none; }
+@media (max-width: 640px) { .challenge-grid { grid-template-columns: 1fr; } .flag-form { padding: 1rem; } }

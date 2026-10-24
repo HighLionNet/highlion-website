@@ -103,15 +103,20 @@
     };
     this.shares = {
       public: { guest: true, files: { "welcome.txt": "Drop files for reception here.\n" } },
-      transfer: { guest: true, files: { "1042-vpn.txt": "Ticket 1042: transfer is readable without credentials.\nHL{east-node-01}\nHL8{east-node-01}\n" } },
+      transfer: { guest: true, files: {} },
       finance: { guest: false, error: "NT_STATUS_ACCESS_DENIED" },
       "admin$": { guest: false, error: "NT_STATUS_ACCESS_DENIED" }
     };
+    this.httpFixtures = {};
     this.firewall = {};
     this.neighbors = { "10.8.0.1": { mac: "02:0a:8e:00:00:01", seen: Date.now() } };
     this.packBanners = {};
     (packs || []).forEach(function (pack) {
-      if (!pack._error) Object.assign(this.packBanners, pack.banners || {});
+      if (!pack._error) {
+        Object.assign(this.packBanners, pack.banners || {});
+        Object.assign(this.httpFixtures, pack.http || {});
+        Object.assign(this.shares, pack.shares || {});
+      }
     }, this);
   }
 
@@ -229,7 +234,7 @@
         body = "<!doctype html>\n<title>Osprey & Hale — edge</title>\n<h1>Osprey & Hale — edge</h1>\n<p>Office gateway. WAN unavailable.</p>\n";
       } else if (path === "/status") {
         code = 200;
-        body = "<!doctype html>\n<title>fw01 status</title>\n<h1>fw01</h1>\n<p>uptime: 37 days</p>\n<p>wan: down</p>\n<!-- ack HL8{relay-ack} -->\n";
+        body = "<!doctype html>\n<title>fw01 status</title>\n<h1>fw01</h1>\n<p>uptime: 37 days</p>\n<p>wan: down</p>\n<p>policy: /policy; journal: /relay-log</p>\n";
       }
     } else if (profile.address === "10.8.0.21") {
       if (path === "/") {
@@ -245,11 +250,13 @@
         code = 403; body = "403 Forbidden\n";
       } else if (path === "/helpdesk/archive/1042.txt") {
         code = 200;
-        body = "Ticket 1042 — VPN token reset\nThe fileserver share 'transfer' is world-readable.\nEast node refs: HL{east-node-01} HL8{east-node-01}\n";
+        body = "Ticket 1042 — VPN token reset\nThe fileserver share 'transfer' is world-readable.\nRead the current handoff record.\n";
       } else if (path === "/server-status") {
         code = 403; body = "403 Forbidden\n";
       }
     }
+    var fixture = this.httpFixtures[profile.address + path];
+    if (typeof fixture === "string") { code = 200; body = fixture; }
     var labels = { 200: "OK", 403: "Forbidden", 404: "Not Found" };
     return { code: code, label: labels[code], location: "", body: body, profile: profile, server: server, port: port };
   };
