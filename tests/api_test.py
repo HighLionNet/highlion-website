@@ -216,6 +216,24 @@ def run():
             probe = normalize + '$v=json_decode(stream_get_contents(STDIN),true); echo json_encode(array_map(fn($x)=>hl_intel_normalize_image(base64_decode($x),"image/png") !== null,$v));'
             image_results = json.loads(subprocess.check_output([PHP, '-r', probe], input=json.dumps([base64.b64encode(png).decode(), base64.b64encode(huge).decode(), base64.b64encode(b'<svg/>').decode()]).encode()))
             expect(image_results, [True, False, False], 'image decode bounds')
+            # A thumbnail response must wait for a concurrent cache writer.
+            thumb_directory = state / 'highlion-thumbs'
+            thumb_directory.mkdir(exist_ok=True)
+            thumb_id = 'a' * 40
+            thumb_path = thumb_directory / thumb_id
+            thumb_path.write_bytes(png)
+            writer_code = '$h=fopen($argv[1],"c+"); flock($h,LOCK_EX); ftruncate($h,0); echo "locked\\n"; fflush(STDOUT); usleep(500000); fwrite($h,base64_decode($argv[2])); fflush($h); flock($h,LOCK_UN); fclose($h);'
+            with subprocess.Popen([PHP, '-r', writer_code, str(thumb_path), base64.b64encode(png).decode()], stdout=subprocess.PIPE, creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0)) as writer:
+                assert writer.stdout.readline() == b'locked\n'
+                connection = http.client.HTTPConnection('127.0.0.1', port, timeout=5)
+                try:
+                    connection.request('GET', '/api/thumb.php?id=' + thumb_id)
+                    response = connection.getresponse()
+                    expect(response.read(), png, 'thumbnail read waits for writer')
+                    expect(response.getheader('Content-Length'), str(len(png)), 'thumbnail length matches body')
+                finally:
+                    connection.close()
+                    writer.wait(timeout=5)
             lock_probe = 'require $argv[1]; $first=hl_refresh_lock("test"); $second=hl_refresh_lock("test"); echo json_encode([is_resource($first),$second === false]);'
             expect(json.loads(subprocess.check_output([PHP, '-r', lock_probe, str(api / '_lib.php')])), [True, True], 'refresh single writer')
             store.write_text('{broken')

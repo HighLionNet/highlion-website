@@ -42,6 +42,18 @@ if ($path === '') {
     exit;
 }
 
+$handle = @fopen($path, 'rb');
+if ($handle === false || !flock($handle, LOCK_SH)) {
+    if (is_resource($handle)) fclose($handle);
+    hl_json(['ok' => false], 503);
+}
+$stat = fstat($handle);
+if ($stat === false) {
+    flock($handle, LOCK_UN);
+    fclose($handle);
+    hl_json(['ok' => false], 503);
+}
+
 $contentType = 'image/jpeg';
 $mapFile = '/var/tmp/highlion-thumbs.json';
 if (is_readable($mapFile)) {
@@ -72,9 +84,11 @@ if (function_exists('finfo_open')) {
 }
 
 header('Content-Type: ' . $contentType);
-header('Content-Length: ' . (string) filesize($path));
+header('Content-Length: ' . (string) $stat['size']);
 header('Cache-Control: public, max-age=86400');
 header('X-Content-Type-Options: nosniff');
 if ($requestMethod !== 'HEAD') {
-    readfile($path);
+    fpassthru($handle);
 }
+flock($handle, LOCK_UN);
+fclose($handle);
