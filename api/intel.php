@@ -14,6 +14,7 @@ if ($requestMethod === 'HEAD') {
 
 $cacheFile = '/var/tmp/highlion-intel.json';
 $cacheTtl = 900;
+$fetchDeadline = microtime(true) + 12;
 $thumbDirectory = '/var/tmp/highlion-thumbs';
 $thumbMapFile = '/var/tmp/highlion-thumbs.json';
 $thumbTtl = 7 * 86400;
@@ -93,7 +94,10 @@ function hl_intel_resolve_url(string $base, string $candidate): string
 
 function hl_intel_fetch_limited(string $url, int $limit, array $allowedHosts): ?array
 {
+    global $fetchDeadline;
     for ($redirects = 0; $redirects <= 3; $redirects += 1) {
+        $remaining = $fetchDeadline - microtime(true);
+        if ($remaining <= 0) return null;
         $parts = parse_url($url);
         $scheme = strtolower((string) ($parts['scheme'] ?? ''));
         $host = strtolower((string) ($parts['host'] ?? ''));
@@ -103,7 +107,7 @@ function hl_intel_fetch_limited(string $url, int $limit, array $allowedHosts): ?
         $context = stream_context_create([
             'http' => [
                 'method' => 'GET',
-                'timeout' => 8,
+                'timeout' => min(3.0, $remaining),
                 'follow_location' => 0,
                 'ignore_errors' => true,
                 'user_agent' => 'HighLion-Intel/1.0 (+https://www.highlion.net/)',
@@ -152,6 +156,7 @@ function hl_intel_fetch_limited(string $url, int $limit, array $allowedHosts): ?
         }
         $body = '';
         while (!feof($handle) && strlen($body) <= $limit) {
+            if (microtime(true) >= $fetchDeadline) { fclose($handle); return null; }
             $chunk = fread($handle, min(8192, $limit + 1 - strlen($body)));
             if ($chunk === false) {
                 fclose($handle);
@@ -253,13 +258,14 @@ function hl_intel_cached_payload(
     array &$thumbMap
 ): array
 {
+    $payload['items'] = array_values(array_filter(array_slice($payload['items'], 0, 15), 'is_array'));
     foreach ($payload['items'] as &$item) {
         $thumb = (string) ($item['thumb'] ?? '');
-        if (preg_match('/^\/api\/thumb\.php\?id=([a-f0-9]{40})(?:&v=hl8u)?$/', $thumb, $match) !== 1
+        if (preg_match('/^\/api\/thumb\.php\?id=([a-f0-9]{40})(?:&v=[a-zA-Z0-9_-]{1,32})?$/', $thumb, $match) !== 1
             || !is_file($thumbDirectory . '/' . $match[1])) {
             $item['thumb'] = '';
         } else {
-            $item['thumb'] = '/api/thumb.php?id=' . $match[1] . '&v=hl8u';
+            $item['thumb'] = '/api/thumb.php?id=' . $match[1] . '&v=hl8v';
         }
     }
     unset($item);
@@ -270,6 +276,10 @@ function hl_intel_cached_payload(
 function hl_intel_normalize_image(string $body, string $contentType): ?array
 {
     $limit = 200 * 1024;
+    $info = @getimagesizefromstring($body);
+    if (!is_array($info) || $info[0] < 1 || $info[1] < 1 || $info[0] > 8192 || $info[1] > 8192
+        || $info[0] * $info[1] > 16000000 || !in_array($info['mime'] ?? '', ['image/jpeg', 'image/png', 'image/webp', 'image/gif'], true)) return null;
+    $contentType = $info['mime'];
     if ($body === '') {
         return null;
     }
@@ -295,22 +305,6 @@ function hl_intel_normalize_image(string $body, string $contentType): ?array
             } else {
                 imagedestroy($source);
             }
-        }
-    }
-    if (class_exists('Imagick')) {
-        try {
-            $image = new Imagick();
-            $image->readImageBlob($body);
-            $image->setIteratorIndex(0);
-            $image->thumbnailImage(224, 224, true, true);
-            $image->setImageFormat('jpeg');
-            $image->setImageCompressionQuality(82);
-            $jpeg = $image->getImageBlob();
-            $image->clear();
-            if ($jpeg !== '' && strlen($jpeg) <= $limit) {
-                return ['body' => $jpeg, 'ctype' => 'image/jpeg'];
-            }
-        } catch (Throwable $error) {
         }
     }
     return strlen($body) <= $limit ? ['body' => $body, 'ctype' => $contentType] : null;
@@ -410,7 +404,7 @@ function hl_intel_thumb(
 
 $thumbMap = [];
 if (is_readable($thumbMapFile)) {
-    $decodedMap = json_decode((string) @file_get_contents($thumbMapFile), true);
+    $decodedMap = hl_json_file($thumbMapFile);
     if (is_array($decodedMap)) {
         $thumbMap = $decodedMap;
     }
@@ -418,18 +412,20 @@ if (is_readable($thumbMapFile)) {
 
 $cached = null;
 if (is_readable($cacheFile)) {
-    $decoded = json_decode((string) @file_get_contents($cacheFile), true);
+    $decoded = hl_json_file($cacheFile);
     if (is_array($decoded) && isset($decoded['items']) && is_array($decoded['items'])) {
         $cached = hl_intel_cached_payload($decoded, $thumbDirectory, $thumbMap);
         if (filemtime($cacheFile) !== false && time() - (int) filemtime($cacheFile) < $cacheTtl) {
-            @file_put_contents(
-                $thumbMapFile,
-                (string) json_encode($thumbMap, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
-                LOCK_EX
-            );
             hl_json($cached);
         }
     }
+}
+
+$refreshLock = hl_refresh_lock('intel');
+if ($refreshLock === false) {
+    if (is_array($cached)) { $cached['stale'] = true; hl_json($cached); }
+    header('Retry-After: 30');
+    hl_json(['ok' => false, 'items' => [], 'count' => 0], 503);
 }
 
 $feeds = [
@@ -462,7 +458,10 @@ foreach ($feeds as $feed) {
     }
     $document = new DOMDocument();
     $previous = libxml_use_internal_errors(true);
-    $loaded = $document->loadXML($xmlText, LIBXML_NONET | LIBXML_NOCDATA);
+    $document->resolveExternals = false;
+    $document->substituteEntities = false;
+    $loaded = stripos($xmlText, '<!DOCTYPE') === false && stripos($xmlText, '<!ENTITY') === false
+        && $document->loadXML($xmlText, LIBXML_NONET | LIBXML_NOCDATA);
     libxml_clear_errors();
     libxml_use_internal_errors($previous);
     if (!$loaded) {
@@ -597,7 +596,7 @@ foreach ($items as &$item) {
             $imageHosts
         );
     }
-    $item['thumb'] = $thumbId === '' ? '' : '/api/thumb.php?id=' . $thumbId . '&v=hl8u';
+    $item['thumb'] = $thumbId === '' ? '' : '/api/thumb.php?id=' . $thumbId . '&v=hl8v';
     unset($item['image'], $item['_timestamp']);
 }
 unset($item);

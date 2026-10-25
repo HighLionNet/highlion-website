@@ -55,11 +55,11 @@
   }
 
   Machine.prototype.resetEnvironment = function () {
-    this.env = {
+    this.env = Object.assign(Object.create(null), {
       HOME: this.identity.home, USER: this.identity.user, LOGNAME: this.identity.user, HOSTNAME: this.identity.host,
       SHELL: this.identity.shell, PATH: "/bin:/usr/bin:/usr/sbin", PWD: this.cwd, OLDPWD: this.previousCwd,
       LANG: "en_US.UTF-8", TERM: "xterm-256color", "?": "0", "0": "zsh"
-    };
+    });
     this.exported = Object.keys(this.env);
   };
 

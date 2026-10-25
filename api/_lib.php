@@ -40,15 +40,17 @@ function hl_origin_ok(string $csrfToken = ''): bool
 function hl_client_ip(): string
 {
     $address = trim((string) ($_SERVER['REMOTE_ADDR'] ?? ''));
-    return filter_var($address, FILTER_VALIDATE_IP) !== false ? $address : '0.0.0.0';
+    return filter_var($address, FILTER_VALIDATE_IP) !== false ? (string) inet_ntop(inet_pton($address)) : '0.0.0.0';
 }
 
 function hl_csrf_issue(): string
 {
+    $existing = hl_cookie('hl_csrf');
+    if (preg_match('/^[a-f0-9]{64}$/D', $existing) === 1) return $existing;
     try {
         $token = bin2hex(random_bytes(32));
     } catch (Throwable $error) {
-        $token = hash('sha256', uniqid('hl', true) . microtime(true));
+        hl_json(['ok' => false], 503);
     }
     $base = [
         'expires' => time() + 3600,
@@ -62,13 +64,9 @@ function hl_csrf_issue(): string
 
 function hl_cookie(string $name): string
 {
-    if (isset($_COOKIE[$name]) && is_string($_COOKIE[$name])) {
-        return $_COOKIE[$name];
-    }
     $raw = (string) ($_SERVER['HTTP_COOKIE'] ?? '');
-    if ($raw === '') {
-        return '';
-    }
+    if (strlen($raw) > 16384) return '';
+    $values = [];
     foreach (explode(';', $raw) as $part) {
         $part = trim($part);
         $separator = strpos($part, '=');
@@ -79,14 +77,18 @@ function hl_cookie(string $name): string
         if ($cookieName !== $name) {
             continue;
         }
-        return rawurldecode(substr($part, $separator + 1));
+        $value = rawurldecode(substr($part, $separator + 1));
+        if (strlen($value) > 1024 || preg_match('/[\x00-\x20\x7f]/', $value)) return '';
+        $values[] = $value;
     }
-    return '';
+    if (!$values) return '';
+    foreach ($values as $value) if (!hash_equals($values[0], $value)) return '';
+    return $values[0];
 }
 
 function hl_op_refresh(string $value): void
 {
-    if ($value === '') {
+    if ($value === '' || strlen($value) > 1024 || preg_match('/[\x00-\x20\x7f]/', $value)) {
         return;
     }
     $parts = ['hl_op=' . rawurlencode($value), 'Max-Age=31536000', 'Path=/'];
@@ -110,7 +112,7 @@ function hl_shell_ip_hash(array $env): string
 
 function hl_csrf_check($token): bool
 {
-    if (!is_string($token) || $token === '') {
+    if (!is_string($token) || preg_match('/^[a-f0-9]{64}$/D', $token) !== 1) {
         return false;
     }
     $cookie = hl_cookie('hl_csrf');
@@ -122,11 +124,27 @@ function hl_rate_allow($bucket, $limit, $windowSec): bool
     $limit = max(1, (int) $limit);
     $windowSec = max(1, (int) $windowSec);
     $directory = '/var/tmp/highlion-letterbox';
+    if (is_link($directory)) return false;
     if (!is_dir($directory) && !@mkdir($directory, 0700, true) && !is_dir($directory)) {
         return false;
     }
-    $key = sha1((string) $bucket . '|' . hl_client_ip());
+    $address = inet_pton(hl_client_ip());
+    $rateAddress = is_string($address) && strlen($address) === 16 ? bin2hex(substr($address, 0, 8)) . '/64' : hl_client_ip();
+    $key = sha1((string) $bucket . '|' . $rateAddress);
+    if (random_int(0, 127) === 0) {
+        $entries = @opendir($directory);
+        if ($entries !== false) {
+            $scanned = 0;
+            while (($entry = readdir($entries)) !== false && $scanned++ < 512) {
+                if (preg_match('/^[a-f0-9]{40}$/D', $entry) !== 1) continue;
+                $oldPath = $directory . '/' . $entry;
+                if (!is_link($oldPath) && is_file($oldPath) && (int) @filemtime($oldPath) < time() - 86400) @unlink($oldPath);
+            }
+            closedir($entries);
+        }
+    }
     $path = $directory . '/' . $key;
+    if (is_link($path)) return false;
     $handle = @fopen($path, 'c+');
     if ($handle === false) {
         return false;
@@ -138,7 +156,7 @@ function hl_rate_allow($bucket, $limit, $windowSec): bool
     $raw = stream_get_contents($handle);
     $record = json_decode($raw ?: '', true);
     $now = time();
-    if (!is_array($record) || !isset($record['start'], $record['count']) || $now - (int) $record['start'] >= $windowSec) {
+    if (!is_array($record) || !isset($record['start'], $record['count']) || (int) $record['start'] > $now || $now - (int) $record['start'] >= $windowSec) {
         $record = ['start' => $now, 'count' => 0];
     }
     $allowed = (int) $record['count'] < $limit;
@@ -172,7 +190,7 @@ function hl_honeypot_write(array $row): void
 
 function hl_env_load(string $path): array
 {
-    if (!is_readable($path)) {
+    if (!is_file($path) || !is_readable($path) || filesize($path) > 65536) {
         return [];
     }
     $lines = @file($path, FILE_IGNORE_NEW_LINES);
@@ -226,6 +244,7 @@ function hl_telegram(string $envPath, string $text): bool
             'method' => 'POST',
             'timeout' => 8,
             'ignore_errors' => true,
+            'follow_location' => 0,
             'header' => "Content-Type: application/x-www-form-urlencoded\r\nContent-Length: " . strlen($body) . "\r\n",
             'content' => $body,
         ],
@@ -235,7 +254,7 @@ function hl_telegram(string $envPath, string $text): bool
         ],
     ]);
     $http_response_header = [];
-    $response = @file_get_contents('https://api.telegram.org/bot' . $token . '/sendMessage', false, $context);
+    $response = @file_get_contents('https://api.telegram.org/bot' . $token . '/sendMessage', false, $context, 0, 8192);
     $statusOk = isset($http_response_header[0]) && preg_match('/\s200\s/', (string) $http_response_header[0]) === 1;
     $decoded = is_string($response) ? json_decode($response, true) : null;
     return $statusOk && is_array($decoded) && ($decoded['ok'] ?? false) === true;
@@ -252,4 +271,35 @@ function hl_clean_header($s): string
     $clean = preg_replace('/[\r\n\0]+/', '', (string) $s);
     $clean = preg_replace('/(?:^|\s)(?:to|from|cc|bcc|reply-to|content-type|mime-version)\s*:/i', '', (string) $clean);
     return trim((string) $clean);
+}
+
+function hl_json_file(string $path, int $limit = 2097152): array
+{
+    if (is_link($path)) return [];
+    $handle = @fopen($path, 'r');
+    if ($handle === false) return [];
+    if (!flock($handle, LOCK_SH)) { fclose($handle); return []; }
+    $raw = stream_get_contents($handle, $limit + 1);
+    flock($handle, LOCK_UN); fclose($handle);
+    if (!is_string($raw) || strlen($raw) > $limit) return [];
+    $decoded = json_decode($raw, true, 32);
+    return is_array($decoded) ? $decoded : [];
+}
+
+function hl_refresh_lock(string $bucket)
+{
+    $path = '/var/tmp/highlion-refresh-' . hash('sha256', $bucket);
+    if (is_link($path)) return false;
+    $handle = @fopen($path, 'c+');
+    if ($handle === false) return false;
+    @chmod($path, 0600);
+    if (!flock($handle, LOCK_EX | LOCK_NB)) { fclose($handle); return false; }
+    $last = (int) stream_get_contents($handle, 32);
+    $now = time();
+    if ($last <= $now && $last > $now - 30) { flock($handle, LOCK_UN); fclose($handle); return false; }
+    rewind($handle);
+    if (!ftruncate($handle, 0) || fwrite($handle, (string) $now) !== strlen((string) $now) || !fflush($handle)) {
+        flock($handle, LOCK_UN); fclose($handle); return false;
+    }
+    return $handle;
 }

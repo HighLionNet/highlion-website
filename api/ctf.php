@@ -3,6 +3,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/_session.php';
 $method = strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? ''));
 if ($method === 'GET') {
+    if (!hl_rate_allow('ctf-read', 60, 60)) hl_json(['ok' => false], 429);
     hl_session();
     $claims = hl_claims();
     hl_json(['ok' => true, 'claimed' => $claims, 'total' => 4]);

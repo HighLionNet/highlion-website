@@ -8,6 +8,8 @@ if (!in_array(strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? '')), ['GET', '
     hl_json(['ok' => false, 'reason' => 'offline', 'count' => 0], 405);
 }
 
+if (!hl_rate_allow('traffic-read', 60, 60)) hl_json(['ok' => false, 'reason' => 'offline', 'count' => 0], 429);
+
 function hl_tail_lines(string $path, int $limit): array
 {
     $handle = @fopen($path, 'rb');

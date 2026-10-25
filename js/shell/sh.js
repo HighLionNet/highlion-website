@@ -2,9 +2,23 @@
   "use strict";
   var HL = root.HLShell = root.HLShell || {};
 
-  function variableToken(name, fallback) {
+  var literalChars = "|;&<>*?[]~ \t\n\r\"'\\$`#";
+  function protect(value, split) {
+    return Array.from(String(value)).map(function (char) {
+      var index = literalChars.indexOf(char);
+      return index < 0 || (split && /\s/.test(char)) ? char : String.fromCharCode(0xe100 + index);
+    }).join("");
+  }
+  function literal(value) {
+    return String(value).replace(/[\ue100-\ue13f]/g, function (char) { return literalChars[char.charCodeAt(0) - 0xe100] || ""; }).replace(/\ue140/g, "");
+  }
+  function quoteWord(value) { return "'" + String(value).replace(/'/g, "'\\''") + "'"; }
+  HL.quoteWord = quoteWord;
+  HL.literalWord = literal;
+
+  function variableToken(name, fallback, quoted) {
     var encodedFallback = fallback === undefined ? "__HL_UNSET__" : encodeURIComponent(fallback);
-    return "\ue000" + encodeURIComponent(name) + "|" + encodedFallback + "\ue001";
+    return "\ue000" + encodeURIComponent((quoted ? "@" : "") + name) + "|" + encodedFallback + "\ue001";
   }
 
   function Shell(machine) {
@@ -18,6 +32,7 @@
     this.epoch = 0;
     this.maxOutputBytes = 32768;
     this.background = null;
+    this.pending = new Set();
   }
 
   Shell.prototype.charge = function (options, amount) {
@@ -36,6 +51,7 @@
 
   Shell.prototype.limitOutput = function (run) {
     var remaining = this.maxOutputBytes;
+    var truncated = new TextEncoder().encode(String(run.stdout || "") + String(run.stderr || "")).length > remaining;
     function take(value) {
       var text = String(value || "");
       if (remaining <= 0) return "";
@@ -44,18 +60,24 @@
         remaining -= encoded.length;
         return text;
       }
-      var end = Math.min(text.length, remaining);
-      while (end > 0 && new TextEncoder().encode(text.slice(0, end)).length > remaining) end -= 1;
-      var clipped = text.slice(0, end);
+      var low = 0; var high = Math.min(text.length, remaining);
+      while (low < high) {
+        var middle = Math.ceil((low + high) / 2);
+        if (new TextEncoder().encode(text.slice(0, middle)).length <= remaining) low = middle;
+        else high = middle - 1;
+      }
+      if (low && text.charCodeAt(low - 1) >= 0xd800 && text.charCodeAt(low - 1) <= 0xdbff) low -= 1;
+      var clipped = text.slice(0, low);
       remaining -= new TextEncoder().encode(clipped).length;
       return clipped;
     }
     run.stdout = take(run.stdout);
     run.stderr = take(run.stderr);
+    if (truncated) { run.stdout = run.stdout.slice(0, -96); run.stderr += "\n[output truncated at 32 KiB; use head, tail, or a narrower query]\n"; }
     return run;
   };
 
-  Shell.prototype.expandVariable = function (line, index) {
+  Shell.prototype.expandVariable = function (line, index, quoted) {
     var next = line[index + 1] || "";
     if (next === "{") {
       var end = line.indexOf("}", index + 2);
@@ -63,19 +85,22 @@
       var expression = line.slice(index + 2, end);
       var match = /^([A-Za-z_][A-Za-z0-9_]*|[?0-9])(?::-(.*))?$/.exec(expression);
       if (!match) return { value: "", end: end };
-      return { value: variableToken(match[1], match[2]), end: end };
+      return { value: variableToken(match[1], match[2], quoted), end: end };
     }
     var matchName = /^([A-Za-z_][A-Za-z0-9_]*|[?0-9])/.exec(line.slice(index + 1));
     if (!matchName) return { value: "$", end: index };
-    return { value: variableToken(matchName[1]), end: index + matchName[1].length };
+    return { value: variableToken(matchName[1], undefined, quoted), end: index + matchName[1].length };
   };
 
   Shell.prototype.resolveVariables = function (token) {
     return String(token).replace(/\ue000([^|]*)\|([^\ue001]*)\ue001/g, function (_, encodedName, encodedFallback) {
       var name = decodeURIComponent(encodedName);
+      var quoted = name.charAt(0) === "@";
+      if (quoted) name = name.slice(1);
       var current = this.machine.env[name];
-      if (current !== undefined && current !== "") return current;
-      return encodedFallback === "__HL_UNSET__" ? "" : decodeURIComponent(encodedFallback);
+      var value = current !== undefined && current !== "" ? current : (encodedFallback === "__HL_UNSET__" ? "" : decodeURIComponent(encodedFallback));
+      return quoted ? protect(value) + "\ue140" : String(value);
+
     }.bind(this));
   };
 
@@ -88,20 +113,26 @@
       if (char === "\\" && quote !== "'") {
         var escaped = line[index + 1] || "";
         if (quote === '"' && ["$", '"', "\\", "`"].indexOf(escaped) === -1) current += "\\";
-        index += 1; current += escaped; started = true; continue;
+        index += 1; current += protect(escaped); started = true; continue;
       }
-      if (char === "'" && quote !== '"') { quote = quote === "'" ? "" : "'"; started = true; continue; }
-      if (char === '"' && quote !== "'") { quote = quote === '"' ? "" : '"'; started = true; continue; }
+      if (char === "'" && quote !== '"') { quote = quote === "'" ? "" : "'"; current += "\ue140"; started = true; continue; }
+      if (char === '"' && quote !== "'") { quote = quote === '"' ? "" : '"'; current += "\ue140"; started = true; continue; }
+      if (quote !== "'" && (char === "`" || (char === "$" && line[index + 1] === "("))) {
+        var substitution = this.findSubstitution(line.slice(index));
+        if (!substitution || substitution.start !== 0) throw new Error("unclosed command substitution");
+        current += "\ue200" + encodeURIComponent(substitution.inner) + "|" + (quote ? "q" : "s") + "\ue201";
+        index += substitution.end; started = true; continue;
+      }
       if (!quote && /\s/.test(char)) { push(); continue; }
       if (!quote) {
         var rest = line.slice(index);
-        var operator = ["2>&1", "&&", "||", ">>", "2>", "|", ";", ">"].find(function (candidate) { return rest.indexOf(candidate) === 0; });
+        var operator = ["2>&1", "1>&2", "&&", "||", "2>>", ">>", "2>", "|", ";", ">", "<"].find(function (candidate) { return rest.indexOf(candidate) === 0; });
         if (operator) { push(); tokens.push(operator); index += operator.length - 1; continue; }
       }
       if (char === "$" && quote !== "'") {
-        var expanded = this.expandVariable(line, index); current += expanded.value; index = expanded.end; started = true; continue;
+        var expanded = this.expandVariable(line, index, Boolean(quote)); current += expanded.value; index = expanded.end; started = true; continue;
       }
-      current += char; started = true;
+      current += quote ? protect(char) : char; started = true;
     }
     if (quote) throw new Error("unmatched quote");
     push();
@@ -138,16 +169,26 @@
     return null;
   };
 
-  Shell.prototype.expandSubstitutions = async function (line, options) {
-    var output = line; var found = this.findSubstitution(output);
-    while (found) {
+  Shell.prototype.expandSubstitutions = async function (token, options) {
+    var pattern = /\ue200([^|]*)\|(q|s)\ue201/g;
+    var output = ""; var from = 0; var found;
+    while ((found = pattern.exec(token))) {
       this.charge(options, 1);
-      var run = await this.run(found.inner, { capture: true, depth: (options.depth || 0) + 1, substitution: true, budget: options.budget, script: options.script });
-      var replacement = run.stdout.replace(/\n+$/, "").replace(/\n/g, " ");
-      output = output.slice(0, found.start) + replacement + output.slice(found.end + 1);
-      found = this.findSubstitution(output);
+      var run = await this.run(decodeURIComponent(found[1]), { capture: true, depth: (options.depth || 0) + 1, substitution: true, budget: options.budget, script: options.script });
+      this.charge(options, 1);
+      output += token.slice(from, found.index) + protect(run.stdout.replace(/\n+$/, ""), found[2] === "s");
+      from = pattern.lastIndex;
     }
-    return output;
+    return output + token.slice(from);
+  };
+
+  Shell.prototype.pause = async function (milliseconds, options) {
+    var until = Date.now() + Math.max(0, milliseconds);
+    do {
+      this.charge(options, 1);
+      await new Promise(function (resolve) { root.setTimeout(resolve, Math.min(40, Math.max(0, until - Date.now()))); });
+    } while (Date.now() < until);
+    this.charge(options, 1);
   };
 
   Shell.prototype.resolveCommand = function (name) {
@@ -167,23 +208,20 @@
 
   Shell.prototype.expandAlias = function (tokens) {
     if (!tokens.length) return tokens;
-    var alias = this.machine.aliases[tokens[0]];
+    var alias = Object.prototype.hasOwnProperty.call(this.machine.aliases, tokens[0]) ? this.machine.aliases[tokens[0]] : "";
     if (!alias) return tokens;
     return this.tokenize(alias).concat(tokens.slice(1));
   };
 
   Shell.prototype.extractRedirects = function (tokens) {
-    var command = []; var redirect = { stdout: null, append: false, stderr: null, merge: false };
+    var command = []; var redirect = [];
     for (var index = 0; index < tokens.length; index += 1) {
       var token = tokens[index];
-      if (token === "2>&1") { redirect.merge = true; continue; }
-      if ([">", ">>", "2>"].indexOf(token) !== -1) {
-        if (!tokens[index + 1] || ["|", "&&", "||", ";"].indexOf(tokens[index + 1]) !== -1) throw new Error("missing redirection target");
-        if (token === "2>") redirect.stderr = tokens[++index];
-        else { redirect.stdout = tokens[++index]; redirect.append = token === ">>"; }
-        continue;
-      }
-      command.push(token);
+      if (token === "2>&1" || token === "1>&2") { redirect.push({ op: token }); continue; }
+      if ([">", ">>", "2>", "2>>", "<"].indexOf(token) !== -1) {
+        if (tokens[index + 1] === undefined || [">", ">>", "2>", "2>>", "<", "|", "&&", "||", ";"].indexOf(tokens[index + 1]) !== -1) throw new Error("missing redirection target");
+        redirect.push({ op: token, path: tokens[++index] });
+      } else command.push(token);
     }
     return { tokens: command, redirect: redirect };
   };
@@ -202,6 +240,7 @@
     args.forEach(function (value, index) { this.machine.env[String(index + 1)] = value; }, this);
     var pid = this.machine.proc.spawn(HL.path.basename(path));
     var stdout = ""; var stderr = ""; var status = 0;
+    try {
     for (var index = 1; index < lines.length; index += 1) {
       if (!lines[index].trim()) continue;
       this.charge(options, 1);
@@ -209,70 +248,90 @@
       stdout = (stdout + run.stdout).slice(0, this.maxOutputBytes); stderr = (stderr + run.stderr).slice(0, this.maxOutputBytes); status = run.status;
       if (status !== 0) break;
     }
+    } finally {
     this.machine.proc.kill(pid, this.machine.identity.user);
     Object.keys(previous).forEach(function (name) { if (previous[name] === undefined) delete this.machine.env[name]; else this.machine.env[name] = previous[name]; }, this);
+    }
     return { stdout: stdout, stderr: stderr, status: status };
+  };
+
+  Shell.prototype.invokeCommand = async function (name, args, stdin, options) {
+    if (!name) return { stdout: "", stderr: "", status: 0 };
+    var path = this.resolveCommand(name);
+    if (!path) return { stdout: "", stderr: "zsh: command not found: " + name + "\n", status: 127 };
+    var resolved = this.machine.fs.resolve(path, "/", true);
+    var node = this.machine.fs.stat(resolved, "/");
+    if (!node || node.type === "dir" || !this.machine.fs.canAccess(node, "x")) return { stdout: "", stderr: "zsh: permission denied: " + name + "\n", status: 126 };
+    var commandName = name.indexOf("/") !== -1 ? HL.path.basename(path) : name;
+    var delays = { nmap: 280, ping: 150, traceroute: 180, tracepath: 180, curl: 100, wget: 100, dig: 90, host: 90, nslookup: 90, nc: 90, netcat: 90, ssh: 140, apt: 180 };
+    if (delays[commandName]) await this.pause(delays[commandName], options);
+    if (resolved === "/bin/busybox") return this.busybox.run(commandName, args, stdin, this, options);
+    if (options.substitution) return { stdout: "", stderr: "zsh: command substitution permits busybox commands only\n", status: 126 };
+    return this.runScript(resolved, args, options);
   };
 
   Shell.prototype.executeSimple = async function (rawTokens, stdin, options) {
     this.charge(options, rawTokens.length + 1);
-    var parsed;
-    try { parsed = this.extractRedirects(this.expandAlias(rawTokens)); } catch (error) { return { stdout: "", stderr: "zsh: " + error.message + "\n", status: 2 }; }
-    var tokens = parsed.tokens.map(this.resolveVariables.bind(this)); var redirect = parsed.redirect;
-    if (redirect.stdout) redirect.stdout = this.resolveVariables(redirect.stdout);
-    if (redirect.stderr) redirect.stderr = this.resolveVariables(redirect.stderr);
-    var assignments = {};
+    var parsed = this.extractRedirects(this.expandAlias(rawTokens));
+    var tokens = [];
+    for (var token of parsed.tokens) tokens.push(this.resolveVariables(await this.expandSubstitutions(token, options)));
+    var sinks = [{ kind: "stdout" }, { kind: "stderr" }];
+    for (var redirect of parsed.redirect) {
+      this.charge(options, 1);
+      if (redirect.op === "2>&1") { sinks[1] = sinks[0]; continue; }
+      if (redirect.op === "1>&2") { sinks[0] = sinks[1]; continue; }
+      var target = literal(this.resolveVariables(await this.expandSubstitutions(redirect.path, options)));
+      if (redirect.op === "<") stdin = this.machine.readFile(target);
+      else {
+        this.machine.writeFile(target, "", redirect.op.endsWith(">>"));
+        sinks[redirect.op.charAt(0) === "2" ? 1 : 0] = { kind: "file", path: target };
+      }
+    }
+    var assignments = Object.create(null);
     while (tokens[0] && /^[A-Za-z_][A-Za-z0-9_]*=/.test(tokens[0])) {
-      var at = tokens[0].indexOf("="); assignments[tokens[0].slice(0, at)] = tokens.shift().slice(at + 1);
-    }
-    if (!tokens.length) {
-      Object.assign(this.machine.env, assignments); this.machine.persist();
-      return { stdout: "", stderr: "", status: 0 };
-    }
-    var name = tokens.shift();
-    if (name === "reset-machine" && !this.machine.remoteControl) { this.machine.reset(); return { stdout: "", stderr: "", status: 0, effect: "reset" }; }
-    if (options.script && (name === "curl" || name === "wget")) {
-      return { stdout: "", stderr: "zsh: permission denied: " + name + "\n", status: 126 };
+      var at = tokens[0].indexOf("="); var assignment = tokens.shift();
+      assignments[assignment.slice(0, at)] = literal(assignment.slice(at + 1));
     }
     var args = [];
-    tokens.forEach(function (token) { args = args.concat(this.machine.fs.glob(token, this.machine.cwd)); }, this);
-    var path = this.resolveCommand(name);
-    if (!path) return { stdout: "", stderr: "zsh: command not found: " + name + "\n", status: 127 };
-    var lnode;
-    try { lnode = this.machine.fs.lstat(path, "/"); } catch (error) { return { stdout: "", stderr: "zsh: permission denied: " + name + "\n", status: 126 }; }
-    var resolved = this.machine.fs.resolve(path, "/", true);
-    var node = this.machine.fs.nodes.get(resolved);
-    if (!node || !this.machine.fs.canAccess(node, "x")) return { stdout: "", stderr: "zsh: permission denied: " + name + "\n", status: 126 };
-    var previousEnv = {};
-    var previousExported = this.machine.exported.slice();
+    tokens.forEach(function (word) {
+      word.split(/[ \t\n]+/).filter(Boolean).forEach(function (field) {
+        args = args.concat(this.machine.fs.glob(field, this.machine.cwd).map(literal));
+      }, this);
+    }, this);
+    var name = args.shift();
+    var previousEnv = Object.create(null); var previousExported = this.machine.exported.slice();
     Object.keys(assignments).forEach(function (key) {
-      previousEnv[key] = this.machine.env[key];
-      this.machine.env[key] = assignments[key];
+      previousEnv[key] = this.machine.env[key]; this.machine.env[key] = assignments[key];
       if (this.machine.exported.indexOf(key) === -1) this.machine.exported.push(key);
     }, this);
+    var changingFiles = ["mkdir", "rmdir", "touch", "cp", "mv", "rm", "ln", "chmod", "chown", "tar", "gzip", "gunzip"].indexOf(name) !== -1;
+    var checkpoint = changingFiles ? {
+      nodes: new Map(Array.from(this.machine.fs.nodes, function (entry) { return [entry[0], JSON.parse(JSON.stringify(entry[1]))]; })),
+      dirty: new Set(this.machine.fs.dirty), deleted: new Set(this.machine.fs.deleted)
+    } : null;
     var run;
-    if (resolved === "/bin/busybox") {
-      var commandName = name.indexOf("/") !== -1 ? HL.path.basename(path) : name;
-      run = await this.busybox.run(commandName, args, stdin, this, options);
-    } else if (options.substitution) {
-      run = { stdout: "", stderr: "zsh: command substitution permits busybox commands only\n", status: 126 };
-    } else {
-      run = await this.runScript(resolved, args, options);
-    }
-    Object.keys(assignments).forEach(function (key) { if (previousEnv[key] === undefined) delete this.machine.env[key]; else this.machine.env[key] = previousEnv[key]; }, this);
-    this.machine.exported = previousExported;
-    this.charge(options, 1);
-    run = this.limitOutput(run);
-    run.stdout = String(run.stdout || ""); run.stderr = String(run.stderr || ""); run.status = Number(run.status || 0);
     try {
-      if (redirect.merge) { run.stdout += run.stderr; run.stderr = ""; }
-      if (redirect.stdout) { this.machine.writeFile(redirect.stdout, run.stdout, redirect.append); run.stdout = ""; }
-      if (redirect.stderr) { this.machine.writeFile(redirect.stderr, run.stderr, false); run.stderr = ""; }
-    } catch (error) {
-      run.stdout = "";
-      run.stderr = "zsh: " + (redirect.stdout || redirect.stderr) + ": " + error.message + "\n";
-      run.status = 1;
+      run = await this.invokeCommand(name, args, stdin, Object.assign({}, options, { tty: options.tty && !parsed.redirect.length }));
+      this.charge(options, 1);
+      if (checkpoint && !this.machine.persist()) {
+        this.machine.fs.nodes = checkpoint.nodes; this.machine.fs.dirty = checkpoint.dirty; this.machine.fs.deleted = checkpoint.deleted;
+        run = { stdout: "", stderr: name + ": No space left on device\n", status: 1 };
+      }
+      run = this.limitOutput(run);
+    } finally {
+      if (name) {
+        Object.keys(assignments).forEach(function (key) { if (previousEnv[key] === undefined) delete this.machine.env[key]; else this.machine.env[key] = previousEnv[key]; }, this);
+        this.machine.exported = previousExported;
+      }
     }
+    var streams = [String(run.stdout || ""), String(run.stderr || "")];
+    run.stdout = ""; run.stderr = "";
+    streams.forEach(function (text, index) {
+      if (!text) return;
+      var sink = sinks[index];
+      if (sink.kind === "file") this.machine.writeFile(sink.path, text, true);
+      else run[sink.kind] += text;
+    }, this);
     return run;
   };
 
@@ -284,7 +343,7 @@
     if (stages.some(function (stage) { return !stage.length; })) return { stdout: "", stderr: "zsh: parse error near `|'\n", status: 2 };
     var stdin = null; var stderr = ""; var effect = null; var status = 0;
     for (var index = 0; index < stages.length; index += 1) {
-      var run = await this.executeSimple(stages[index], stdin, options);
+      var run = await this.executeSimple(stages[index], stdin, Object.assign({}, options, { tty: options.tty && stages.length === 1 }));
       stdin = run.stdout; stderr += run.stderr; effect = run.effect || effect; status = run.status;
     }
     return { stdout: stdin || "", stderr: stderr, status: status, effect: effect };
@@ -317,7 +376,7 @@
     if (match) {
       var name = match[1];
       var previous = this.machine.env[name];
-      var values = this.tokenize(match[2]).map(this.resolveVariables.bind(this));
+      var values = this.tokenize(match[2]).map(this.resolveVariables.bind(this)).map(literal);
       for (var index = 0; index < values.length; index += 1) {
         this.charge(options, 1);
         this.machine.env[name] = values[index];
@@ -396,8 +455,13 @@
     if ((options.depth || 0) > this.maxDepth) return { stdout: "", stderr: "zsh: maximum fork depth exceeded\n", status: 126 };
     try {
       var source = String(line || "");
-      if (source.length > 4096 || /[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/.test(source)) throw new Error("invalid or oversized command");
+      if (source.length > 4096 || /[\x00-\x08\x0b\x0c\x0e-\x1f\x7f\ue000-\ue2ff]/.test(source)) throw new Error("invalid or oversized command");
       this.charge(options, source.length + 1);
+      if (options.budget.steps - (options.budget.yieldAt || 0) > 2000) {
+        options.budget.yieldAt = options.budget.steps;
+        await this.pause(0, options);
+      }
+      if (this.machine.remoteControl && /&\s*$/.test(source) && !/&&\s*$/.test(source)) throw new Error("background jobs are unavailable during remote control");
       if (top && !options.background && /\s&\s*$/.test(source) && !/&&\s*$/.test(source)) {
         return this.limitOutput(this.startBackground(source.replace(/\s&\s*$/, "")));
       }
@@ -407,8 +471,8 @@
         this.machine.persist();
         return top ? this.limitOutput(controlled) : controlled;
       }
-      var expanded = await this.expandSubstitutions(source, options);
-      var tokens = this.tokenize(expanded);
+      var tokens = this.tokenize(source);
+      if (tokens[tokens.length - 1] === ";") tokens.pop();
       if (!tokens.length) return { stdout: "", stderr: "", status: 0 };
       var run = await this.runTokens(tokens, options);
       this.charge(options, 1);
@@ -426,6 +490,18 @@
       return top ? this.limitOutput(failed) : failed;
     }
   };
+
+  var executeRun = Shell.prototype.run;
+  Shell.prototype.run = function (line, options) {
+    var tracked = !options || !options.budget || (options.background && options.depth === 1);
+    var pending = executeRun.call(this, line, options);
+    if (tracked) {
+      this.pending.add(pending);
+      pending.finally(function () { this.pending.delete(pending); }.bind(this));
+    }
+    return pending;
+  };
+  Shell.prototype.idle = function () { return Promise.allSettled(Array.from(this.pending)); };
 
   Shell.prototype.cancel = function () { this.epoch += 1; if (this.background) { this.machine.proc.kill(this.background.pid, this.machine.identity.user); this.background = null; } };
 

@@ -18,6 +18,7 @@
 
   var fx = read("hl-fx", reduced.matches ? "off" : "on");
   var scan = read("hl-scan", "on");
+  var savedAppearance = null;
 
   function paint(button, label, value) {
     if (!button) return;
@@ -76,6 +77,14 @@
     return true;
   }
 
+  window.addEventListener("hl:appearance", function (event) {
+    var change = event.detail || {};
+    if (change.save && !savedAppearance) savedAppearance = { fx: fx, scan: scan };
+    if (change.restore && savedAppearance) { fx = savedAppearance.fx; scan = savedAppearance.scan; savedAppearance = null; }
+    if (["on", "off"].indexOf(change.fx) !== -1) fx = change.fx;
+    if (["on", "off"].indexOf(change.scan) !== -1) scan = change.scan;
+    applyFx(); applyScan();
+  });
   window.addEventListener("hl:fx", function (event) {
     if (["on", "off"].indexOf(event.detail) === -1) return;
     fx = event.detail; write("hl-fx", fx); applyFx();

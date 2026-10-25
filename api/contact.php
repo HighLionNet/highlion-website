@@ -68,6 +68,7 @@ if ($company !== '') {
 $name = trim($value('name'));
 $email = trim($value('email'));
 $message = trim($value('message'));
+if (strpos($name . $email . $message, "\0") !== false) hl_json(['ok' => false], 400);
 $headerToken = (string) ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? '');
 $token = $headerToken !== '' ? $headerToken : $value('token');
 $length = static function (string $input): int {

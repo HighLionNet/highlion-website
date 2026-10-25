@@ -22,7 +22,7 @@ $readCache = static function () use ($cachePath): array {
     if (!is_readable($cachePath)) {
         return [];
     }
-    $decoded = json_decode((string) @file_get_contents($cachePath), true);
+    $decoded = hl_json_file($cachePath, 8388608);
     return is_array($decoded) ? $decoded : [];
 };
 $cleanPrices = static function ($rows): array {
@@ -60,6 +60,13 @@ $entry = isset($cache[$cacheKey]) && is_array($cache[$cacheKey]) ? $cache[$cache
 $fetchedAt = (int) ($entry['fetched_at'] ?? 0);
 if ($fetchedAt > 0 && $fetchedAt >= time() - 60) {
     $reply($entry);
+}
+
+$refreshLock = hl_refresh_lock('market-' . $cacheKey);
+if ($refreshLock === false || !hl_rate_allow('market-fetch', 30, 60)) {
+    if (count($cleanPrices($entry['prices'] ?? [])) >= 2) $reply($entry, true);
+    header('Retry-After: 30');
+    hl_json(['ok' => false], 503);
 }
 
 $url = 'https://api.coingecko.com/api/v3/coins/' . rawurlencode($coin)

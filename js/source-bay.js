@@ -5,21 +5,25 @@
   if (!panel) return;
 
   var ALLOWED = {
-    "index.html": "/index.html?v=hl8u",
-    "about.html": "/about.html?v=hl8u",
-    "projects.html": "/projects.html?v=hl8u",
-    "writeups.html": "/writeups.html?v=hl8u",
-    "css/style.css": "/css/style.css?v=hl8u",
-    "components/header.html": "/components/header.html?v=hl8u",
-    "components/footer.html": "/components/footer.html?v=hl8u"
+    "index.html": "/index.html?v=hl8v",
+    "about.html": "/about.html?v=hl8v",
+    "projects.html": "/projects.html?v=hl8v",
+    "writeups.html": "/writeups.html?v=hl8v",
+    "css/style.css": "/css/style.css?v=hl8v",
+    "components/header.html": "/components/header.html?v=hl8v",
+    "components/footer.html": "/components/footer.html?v=hl8v"
   };
   var select = document.getElementById("srcSelect");
   var output = document.getElementById("srcOut");
   var download = document.getElementById("srcDownload");
   var currentName = "";
   var currentText = "";
+  var requestSerial = 0;
   function show(name) {
+    var serial = ++requestSerial;
     currentName = name;
+    currentText = "";
+    download.disabled = true;
 
     var url = ALLOWED[name];
     if (!url) return;
@@ -30,10 +34,13 @@
         return response.text();
       })
       .then(function (text) {
+        if (serial !== requestSerial) return;
+        download.disabled = false;
         currentText = text;
         output.textContent = text;
       })
       .catch(function () {
+        if (serial !== requestSerial) return;
         currentText = "Source unavailable.";
         output.textContent = currentText;
       });

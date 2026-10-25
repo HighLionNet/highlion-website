@@ -45,7 +45,7 @@ if ($path === '') {
 $contentType = 'image/jpeg';
 $mapFile = '/var/tmp/highlion-thumbs.json';
 if (is_readable($mapFile)) {
-    $map = json_decode((string) @file_get_contents($mapFile), true);
+$map = hl_json_file($mapFile);
     if (is_array($map)) {
         foreach ($map as $record) {
             if (!is_array($record) || strtolower((string) ($record['id'] ?? '')) !== $id) {

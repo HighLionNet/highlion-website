@@ -23,6 +23,18 @@
     return path === "/" ? "/" : path.slice(path.lastIndexOf("/") + 1);
   }
 
+  function matchGlob(pattern, text) {
+    var p = 0; var t = 0; var star = -1; var retry = 0;
+    while (t < text.length) {
+      if (pattern[p] === "?" || pattern[p] === text[t]) { p += 1; t += 1; }
+      else if (pattern[p] === "*") { star = p++; retry = t; }
+      else if (star >= 0) { p = star + 1; t = ++retry; }
+      else return false;
+    }
+    while (pattern[p] === "*") p += 1;
+    return p === pattern.length;
+  }
+
   function cloneNode(node) {
     return JSON.parse(JSON.stringify(node));
   }
@@ -91,6 +103,7 @@
 
   VirtualFS.prototype.add = function (path, data, system) {
     var absolute = this.normalize(path, "/");
+    if (!this.nodes.has(absolute) && this.nodes.size >= 4096) throw new Error("filesystem node limit exceeded");
     var node = Object.assign({
       type: "file",
       mode: data && data.type === "dir" ? "0755" : "0644",
@@ -219,7 +232,9 @@
     if (!node) {
       node = this.add(absolute, { type: "file", mode: "0644", owner: this.identity.user, group: this.identity.user }, true);
     }
-    node.content = append ? String(node.content || "") + String(content) : String(content);
+    var nextContent = append ? String(node.content || "") + String(content) : String(content);
+    if (!system && new TextEncoder().encode(nextContent).length > 262144) throw new Error("file size limit exceeded");
+    node.content = nextContent;
     node.mtime = nowStamp();
     if (!system) this.markDirty(absolute);
   };
@@ -384,9 +399,8 @@
     var absolute = this.normalize(pattern, cwd);
     var parent = dirname(absolute);
     var leaf = basename(absolute);
-    var expression = new RegExp("^" + leaf.replace(/[.+^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*").replace(/\?/g, ".") + "$");
     try {
-      var matches = this.list(parent, "/", false).filter(function (row) { return expression.test(row.name); });
+      var matches = this.list(parent, "/", false).filter(function (row) { return matchGlob(leaf, row.name); });
       return matches.length ? matches.map(function (row) { return parent === "/" ? "/" + row.name : parent + "/" + row.name; }) : [pattern];
     } catch (error) {
       return [pattern];
@@ -443,5 +457,5 @@
   };
 
   HL.VirtualFS = VirtualFS;
-  HL.path = { dirname: dirname, basename: basename };
+  HL.path = { dirname: dirname, basename: basename, matchGlob: matchGlob };
 })(window);

@@ -21,8 +21,7 @@
   }
 
   function wildcard(pattern) {
-    var escaped = String(pattern).replace(/[.+^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*").replace(/\?/g, ".");
-    return new RegExp("^" + escaped + "$");
+    return { test: function (text) { return HL.path.matchGlob(String(pattern), String(text)); } };
   }
 
   function human(size) {
@@ -190,10 +189,13 @@
     catch (error) { return failure("cd", error); }
   };
 
-  BusyBox.prototype.cmdLs = function (args) {
+  BusyBox.prototype.cmdLs = function (args, options) {
     var all = false; var long = false; var paths = [];
+    var color = Boolean(options && options.tty);
+    function label(row) { var code = row.node.type === "dir" ? "34" : row.node.type === "symlink" ? "36" : (row.node.mode & 73) ? "32" : ""; return color && code ? "\x1b[" + code + "m" + row.name + "\x1b[0m" : row.name; }
     args.forEach(function (arg) {
-      if (/^-[al]+$/.test(arg)) { all = all || arg.indexOf("a") !== -1; long = long || arg.indexOf("l") !== -1; }
+      if (/^--color(?:=(?:auto|always|never))?$/.test(arg)) color = arg !== "--color=never";
+      else if (/^-[al]+$/.test(arg)) { all = all || arg.indexOf("a") !== -1; long = long || arg.indexOf("l") !== -1; }
       else paths.push(arg);
     });
     try {
@@ -204,12 +206,12 @@
         if (!node) throw new Error(target + ": no such file or directory");
         var rows = this.fs.list(absolute, "/", all);
         if (node.type === "dir" && all) rows = [{ name: ".", path: absolute, node: node }, { name: "..", path: HL.path.dirname(absolute), node: this.fs.stat(HL.path.dirname(absolute), "/") }].concat(rows);
-        var output = !long ? rows.map(function (row) { return row.name; }).join("  ") : rows.map(function (row) {
+        var output = !long ? rows.map(function (row) { return label(row); }).join("  ") : rows.map(function (row) {
           var stamp = new Date(row.node.mtime || Date.now());
           var month = stamp.toLocaleString("en", { month: "short" });
           var day = String(stamp.getDate()).padStart(2, " ");
           var time = stamp.toTimeString().slice(0, 5);
-          var name = row.name + (row.node.type === "symlink" ? " -> " + row.node.target : "");
+          var name = label(row) + (row.node.type === "symlink" ? " -> " + row.node.target : "");
           return this.fs.modeString(row.node) + " 1 " + String(row.node.owner).padEnd(8, " ") + " " + String(row.node.group).padEnd(8, " ") + " " + String(this.fs.size(row.node)).padStart(6, " ") + " " + month + " " + day + " " + time + " " + name;
         }, this).join("\n");
         return (targets.length > 1 && node.type === "dir" ? target + ":\n" : "") + output;
@@ -266,13 +268,13 @@
       if (option.indexOf("e") !== -1) escapes = true;
     }
     var text = args.join(" ");
-    if (escapes) text = text.replace(/\\n/g, "\n").replace(/\\t/g, "\t").replace(/\\r/g, "\r").replace(/\\\\/g, "\\");
+    if (escapes) text = text.replace(/\\(?:e|033|x1b)/g, "\x1b").replace(/\\n/g, "\n").replace(/\\t/g, "\t").replace(/\\r/g, "\r").replace(/\\\\/g, "\\");
     return result(text + (newline ? "\n" : ""));
   };
 
   BusyBox.prototype.cmdPrintf = function (args) {
     if (!args.length) return result();
-    var format = args.shift().replace(/\\n/g, "\n").replace(/\\t/g, "\t").replace(/\\r/g, "\r");
+    var format = args.shift().replace(/\\(?:e|033|x1b)/g, "\x1b").replace(/\\n/g, "\n").replace(/\\t/g, "\t").replace(/\\r/g, "\r");
     var index = 0;
     return result(format.replace(/%[sd%]/g, function (token) {
       if (token === "%%") return "%";
@@ -566,20 +568,16 @@
     for (var value = first; out.length < 10000 && (step > 0 ? value <= last : value >= last); value += step) out.push(String(value));
     return result(out.join("\n") + (out.length ? "\n" : ""));
   };
-  BusyBox.prototype.cmdSleep = async function (args) {
+  BusyBox.prototype.cmdSleep = async function (args, shell, options) {
     if (args.length !== 1 || !/^\d+(?:\.\d+)?$/.test(args[0])) return failure("sleep", "invalid time interval");
-    await new Promise(function (resolve) { root.setTimeout(resolve, Math.min(10000, Number(args[0]) * 1000)); });
+    await shell.pause(Math.min(10000, Number(args[0]) * 1000), options);
     return result();
   };
   BusyBox.prototype.cmdTimeout = async function (args, shell, options) {
     if (args.length < 2 || !/^\d+(?:\.\d+)?s?$/.test(args[0])) return failure("timeout", "usage: timeout DURATION COMMAND [ARG]...");
     var milliseconds = Math.min(10000, Number(args.shift().replace(/s$/, "")) * 1000);
     var childBudget = Object.assign({}, options.budget, { deadline: Date.now() + milliseconds });
-    var timer;
-    var expired = new Promise(function (resolve) { timer = root.setTimeout(function () { resolve(result("", 124)); }, milliseconds); });
-    var run = shell.run(args.join(" "), { capture: true, depth: (options.depth || 0) + 1, budget: childBudget });
-    var output = await Promise.race([run, expired]);
-    root.clearTimeout(timer);
+    var output = await shell.run(args.map(HL.quoteWord).join(" "), { capture: true, depth: (options.depth || 0) + 1, budget: childBudget });
     return output;
   };
 
@@ -684,7 +682,7 @@
   BusyBox.prototype.cmdHelp = function(args){
     if(args.length===1)return this.cmdMan(args);
     if(args.length)return failure("help","usage: help [command]");
-    return result("GNU bash, version 5.3\nShell commands:\n  cd pwd help history alias clear reset exit export unset env jobs fg bg\n  ls cat head tail less more grep find mkdir touch cp mv rm chmod chown\n  nano vim vi tar gzip gunzip zcat git sha256sum md5sum bash\n  ps top kill pkill who w id groups df free lsblk mount\n  ip ifconfig route arp ss netstat ping nmap nc ssh traceroute dig host whois curl wget\n  su sudo score trophies claim hint motd open writeups projects\n");
+    return result("GNU bash, version 5.3\nShell commands:\n  cd pwd help history alias clear reset exit export unset env jobs fg bg\n  ls cat head tail less more grep find mkdir touch cp mv rm chmod chown\n  nano vim vi tar gzip gunzip zcat git sha256sum md5sum bash\n  ps top kill pkill who w id groups df free lsblk mount\n  ip ifconfig route arp ss netstat ping nmap nc ssh traceroute dig host whois curl wget\n  basename dirname realpath readlink rev tac strings shuf factor expr xargs\n  su sudo score trophies claim hint motd open writeups projects\n" + (this.machine.identity.user === "admin" && this.machine.lease.operator ? "  sessionctl help   manage connected sessions\n" : ""));
   };
 
   BusyBox.prototype.cmdWhichType = function(name,args,shell){if(args.length!==1)return failure(name,"usage: "+name+" NAME");var path=shell.resolveCommand(args[0]);if(!path)return result("",1,name+": "+args[0]+" not found\n");if(name==="type")return result(args[0]+" is "+(this.commandNames.has(args[0])?"a shell builtin":""+path)+"\n");return result(path+"\n");};
@@ -735,23 +733,81 @@
   };
 
   BusyBox.prototype.cmdSessionctl = async function (args) {
-    var action = args[0] || "";
-    var usage = "usage: sessionctl who|list|drop|lock|unlock|reset|clear|exec|fx [ID] [VALUE]";
-    if (action === "who" && args.length === 1) return result(this.machine.identity.user + "\t" + (this.machine.lease.id || "local") + "\n");
-    if (["list", "drop", "lock", "unlock", "reset", "clear", "exec", "fx"].indexOf(action) === -1) return failure("sessionctl", usage);
     if (this.machine.identity.user !== "admin" || !this.machine.lease.operator || typeof this.machine.sessionControl !== "function") return failure("sessionctl", "permission denied");
-    if (action !== "list" && !/^[a-f0-9]{32,64}$/.test(args[1] || "")) return failure("sessionctl", usage);
-    if ((action === "list" && args.length !== 1) || (["exec", "fx"].indexOf(action) === -1 && action !== "list" && args.length !== 2)) return failure("sessionctl", usage);
+    var action = args[0] || "help";
+    var actions = ["list", "drop", "lock", "unlock", "reset", "clear", "exec", "fx", "particles", "theme", "banner", "appearance"];
+    if (action === "help" || action === "--help") return result(
+      "Session control\n  sessionctl list                         slots, pending commands and results\n  sessionctl lock|unlock|drop ID            lock, unlock or terminate\n  sessionctl exec ID 'COMMAND'              run in the remote simulated shell\n  sessionctl reset|clear ID                 reset userspace or clear terminal\n  sessionctl fx|particles ID on|off         particle state\n  sessionctl theme ID default|amber|ice|green\n  sessionctl banner ID 'TEXT'               short terminal status line\n  sessionctl appearance ID 'accent #66f7ff'\n  sessionctl appearance ID 'density compact|normal'\n  sessionctl appearance ID 'scan on|off'\n  sessionctl appearance ID reset\n  sessionctl who                          your slot ID\nChanges last for the connected session. Results appear in list.\n");
+    if (action === "who" && args.length === 1) return result(this.machine.identity.user + "\t" + (this.machine.lease.id || "local") + "\n");
+    if (actions.indexOf(action) === -1) return failure("sessionctl", "use sessionctl help");
+    if (action !== "list" && !/^[a-f0-9]{32}$/.test(args[1] || "")) return failure("sessionctl", "a complete slot ID is required; use sessionctl list");
+    var withValue = ["exec", "fx", "particles", "theme", "banner", "appearance"].indexOf(action) !== -1;
+    if ((action === "list" && args.length !== 1) || (action !== "list" && (withValue ? args.length < 3 : args.length !== 2))) return failure("sessionctl", "use sessionctl help");
     try {
       var payload = await this.machine.sessionControl(action, args[1] || "", args.slice(2).join(" "));
       if (!payload || payload.ok !== true) return failure("sessionctl", "request denied");
-      if (action !== "list") return result("Accepted. Delivery on the next heartbeat.\n");
+      if (action !== "list") return result(payload.seq ? "Queued #" + payload.seq + ". Delivery within one heartbeat.\n" : "Session updated.\n");
       return result((payload.slots || []).map(function (row) {
         var line = row.id + "\t" + row.user + "\t" + (row.terminated ? "terminated" : row.locked ? "locked" : "active") + "\tpending=" + row.pending;
         if (row.result) line += "\n  result " + row.result.seq + " (" + row.result.status + "): " + row.result.output;
         return line;
       }).join("\n") + "\n");
-    } catch (error) { return failure("sessionctl", "request denied"); }
+    } catch (error) { return failure("sessionctl", "request denied or rate limited"); }
+  };
+
+  BusyBox.prototype.cmdUtility = async function (name, args, stdin, shell, options) {
+    try {
+      if (name === "basename") {
+        if (!args.length || args.length > 2) throw new Error("usage: basename PATH [SUFFIX]");
+        var leaf = HL.path.basename(args[0].replace(/\/+$/, "") || "/");
+        if (args[1] && leaf.endsWith(args[1]) && leaf !== args[1]) leaf = leaf.slice(0, -args[1].length);
+        return result(leaf + "\n");
+      }
+      if (name === "dirname") {
+        if (!args.length) throw new Error("missing operand");
+        return result(args.map(function (path) { path = path.replace(/\/+$/, "") || "/"; return path.indexOf("/") < 0 ? "." : HL.path.dirname(path); }).join("\n") + "\n");
+      }
+      if (name === "realpath" || name === "readlink") {
+        var follow = name === "realpath" || args[0] === "-f";
+        if (args[0] === "-f") args.shift();
+        if (args.length !== 1) throw new Error("usage: " + name + " [-f] PATH");
+        var path = this.fs.resolve(args[0], this.machine.cwd, follow);
+        var node = this.fs.lstat(path, "/");
+        if (!node || (!follow && node.type !== "symlink")) return result("", 1);
+        return result((follow ? path : node.target) + "\n");
+      }
+      if (name === "expr") return result(integerExpression(args.join(" ").replace(/\//g, "//")) + "\n");
+      if (name === "factor") {
+        var rows = [];
+        for (var input of args) {
+          if (!/^\d{1,10}$/.test(input) || Number(input) < 2) throw new Error("integers from 2 to 9999999999 required");
+          var remaining = Number(input); var factors = [];
+          for (var divisor = 2; divisor * divisor <= remaining; divisor += 1) { shell.charge(options, 1); while (remaining % divisor === 0) { factors.push(divisor); remaining /= divisor; } }
+          if (remaining > 1) factors.push(remaining);
+          rows.push(input + ": " + factors.join(" "));
+        }
+        return result(rows.join("\n") + (rows.length ? "\n" : ""));
+      }
+      if (name === "xargs") {
+        var limit = 128;
+        if (args[0] === "-n") { args.shift(); limit = Number(args.shift()); if (!Number.isInteger(limit) || limit < 1 || limit > 128) throw new Error("-n requires 1 to 128"); }
+        var words = shell.tokenize(String(stdin || "").trim()).map(HL.literalWord);
+        if (words.length > 1024) throw new Error("too many arguments");
+        var command = args.length ? args : ["echo"]; var output = result();
+        for (var at = 0; at < words.length; at += limit) {
+          var run = await shell.run(command.concat(words.slice(at, at + limit)).map(HL.quoteWord).join(" "), { capture:true, depth:(options.depth||0)+1, budget:options.budget });
+          output.stdout += run.stdout; output.stderr += run.stderr; output.status = run.status;
+        }
+        return output;
+      }
+      var text = this.readInput(args, stdin, name).text;
+      if (name === "strings") return result((text.match(/[\x20-\x7e]{4,}/g) || []).join("\n") + "\n");
+      var lines = text.replace(/\n$/, "").split("\n");
+      if (name === "rev") lines = lines.map(function (line) { return Array.from(line).reverse().join(""); });
+      if (name === "tac") lines.reverse();
+      if (name === "shuf") for (var index = lines.length - 1; index > 0; index -= 1) { var pick = Math.floor(Math.random() * (index + 1)); var held = lines[index]; lines[index] = lines[pick]; lines[pick] = held; }
+      return result(lines.join("\n") + "\n");
+    } catch (error) { if (error.interrupted || error.killed || error.timedOut) throw error; return failure(name, error); }
   };
 
   BusyBox.prototype.cmdSmbclient = function (args) {
@@ -976,7 +1032,7 @@
   BusyBox.prototype.cmdSudo=async function(args,shell,options){
     if(this.machine.isRoot()){
       if(!args.length)return failure("sudo","a command is required");
-      return shell.run(args.join(" "),{capture:true,depth:(options.depth||0)+1,budget:options.budget});
+      return shell.run(args.map(HL.quoteWord).join(" "),{capture:true,depth:(options.depth||0)+1,budget:options.budget});
     }
     try{this.fs.writeFile("/var/log/auth.log",new Date().toISOString()+" highlion sudo: "+this.machine.identity.user+" : user NOT in sudoers\n","/",true,true);}catch(error){}
     return failure("sudo",this.machine.identity.user+" is not in the sudoers file.  This incident will be reported.");
@@ -1138,16 +1194,33 @@
   BusyBox.prototype.run = async function (name, args, stdin, shell, options) {
     if (this.machine.remoteControl && ["su", "sudo", "exit", "logout", "sessionctl", "claim", "reset-machine", "open", "writeups", "projects", "nano", "vim", "vi", "less", "more"].indexOf(name) !== -1) return failure(name, "unavailable during remote control");
     args = args.slice();
-    if(name==="pwd")return this.cmdPwd(args); if(name==="cd")return this.cmdCd(args); if(name==="ls")return this.cmdLs(args);
+    if (name === "busybox") {
+      if (!args.length || args[0] === "--list") return result(Array.from(this.commandNames).sort().join("\n") + "\n");
+      var applet = args.shift();
+      if (applet === "busybox" || !this.commandNames.has(applet)) return failure("busybox", "unknown applet");
+      return this.run(applet, args, stdin, shell, options);
+    }
+    if (["basename", "dirname", "realpath", "readlink", "rev", "tac", "strings", "shuf", "factor", "expr", "xargs"].indexOf(name) !== -1) return this.cmdUtility(name, args, stdin, shell, options);
+    if (name === "sh" || name === "zsh") return this.cmdBash(args, shell, options);
+    if(name==="pwd")return this.cmdPwd(args); if(name==="cd")return this.cmdCd(args); if(name==="ls")return this.cmdLs(args,options);
     if(name==="cat")return this.cmdCat(args,stdin); if(name==="head"||name==="tail")return this.cmdHeadTail(name,args,stdin); if(name==="wc")return this.cmdWc(args,stdin); if(name==="tee")return this.cmdTee(args,stdin);
     if(name==="echo")return this.cmdEcho(args); if(name==="printf")return this.cmdPrintf(args); if(name==="true")return result(); if(name==="false")return result("",1); if(name==="test"||name==="[")return this.cmdTest(args,name==="[");
     if(name==="mkdir")return this.cmdMkdir(args); if(name==="rmdir")return this.cmdRmdir(args); if(name==="touch")return this.cmdTouch(args); if(name==="cp"||name==="mv")return this.cmdCpMv(name,args); if(name==="rm")return this.cmdRm(args); if(name==="ln")return this.cmdLn(args); if(name==="chmod")return this.cmdChmod(args); if(name==="chown")return this.cmdChown(args); if(name==="stat")return this.cmdStat(args); if(name==="file")return this.cmdFile(args);
     if(name==="tree")return this.cmdTree(args); if(name==="find")return this.cmdFind(args); if(name==="grep")return this.cmdGrep(args,stdin); if(name==="sed")return this.cmdSed(args,stdin); if(name==="awk")return this.cmdAwk(args,stdin); if(name==="sort")return this.cmdSort(args,stdin); if(name==="uniq")return this.cmdUniq(args,stdin); if(name==="cut")return this.cmdCut(args,stdin); if(name==="tr")return this.cmdTr(args,stdin); if(name==="diff")return this.cmdDiff(args);
     if(name==="sha256sum"||name==="md5sum")return this.cmdHash(name,args,stdin); if(name==="base64")return this.cmdBase64(args,stdin); if(name==="xxd"||name==="od"||name==="hexdump")return this.cmdHex(name,args,stdin); if(name==="less"||name==="more")return this.cmdPager(name,args,stdin);
     if(name==="tar")return this.cmdTar(args); if(name==="gzip"||name==="gunzip"||name==="zcat")return this.cmdGzip(name,args); if(name==="git")return this.cmdGit(args);
-    if(name==="man")return this.cmdMan(args); if(name==="help")return this.cmdHelp(args); if(name==="which"||name==="type")return this.cmdWhichType(name,args,shell); if(name==="command"){if(!args.length)return result();if(args[0]==="-v")return this.cmdWhichType("which",args.slice(1),shell);return shell.run(args.join(" "),{capture:true,depth:(options.depth||0)+1,budget:options.budget});}
-    if(name==="env")return this.cmdEnv(args); if(name==="export")return this.cmdExport(args); if(name==="unset")return this.cmdUnset(args); if(name==="set")return this.cmdSet(args); if(name==="source")return this.cmdSource(args);
-    if(name==="date")return this.cmdDate(args); if(name==="cal")return this.cmdCal(args); if(name==="yes")return this.cmdYes(args); if(name==="seq")return this.cmdSeq(args); if(name==="sleep")return this.cmdSleep(args); if(name==="timeout")return this.cmdTimeout(args,shell,options); if(name==="uname")return this.cmdUname(args); if(["hostname","whoami","id","groups"].indexOf(name)!==-1)return this.cmdIdentity(name,args); if(name==="umask")return this.cmdUmask(args);
+    if(name==="man")return this.cmdMan(args); if(name==="help")return this.cmdHelp(args); if(name==="which"||name==="type")return this.cmdWhichType(name,args,shell); if(name==="command"){if(!args.length)return result();if(args[0]==="-v")return this.cmdWhichType("which",args.slice(1),shell);return shell.run(args.map(HL.quoteWord).join(" "),{capture:true,depth:(options.depth||0)+1,budget:options.budget});}
+    if(name==="env") {
+      if (args.length) {
+        var environment = Object.assign(Object.create(null), this.machine.env);
+        if (args[0] === "-i") { this.machine.env = Object.create(null); args.shift(); }
+        while (args[0] && /^[A-Za-z_][A-Za-z0-9_]*=/.test(args[0])) { var assignment = args.shift(); var at = assignment.indexOf("="); this.machine.env[assignment.slice(0, at)] = assignment.slice(at + 1); }
+        try { return args.length ? await shell.run(args.map(HL.quoteWord).join(" "), { capture:true, depth:(options.depth||0)+1, budget:options.budget }) : this.cmdEnv([]); }
+        finally { this.machine.env = environment; }
+      }
+      return this.cmdEnv(args);
+    } if(name==="export")return this.cmdExport(args); if(name==="unset")return this.cmdUnset(args); if(name==="set")return this.cmdSet(args); if(name==="source")return this.cmdSource(args);
+    if(name==="date")return this.cmdDate(args); if(name==="cal")return this.cmdCal(args); if(name==="yes")return this.cmdYes(args); if(name==="seq")return this.cmdSeq(args); if(name==="sleep")return this.cmdSleep(args,shell,options); if(name==="timeout")return this.cmdTimeout(args,shell,options); if(name==="uname")return this.cmdUname(args); if(["hostname","whoami","id","groups"].indexOf(name)!==-1)return this.cmdIdentity(name,args); if(name==="umask")return this.cmdUmask(args);
     if(name==="smbclient")return this.cmdSmbclient(args); if(name==="ps")return this.cmdPs(args); if(name==="pidof")return this.cmdPidof(args); if(name==="kill")return this.cmdKill(args); if(name==="pkill")return this.cmdPkill(args); if(name==="dmesg")return this.cmdDmesg(args); if(name==="lscpu")return this.cmdLscpu(args); if(name==="df")return this.cmdDf(args); if(name==="du")return this.cmdDu(args); if(name==="free")return this.cmdFree(args); if(name==="uptime")return this.cmdUptime(args); if(name==="mount")return this.cmdMount(args); if(name==="lsmod")return this.cmdLsmod(args); if(name==="getent")return this.cmdGetent(args); if(name==="last")return this.cmdLast(args); if(name==="who"||name==="w")return this.cmdWho(name,args); if(name==="sessionctl")return this.cmdSessionctl(args);
     if(name==="ip")return this.cmdIp(args); if(name==="ifconfig")return this.cmdIfconfig(args); if(name==="route")return this.cmdRoute(args); if(name==="arp")return this.cmdArp(args); if(name==="ss")return this.cmdSs(args); if(name==="netstat")return this.cmdNetstat(args); if(name==="ping")return this.cmdPing(args); if(name==="curl"||name==="wget")return this.cmdCurl(name,args); if(name==="nc"||name==="netcat")return this.cmdNc(args); if(name==="ssh")return this.cmdSsh(args);
     if(name==="nmap")return this.cmdNmap(args); if(name==="traceroute"||name==="tracepath")return this.cmdTrace(name,args); if(name==="dig"||name==="host"||name==="nslookup")return this.cmdDns(name,args); if(name==="whois")return this.cmdWhois(args);
