@@ -1,13 +1,13 @@
 @font-face {
   font-family: "Orbitron";
-  src: local("Orbitron"), url("/assets/fonts/Orbitron.woff2?v=hl8t") format("woff2");
+  src: local("Orbitron"), url("/assets/fonts/Orbitron.ttf?v=hl8u") format("truetype");
   font-weight: 400 900;
   font-display: swap;
 }
 
 @font-face {
   font-family: "JetBrains Mono";
-  src: local("JetBrains Mono"), url("/assets/fonts/JetBrainsMono.woff2?v=hl8t") format("woff2");
+  src: local("JetBrains Mono"), url("/assets/fonts/JetBrainsMono.ttf?v=hl8u") format("truetype");
   font-weight: 400 700;
   font-display: swap;
 }
@@ -2270,7 +2270,6 @@ h3 {
   object-fit: contain;
 }
 
-/* HLv8 XDR surfaces: depth comes from tone and shadow, never neon frames. */
 .panel,
 .profile-panel,
 .article-shell,
@@ -3680,20 +3679,11 @@ tr[data-href]:focus-visible {
 .flag-form { padding: 1.5rem; }
 .flag-heading { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1.5rem; }
 .flag-heading h2 { margin: 0; font-size: 1.1rem; }
-.flag-heading button { color: var(--text); border: 0; background: transparent; font-size: 1.8rem; cursor: pointer; }
 .flag-form label { display: block; margin-bottom: .5rem; }
 .flag-form input { width: 100%; border: 1px solid var(--stroke-strong); border-radius: 6px; padding: .8rem; background: var(--bg-0); color: var(--text); font: inherit; }
 .flag-form input:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
 .flag-status { min-height: 1.5rem; color: var(--text-soft); }
 .flag-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem; margin: 1.5rem 0; }
-.flag-actions [hidden] { display: none; }
-.challenge-page { max-width: 1120px; margin: 3rem auto; padding: 0 1rem; }
-.challenge-content { padding: clamp(1.2rem, 4vw, 3rem); }
-.challenge-content h1 { margin: 0 0 1.5rem; font-family: var(--display); font-size: clamp(1.8rem, 4vw, 3rem); }
-.challenge-content p { max-width: 78ch; line-height: 1.8; color: var(--text-soft); }
-.challenge-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.5rem; margin: 2rem 0; }
-.challenge-grid article { padding: 1.3rem; border: 1px solid var(--stroke-strong); border-radius: 8px; background: var(--panel); }
-.challenge-grid h2 { font: 1rem var(--mono); color: var(--cyan); }
 .nav-meta { flex-wrap: wrap; }
 .nav-chip[hidden] { display: none; }
-@media (max-width: 640px) { .challenge-grid { grid-template-columns: 1fr; } .flag-form { padding: 1rem; } }
+@media (max-width: 640px) { .flag-form { padding: 1rem; } }

@@ -70,9 +70,10 @@ function hl_shell_auth_failure_allowed(bool $increment): bool
         $record['count'] = (int) $record['count'] + 1;
     }
     rewind($handle);
-    ftruncate($handle, 0);
-    fwrite($handle, (string) json_encode($record));
-    fflush($handle);
+    $encoded = (string) json_encode($record);
+    if (!ftruncate($handle, 0) || fwrite($handle, $encoded) !== strlen($encoded) || !fflush($handle)) {
+        $allowed = false;
+    }
     flock($handle, LOCK_UN);
     fclose($handle);
     return $allowed;

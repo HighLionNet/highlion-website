@@ -1,45 +1,59 @@
 {
   "schema": 1,
   "id": "season00",
-  "title": "Osprey & Hale fieldwork",
+  "title": "Four small puzzles",
   "hidden": false,
   "mount": {
-    "/home/kali/osprey/briefing.txt": {
+    "/home/kali/puzzles/briefing.txt": {
       "type": "file",
       "mode": "0444",
       "owner": "root",
       "group": "root",
-      "content": "Osprey & Hale / case index\nAll hosts below are simulated. Nothing leaves this LAN.\n1. Handoff: curl http://intranet/helpdesk, then follow ticket 1042.\n2. Route review: read route-review.txt and compare the gateway policy with the LAN.\n3. Letterbox: read letterbox.txt; inspect /contact.html in your browser's page source. Do not submit mail.\n4. Clock drift: read clocks.txt, then reconcile the relay logs.\nSubmit answers with claim 'HL8{...}' or the FLAGS button.\n"
+      "content": "Four puzzles. All files and hosts are simulated.\n1. Modular arithmetic: cat ~/puzzles/modular.txt\n2. Route: cat ~/puzzles/route-review.txt\n3. XOR: cat ~/puzzles/xor.txt\n4. Timeline: cat ~/puzzles/clocks.txt\nUse python3 -c 'print(<integer expression>)' for arithmetic: **, %, ^, +, -, *, //, &, |, parentheses.\nSubmit with claim 'HL8{...}' or the FLAGS button.\n"
     },
-    "/home/kali/osprey/dispatch.csv": {
+    "/home/kali/puzzles/modular.txt": {
       "type": "file",
       "mode": "0444",
       "owner": "root",
       "group": "root",
-      "content": "batch,revision,state,seal\n1042,16,void,amber\n1042,17,delivered,cedar\n1042,18,pending,oak\n1047,17,delivered,maple\n"
+      "content": "Compute base ** exponent modulo modulus; use the least nonnegative residue in decimal.\nParameters: ~/puzzles/modular.csv\nFormat: HL8{modular_<decimal>}\n"
     },
-    "/home/kali/osprey/route-review.txt": {
+    "/home/kali/puzzles/modular.csv": {
       "type": "file",
       "mode": "0444",
       "owner": "root",
       "group": "root",
-      "content": "Which host accepts the SMB handoff? Enumerate 10.8.0.0/24, identify the SMB port, then fetch http://fw01/policy.\nPolicy rules use first-match order. Evaluate the connection from this laptop's IP to the SMB host. Ignore rules that do not match source, destination and port.\nAnswer: HL8{route_<destination-last-octet>_<port>_<rule-tag>}\n"
+      "content": "modulus,base,exponent\n97,7,11\n"
     },
-    "/home/kali/osprey/letterbox.txt": {
+    "/home/kali/puzzles/route-review.txt": {
       "type": "file",
       "mode": "0444",
       "owner": "root",
       "group": "root",
-      "content": "The real contact form labels one field for automated senders. Find its HTML name and data-ledger identifier in page source.\nFind the matching ledger under http://intranet/mail/<identifier>. Use its routing policy to select the only human delivery; decode its base64 receipt.\nAnswer: HL8{letterbox_<field-name>_<identifier>_<decoded-receipt>}\n"
+      "content": "Find the SMB host on 10.8.0.0/24; read http://fw01/policy.\nMatch this laptop's source IP, destination and SMB port. First matching rule wins.\nFormat: HL8{route_<destination-last-octet>_<port>_<rule-tag>}\n"
     },
-    "/home/kali/osprey/clocks.txt": {
+    "/home/kali/puzzles/xor.txt": {
       "type": "file",
       "mode": "0444",
       "owner": "root",
       "group": "root",
-      "content": "Maintenance ended at 05:18:30 UTC on 2026-09-26.\nThe gateway clock is UTC+02:00 and runs 7 seconds fast. The transfer clock is UTC and runs 4 seconds slow.\nRead http://fw01/relay-log and ~/osprey/transfer.log. A completed relay has both an ACCEPT and a COMMIT. Order completions by corrected COMMIT time; ignore incomplete relays.\nAnswer: HL8{timeline_<relay-name>_<UTC-HHMMSS>} for the first completion after maintenance.\n"
+      "content": "XOR two unsigned 16-bit values.\nLeft: ~/puzzles/left.hex; right: http://intranet/math/right\nUse the result in decimal, without leading zeros.\nFormat: HL8{xor_<decimal>}\n"
     },
-    "/home/kali/osprey/transfer.log": {
+    "/home/kali/puzzles/left.hex": {
+      "type": "file",
+      "mode": "0444",
+      "owner": "root",
+      "group": "root",
+      "content": "0x6a3c\n"
+    },
+    "/home/kali/puzzles/clocks.txt": {
+      "type": "file",
+      "mode": "0444",
+      "owner": "root",
+      "group": "root",
+      "content": "Cutoff: 2026-09-26 05:18:30 UTC.\nGateway: UTC+02:00, offset +7 seconds. Transfer: UTC, offset -4 seconds.\nRead http://fw01/relay-log and ~/puzzles/transfer.log. Match ACCEPT and COMMIT by name.\nChoose the first corrected COMMIT strictly after the cutoff; unmatched entries do not count.\nFormat: HL8{timeline_<relay-name>_<UTC-HHMMSS>}\n"
+    },
+    "/home/kali/puzzles/transfer.log": {
       "type": "file",
       "mode": "0444",
       "owner": "root",
@@ -49,41 +63,25 @@
   },
   "flags": [
     {
-      "id": "handoff",
-      "hint": "Follow ticket 1042. A delivered revision needs both a receipt and a dispatch seal."
+      "id": "modular",
+      "hint": "Read ~/puzzles/modular.txt; take the least nonnegative residue."
     },
     {
       "id": "route",
-      "hint": "Use ip addr, nmap, and the gateway policy. First matching rule wins."
+      "hint": "Read ~/puzzles/route-review.txt; the first matching rule wins."
     },
     {
-      "id": "letterbox",
-      "hint": "Inspect the unattended form field, then follow its ledger and delivery policy."
+      "id": "xor",
+      "hint": "Read ~/puzzles/xor.txt; XOR the two 16-bit values."
     },
     {
       "id": "timeline",
-      "hint": "Correct each clock before ordering completed relays. An unmatched commit does not count."
+      "hint": "Read ~/puzzles/clocks.txt; correct offsets before comparing COMMIT times."
     }
   ],
   "http": {
-    "10.8.0.21/helpdesk/archive/1042.txt": "Ticket 1042 / handoff mismatch\nThe transfer share on files01 contains receipts.csv. Read it with smbclient //files01/transfer -c 'get receipts.csv -'.\nOnly the delivered revision in ~/osprey/dispatch.csv is current. Match batch and revision, decode the receipt, then append the dispatch seal.\nAnswer: HL8{handoff_<decoded-receipt>_<seal>}. Receipt text already contains its separator.\n",
     "10.8.0.1/policy": "chain FORWARD; first match wins\n01 src=10.8.0.0/29 dst=10.8.0.34 port=445 action=allow tag=ash\n02 src=10.8.0.10/32 dst=10.8.0.21 port=80 action=allow tag=birch\n03 src=10.8.0.8/29 dst=10.8.0.34 port=445 action=allow tag=ember\n04 src=10.8.0.0/24 dst=10.8.0.34 port=445 action=deny tag=slate\n",
-    "10.8.0.21/mail/q7m4": "Letterbox ledger q7m4\nRouting policy: /mail/policy\nid,company,token,age_seconds,receipt_base64\nL11,robot,valid,9,YW1iZXI=\nL12,empty,expired,12,c2lsdmVy\nL13,empty,valid,1,aW5kaWdv\nL14,empty,valid,8,Y29iYWx0\n",
-    "10.8.0.21/mail/policy": "Human delivery: company must be empty, token valid, and form age at least 3 seconds. Decode the one matching receipt.\n",
+    "10.8.0.21/math/right": "0x19e7\n",
     "10.8.0.1/relay-log": "2026-09-26T07:18:21 swift ACCEPT\n2026-09-26T07:18:41 kestrel ACCEPT\n2026-09-26T07:18:46 heron ACCEPT\n2026-09-26T07:18:44 wren ACCEPT\n"
-  },
-  "shares": {
-    "public": {
-      "guest": true,
-      "files": {
-        "welcome.txt": "Transfer receipts are retained by batch and revision.\n"
-      }
-    },
-    "transfer": {
-      "guest": true,
-      "files": {
-        "receipts.csv": "batch,revision,receipt_base64\n1042,18,bjRxOV9zY2FybGV0\n1047,17,czJwOF9henVyZQ==\n1042,16,cjFwNF9ncmVlbg==\n1042,17,bTdxMl92aW9sZXQ=\n"
-      }
-    }
   }
 }

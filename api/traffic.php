@@ -50,7 +50,7 @@ function hl_traffic_timestamp($value): ?int
 
 function hl_traffic_public_path(string $target): ?string
 {
-    if ($target === '' || strlen($target) > 512 || preg_match('/%(?:2e|2f)/i', $target) === 1) {
+    if ($target === '' || strlen($target) > 512 || $target[0] !== '/' || strpbrk($target, "?#\\") !== false || preg_match('/[\x00-\x20\x7f%]/', $target) === 1) {
         return null;
     }
     $path = parse_url($target, PHP_URL_PATH);
@@ -64,10 +64,10 @@ function hl_traffic_public_path(string $target): ?string
     if ($path === '/' || $path === '/index.html') {
         return '/';
     }
-    if (in_array($path, ['/about.html', '/projects.html', '/writeups.html', '/contact.html', '/ctf.html'], true)) {
+    if (in_array($path, ['/about.html', '/projects.html', '/writeups.html', '/contact.html'], true)) {
         return $path;
     }
-    if (preg_match('#^/writeups/[A-Za-z0-9][A-Za-z0-9._/-]*\.html$#', $path) === 1) {
+    if (in_array($path, ['/writeups/pihole.html', '/writeups/cve-2026-2441.html'], true)) {
         return $path;
     }
     return null;

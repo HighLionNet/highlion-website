@@ -47,21 +47,21 @@
     this.hosts = {
       "localhost": "127.0.0.1",
       "highlion": "10.8.0.10",
-      "fw01.osprey.corp": "10.8.0.1",
+      "fw01.lab.test": "10.8.0.1",
       "fw01": "10.8.0.1",
-      "intranet.osprey.corp": "10.8.0.21",
+      "intranet.lab.test": "10.8.0.21",
       "intranet": "10.8.0.21",
       "web01": "10.8.0.21",
-      "files01.osprey.corp": "10.8.0.34",
+      "files01.lab.test": "10.8.0.34",
       "files01": "10.8.0.34",
       "fs01": "10.8.0.34"
     };
     this.reverse = {
       "127.0.0.1": "localhost",
-      "10.8.0.1": "fw01.osprey.corp",
+      "10.8.0.1": "fw01.lab.test",
       "10.8.0.10": "highlion",
-      "10.8.0.21": "intranet.osprey.corp",
-      "10.8.0.34": "files01.osprey.corp"
+      "10.8.0.21": "intranet.lab.test",
+      "10.8.0.34": "files01.lab.test"
     };
     this.world = {
       "10.8.0.1": {
@@ -228,32 +228,9 @@
     var code = 404;
     var body = "404 Not Found\n";
     var server = endpoint.version || "http";
-    if (profile.address === "10.8.0.1") {
-      if (path === "/") {
-        code = 200;
-        body = "<!doctype html>\n<title>Osprey & Hale — edge</title>\n<h1>Osprey & Hale — edge</h1>\n<p>Office gateway. WAN unavailable.</p>\n";
-      } else if (path === "/status") {
-        code = 200;
-        body = "<!doctype html>\n<title>fw01 status</title>\n<h1>fw01</h1>\n<p>uptime: 37 days</p>\n<p>wan: down</p>\n<p>policy: /policy; journal: /relay-log</p>\n";
-      }
-    } else if (profile.address === "10.8.0.21") {
-      if (path === "/") {
-        code = 200;
-        body = "<!doctype html>\n<title>Osprey & Hale Intranet</title>\n<h1>Osprey & Hale Intranet</h1>\n<nav><a href=\"/staff\">Staff</a> <a href=\"/helpdesk\">Helpdesk</a> <a href=\"/robots.txt\">robots.txt</a></nav>\n";
-      } else if (path === "/robots.txt") {
-        code = 200; body = "User-agent: *\nDisallow: /helpdesk/archive/\n";
-      } else if (path === "/staff") {
-        code = 200; body = "<!doctype html>\n<title>Staff directory</title>\n<h1>Staff</h1>\n<ul><li>Mara — desk 12</li><li>Jon — desk 18</li><li>Priya — desk 24</li></ul>\n";
-      } else if (path === "/helpdesk") {
-        code = 200; body = "<!doctype html>\n<title>Helpdesk</title>\n<h1>Tickets</h1>\n<p>1042 — VPN token reset</p>\n<p>1047 — printer queue</p>\n";
-      } else if (path === "/helpdesk/archive/") {
-        code = 403; body = "403 Forbidden\n";
-      } else if (path === "/helpdesk/archive/1042.txt") {
-        code = 200;
-        body = "Ticket 1042 — VPN token reset\nThe fileserver share 'transfer' is world-readable.\nRead the current handoff record.\n";
-      } else if (path === "/server-status") {
-        code = 403; body = "403 Forbidden\n";
-      }
+    if (path === "/" && (profile.address === "10.8.0.1" || profile.address === "10.8.0.21")) {
+      code = 200;
+      body = profile.address === "10.8.0.1" ? "Simulated gateway: /policy /relay-log\n" : "Simulated math service: /math/right\n";
     }
     var fixture = this.httpFixtures[profile.address + path];
     if (typeof fixture === "string") { code = 200; body = fixture; }
@@ -265,9 +242,9 @@
     var profile = this.profile(target);
     if (!profile.address) return [];
     if (profile.className === "unreachable" || profile.className === "broadcast") {
-      return [{ address: "10.8.0.1", name: "fw01.osprey.corp", rtt: 0.5 }, { unreachable: true }];
+      return [{ address: "10.8.0.1", name: "fw01.lab.test", rtt: 0.5 }, { unreachable: true }];
     }
-    if (!profile.up) return [{ address: "10.8.0.1", name: "fw01.osprey.corp", rtt: 0.5 }, { unreachable: true }];
+    if (!profile.up) return [{ address: "10.8.0.1", name: "fw01.lab.test", rtt: 0.5 }, { unreachable: true }];
     this.touch(profile.address);
     return [{ address: profile.address, name: profile.name, rtt: profile.rtt }];
   };

@@ -89,12 +89,7 @@ function hl_op_refresh(string $value): void
     if ($value === '') {
         return;
     }
-    $host = strtolower(trim((string) ($_SERVER['HTTP_HOST'] ?? '')));
-    $host = preg_replace('/:\d+$/', '', $host) ?? '';
     $parts = ['hl_op=' . rawurlencode($value), 'Max-Age=31536000', 'Path=/'];
-    if ($host === 'www.highlion.net' || $host === 'highlion.net') {
-        $parts[] = 'Domain=www.highlion.net';
-    }
     $parts[] = 'Secure';
     $parts[] = 'HttpOnly';
     $parts[] = 'SameSite=Lax';
@@ -150,9 +145,10 @@ function hl_rate_allow($bucket, $limit, $windowSec): bool
     if ($allowed) {
         $record['count'] = (int) $record['count'] + 1;
         rewind($handle);
-        ftruncate($handle, 0);
-        fwrite($handle, (string) json_encode($record));
-        fflush($handle);
+        $encoded = (string) json_encode($record);
+        if (!ftruncate($handle, 0) || fwrite($handle, $encoded) !== strlen($encoded) || !fflush($handle)) {
+            $allowed = false;
+        }
     }
     flock($handle, LOCK_UN);
     fclose($handle);

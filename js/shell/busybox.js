@@ -155,9 +155,9 @@
     vim: ["VIM(1)", "NAME", "    vim - edit a file in the panel", "SYNOPSIS", "    vim [FILE]", "DESCRIPTION", "    Opens the in-panel 64 KiB text editor.", "    Ctrl+S or :w writes; :wq writes and exits.", "    :q! exits and discards unsaved changes."],
     su: ["SU(1)", "NAME", "    su - switch simulated identity", "SYNOPSIS", "    su [-] [root|admin|kali]", "DESCRIPTION", "    Root and admin require server-verified passwords.", "    Admin also requires the operator capability cookie.", "    A login switch resets home, environment and prompt."],
     sudo: ["SUDO(1)", "NAME", "    sudo - execute under simulated policy", "SYNOPSIS", "    sudo COMMAND [ARG ...]", "DESCRIPTION", "    Root may execute mounted commands.", "    Admin has a narrow challenge-read policy.", "    Kali is not in the simulated sudoers file."],
-    ip: ["IP(1)", "NAME", "    ip - show simulated network state", "SYNOPSIS", "    ip addr|route|neigh|link", "DESCRIPTION", "    Reports the isolated Osprey & Hale 10.8.0.0/24 LAN.", "    No host interface or real route is exposed.", "    State comes from deterministic local fixtures."],
+    ip: ["IP(1)", "NAME", "    ip - show simulated network state", "SYNOPSIS", "    ip addr|route|neigh|link", "DESCRIPTION", "    Reports the isolated simulated 10.8.0.0/24 LAN.", "    No host interface or real route is exposed.", "    State comes from deterministic local fixtures."],
     ping: ["PING(1)", "NAME", "    ping - probe a simulated LAN host", "SYNOPSIS", "    ping [-c COUNT] HOST", "DESCRIPTION", "    Resolves and probes only local fixture hosts.", "    Timing is deterministic and no network packet is sent.", "    Unknown and off-LAN destinations fail closed."],
-    nmap: ["NMAP(1)", "NAME", "    nmap - scan simulated LAN services", "SYNOPSIS", "    nmap [-sV] [-p PORTS] HOST", "DESCRIPTION", "    Reads the sealed 10.8.0.0/24 service profiles.", "    It never opens sockets or scans the public internet.", "    Branded offensive suites remain unavailable."],
+    nmap: ["NMAP(1)", "NAME", "    nmap - scan simulated LAN services", "SYNOPSIS", "    nmap [-sV] [-p PORTS] HOST", "DESCRIPTION", "    Reads the simulated 10.8.0.0/24 service profiles.", "    It never opens sockets or scans the public internet.", "    Branded offensive suites remain unavailable."],
     curl: ["CURL(1)", "NAME", "    curl - fetch a simulated endpoint", "SYNOPSIS", "    curl [-I] URL", "DESCRIPTION", "    Routes requests through the local fixture network.", "    Documented challenge URLs are supported.", "    Real WAN fetches are rejected."],
     tar: ["TAR(1)", "NAME", "    tar - archive mounted files", "SYNOPSIS", "    tar -cf ARCHIVE PATH ...", "    tar -tf ARCHIVE | tar -xf ARCHIVE", "DESCRIPTION", "    Creates, lists and extracts bounded in-memory archives.", "    Add z to the option group for gzip compression.", "    Extraction rejects absolute and parent paths."],
     git: ["GIT(1)", "NAME", "    git - inspect the fixture repository", "SYNOPSIS", "    git --version|status|log", "DESCRIPTION", "    Operates only on ~/highlion's simulated repository.", "    Status reports overlay edits under that path.", "    No remote, credentials or GitHub connection exists."]
@@ -820,7 +820,7 @@
 
   };
   BusyBox.prototype.cmdNc=function(args){
-    if(args.indexOf("-l")!==-1)return failure("nc","listen mode is not supported in this sealed network");
+    if(args.indexOf("-l")!==-1)return failure("nc","listen mode is not supported in this simulated network");
     var clean=args.filter(function(arg){return ["-v","-z","-n"].indexOf(arg)===-1;});
     if(clean.length!==2||!/^\d+$/.test(clean[1]))return failure("nc","usage: nc [-vz] HOST PORT");
     var profile=this.machine.net.profile(clean[0]);
@@ -1015,7 +1015,82 @@
     if(args.length===1){return shell.runScript(args[0],[],{capture:true,script:true,depth:(options.depth||0)+1,budget:options.budget});}
     return failure("bash","usage: bash FILE | bash -c COMMAND");
   };
-  BusyBox.prototype.cmdRuntime=function(name,args){var versions={python3:"Python 3.13.5",perl:"This is perl 5, version 40, subversion 2",ruby:"ruby 3.3.8 (2026-04-09 revision hl8) [x86_64-linux]"};if(args.length&&["--version","-v","-V"].indexOf(args[0])===-1)return failure(name,"evaluation is disabled in this sealed browser TTY");return result(versions[name]+"\n"+(args.length?"":name+": can't open an interactive TTY\n"));};
+  function integerExpression(source) {
+    if (source.length > 512) throw new Error("expression too long");
+    var tokens = source.match(/0[xX][0-9a-fA-F]+|[0-9]+|\*\*|\/\/|[()+*%&|^~-]/g) || [];
+    if (tokens.join("") !== source.replace(/\s/g, "") || tokens.length > 128) throw new Error("integer arithmetic only");
+    var at = 0;
+    function bounded(value) {
+      if (value.toString(2).length > 4096) throw new Error("integer limit exceeded");
+      return value;
+    }
+    function atom() {
+      var token = tokens[at++];
+      if (token === "(") {
+        var value = binary(0);
+        if (tokens[at++] !== ")") throw new Error("expected closing parenthesis");
+        return value;
+      }
+      if (!/^(?:0[xX][0-9a-fA-F]+|[0-9]+)$/.test(token || "")) throw new Error("expected integer");
+      return bounded(BigInt(token));
+    }
+    function unary() {
+      var token = tokens[at];
+      if (token === "+" || token === "-" || token === "~") {
+        at += 1;
+        var value = unary();
+        return bounded(token === "-" ? -value : token === "~" ? ~value : value);
+      }
+      return power();
+    }
+    function power() {
+      var value = atom();
+      if (tokens[at] === "**") {
+        at += 1;
+        var exponent = unary();
+        if (exponent < 0n || exponent > 1024n) throw new Error("exponent out of range");
+        value = bounded(value ** exponent);
+      }
+      return value;
+    }
+    var precedence = { "|": 1, "^": 2, "&": 3, "+": 4, "-": 4, "*": 5, "//": 5, "%": 5 };
+    function binary(minimum) {
+      var left = unary();
+      while (precedence[tokens[at]] >= minimum) {
+        var op = tokens[at++];
+        var right = binary(precedence[op] + 1);
+        if ((op === "//" || op === "%") && right === 0n) throw new Error("division by zero");
+        if (op === "+") left += right;
+        else if (op === "-") left -= right;
+        else if (op === "*") left *= right;
+        else if (op === "&") left &= right;
+        else if (op === "|") left |= right;
+        else if (op === "^") left ^= right;
+        else {
+          var quotient = left / right;
+          if (left % right !== 0n && (left < 0n) !== (right < 0n)) quotient -= 1n;
+          left = op === "//" ? quotient : left - quotient * right;
+        }
+        bounded(left);
+      }
+      return left;
+    }
+    var answer = binary(0);
+    if (at !== tokens.length) throw new Error("unexpected token");
+    return answer.toString();
+  }
+
+  BusyBox.prototype.cmdRuntime = function (name, args) {
+    if (name === "python3" && args[0] === "-c") {
+      var match = args.length === 2 && /^print\((.*)\)$/.exec(args[1].trim());
+      if (!match) return failure(name, "use -c 'print(INTEGER_EXPRESSION)'");
+      try { return result(integerExpression(match[1]) + "\n"); }
+      catch (error) { return failure(name, error); }
+    }
+    var versions = { python3: "Python 3.13.5", perl: "This is perl 5, version 40, subversion 2", ruby: "ruby 3.3.8 (2026-04-09 revision hl8) [x86_64-linux]" };
+    if (args.length && ["--version", "-v", "-V"].indexOf(args[0]) === -1) return failure(name, "evaluation is disabled in this browser TTY");
+    return result(versions[name] + "\n" + (args.length ? "" : name + ": can't open an interactive TTY\n"));
+  };
   BusyBox.prototype.cmdPasswd=function(args){if(args.length>1)return failure("passwd","usage: passwd [USER]");return failure("passwd","Authentication token manipulation error");};
   BusyBox.prototype.cmdEditor=function(name,args){
     if(args.length>1)return failure(name,"usage: "+name+" [FILE]");
@@ -1030,7 +1105,7 @@
       return result("",0,"",{editor:{command:name,label:label,path:path,text:text}});
     }catch(error){return failure(name,error);}
   };
-  BusyBox.prototype.cmdMissingTool=function(name){return result("",127,name+": not installed in this sealed TTY\n");};
+  BusyBox.prototype.cmdMissingTool=function(name){return result("",127,name+": not installed in this simulated TTY\n");};
   BusyBox.prototype.cmdJobs=function(args,shell){if(args.length)return failure("jobs","extra operand");return result(shell.jobsText());};
   BusyBox.prototype.cmdFg=async function(args,shell){if(args.length>1)return failure("fg","usage: fg [%1]");return shell.foregroundJob();};
   BusyBox.prototype.cmdBg=function(args,shell){if(args.length>1)return failure("bg","usage: bg [%1]");return shell.backgroundJobStatus();};
@@ -1057,7 +1132,7 @@
   BusyBox.prototype.cmdClaim=function(args){return args.length===1?this.machine.ctf.claim(args[0]):failure("claim","usage: claim FLAG");};
   BusyBox.prototype.cmdHint=function(args){return args.length?failure("hint","usage: hint"):result(this.machine.ctf.hint());};
   BusyBox.prototype.cmdMotd=function(){try{return result(this.machine.readFile("/etc/motd"));}catch(error){return failure("motd",error);}};
-  BusyBox.prototype.cmdOpen=function(args){if(args.length!==1||!this.machine.config.sitePages[args[0]])return failure("open","usage: open home|about|projects|writeups|contact");return result("opening "+args[0]+"\n",0,"",{navigate:this.machine.config.sitePages[args[0]]});};
+  BusyBox.prototype.cmdOpen=function(args){if(args.length!==1||!Object.prototype.hasOwnProperty.call(this.machine.config.sitePages,args[0]))return failure("open","usage: open home|about|projects|writeups|contact");return result("opening "+args[0]+"\n",0,"",{navigate:this.machine.config.sitePages[args[0]]});};
   BusyBox.prototype.cmdPublished=function(name,args){if(args.length)return failure(name,"extra operand");try{return result(this.machine.readFile("/home/kali/highlion/"+name+".md"));}catch(error){return failure(name,error);}};
 
   BusyBox.prototype.run = async function (name, args, stdin, shell, options) {

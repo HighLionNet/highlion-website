@@ -31,11 +31,10 @@
   function thumbFor(row, source) {
     var thumb = String(row.thumb || "");
     var candidates = [];
-    if (/^\/api\/thumb\.php\?id=[a-f0-9]{40}$/.test(thumb)) candidates.push(thumb);
+    if (/^\/api\/thumb\.php\?id=[a-f0-9]{40}(?:&v=hl8u)?$/.test(thumb)) candidates.push(thumb.replace(/&v=hl8u$/, "") + "&v=hl8u");
     candidates.push(
-      "/assets/thumbs/" + source.key + ".jpg?v=hl8t",
-      "/assets/thumbs/" + source.key + ".png?v=hl8t",
-      "/api/thumb.php?source=" + encodeURIComponent(source.key)
+      "/api/thumb.php?source=" + encodeURIComponent(source.key) + "&v=hl8u",
+      "/assets/icons/HighLion.ico?v=hl8u"
     );
     var image = document.createElement("img");
     image.className = "news-thumb";
@@ -118,7 +117,9 @@
   }
 
   function render(payload) {
-    var items = payload && Array.isArray(payload.items) ? payload.items.slice(0, 15) : [];
+    var items = payload && Array.isArray(payload.items) ? payload.items.slice(0, 15).filter(function (row) {
+      return row && typeof row.url === "string" && /^https?:\/\//i.test(row.url);
+    }) : [];
     list.replaceChildren();
     if (!items.length) {
       offline();

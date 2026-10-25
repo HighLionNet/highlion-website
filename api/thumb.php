@@ -9,8 +9,8 @@ if (!in_array($requestMethod, ['GET', 'HEAD'], true)) {
     hl_json(['ok' => false], 405);
 }
 
-$id = strtolower(trim((string) ($_GET['id'] ?? '')));
-$source = strtolower(trim((string) ($_GET['source'] ?? '')));
+$id = isset($_GET['id']) && is_string($_GET['id']) ? strtolower(trim($_GET['id'])) : '';
+$source = isset($_GET['source']) && is_string($_GET['source']) ? strtolower(trim($_GET['source'])) : '';
 $allowedSources = ['bleeping', 'hackernews', 'krebs', 'cisa', 'highlion'];
 $path = '';
 

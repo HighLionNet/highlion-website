@@ -17,7 +17,7 @@
       if (!root.HighLionFlags) throw new Error("Claims are unavailable. Try again.");
       var payload = await root.HighLionFlags.claim(value);
       this.sync();
-      return { status: 0, stdout: (payload.duplicate ? "Already claimed." : "Flag claimed. Operator notes unlocked.") + "\n", stderr: "" };
+      return { status: 0, stdout: (payload.duplicate ? "Already claimed." : "Flag claimed.") + "\n", stderr: "" };
     } catch (error) { return { status: 1, stdout: "", stderr: "claim: " + error.message + "\n" }; }
   };
   ChallengeController.prototype.score = function () { return this.machine.claimed.filter(function (id) { return this.flags.some(function (row) { return row.id === id; }); }, this).length + " / " + this.flags.length + " claimed\n"; };

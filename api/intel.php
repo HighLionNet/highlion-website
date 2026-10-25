@@ -254,11 +254,12 @@ function hl_intel_cached_payload(
 ): array
 {
     foreach ($payload['items'] as &$item) {
-        $articleUrl = (string) ($item['url'] ?? '');
         $thumb = (string) ($item['thumb'] ?? '');
-        if (preg_match('/^\/api\/thumb\.php\?id=([a-f0-9]{40})$/', $thumb, $match) !== 1
+        if (preg_match('/^\/api\/thumb\.php\?id=([a-f0-9]{40})(?:&v=hl8u)?$/', $thumb, $match) !== 1
             || !is_file($thumbDirectory . '/' . $match[1])) {
             $item['thumb'] = '';
+        } else {
+            $item['thumb'] = '/api/thumb.php?id=' . $match[1] . '&v=hl8u';
         }
     }
     unset($item);
@@ -310,7 +311,6 @@ function hl_intel_normalize_image(string $body, string $contentType): ?array
                 return ['body' => $jpeg, 'ctype' => 'image/jpeg'];
             }
         } catch (Throwable $error) {
-            // The validated original remains a safe fallback below.
         }
     }
     return strlen($body) <= $limit ? ['body' => $body, 'ctype' => $contentType] : null;
@@ -597,7 +597,7 @@ foreach ($items as &$item) {
             $imageHosts
         );
     }
-    $item['thumb'] = $thumbId === '' ? '' : '/api/thumb.php?id=' . $thumbId;
+    $item['thumb'] = $thumbId === '' ? '' : '/api/thumb.php?id=' . $thumbId . '&v=hl8u';
     unset($item['image'], $item['_timestamp']);
 }
 unset($item);

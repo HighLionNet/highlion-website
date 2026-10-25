@@ -199,7 +199,7 @@
 
   Machine.prototype.persistenceData = function () {
     return {
-      v: 1,
+      v: 2,
       files: this.fs.snapshotWritable()
     };
   };
@@ -215,7 +215,8 @@
     var raw = HL.kernel.sessionGet(this.config.overlayKey || "hl-machine-overlay-v1");
     try {
       var saved = raw ? JSON.parse(raw) : null;
-      if (raw.length <= Number(this.config.overlayCap || 262144) && saved && saved.v === 1) this.fs.restoreWritable(saved.files || {});
+      if (saved && saved.v !== 2) HL.kernel.sessionRemove(this.config.overlayKey || "hl-machine-overlay-v1");
+      if (raw && raw.length <= Number(this.config.overlayCap || 262144) && saved && saved.v === 2) this.fs.restoreWritable(saved.files || {});
     } catch (error) {}
     var trophyRaw = HL.kernel.localGet(this.config.trophiesKey || "hl-trophies-v1");
     try {

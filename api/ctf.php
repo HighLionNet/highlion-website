@@ -5,7 +5,7 @@ $method = strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? ''));
 if ($method === 'GET') {
     hl_session();
     $claims = hl_claims();
-    hl_json(['ok' => true, 'claimed' => $claims, 'total' => 4, 'unlocked' => count($claims) > 0]);
+    hl_json(['ok' => true, 'claimed' => $claims, 'total' => 4]);
 }
 if ($method !== 'POST') {
     header('Allow: GET, POST');
@@ -20,9 +20,9 @@ $payload = hl_payload(1024);
 $flag = isset($payload['flag']) && is_string($payload['flag']) ? trim($payload['flag']) : '';
 if (strlen($flag) > 160 || !preg_match('/^HL8\{[a-z0-9_-]{8,140}\}$/D', $flag)) hl_json(['ok' => false], 400);
 $allowedDigests = [
-    'handoff' => '2d2d8e3ae1973ef16dfc569e2e49921cd988ba15ceb936f1c3ca9c3692a75278',
+    'modular' => 'd8befebf57092dbadfd29b434d2344d9c8afba4e5041416eb0437c6ce2a7f288',
     'route' => '38130503bf809a5255496e20a6c6dfefc6d58e3afe901d280982b338c68a6599',
-    'letterbox' => '301ef24b2cfa2cbbabaa3ba9e6fa635dc2ffe321d9a45ffd54a594995c8073be',
+    'xor' => 'fa03c4a54c78140dea4909fe9b310ff72369e24e574fa2e6845b8ee4b8de2d0f',
     'timeline' => '2f70b2a0f8fa009309d444b143e4ad214995e87515e18692b02f7cea6391b6ad',
 ];
 $digest = hash('sha256', $flag);
@@ -36,4 +36,4 @@ $claims = hl_claims();
 $duplicate = in_array($id, $claims, true);
 if (!$duplicate) $claims[] = $id;
 $_SESSION['ctf'] = ['season' => 'station-01', 'claimed' => $claims];
-hl_json(['ok' => true, 'id' => $id, 'claimed' => $claims, 'duplicate' => $duplicate, 'unlocked' => true]);
+hl_json(['ok' => true, 'id' => $id, 'claimed' => $claims, 'duplicate' => $duplicate]);

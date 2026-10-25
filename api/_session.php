@@ -41,5 +41,5 @@ function hl_claims(): array
 {
     $record = $_SESSION['ctf'] ?? [];
     return is_array($record) && ($record['season'] ?? '') === 'station-01'
-        ? array_values(array_intersect(['handoff', 'route', 'letterbox', 'timeline'], $record['claimed'] ?? [])) : [];
+        ? array_values(array_intersect(['modular', 'route', 'xor', 'timeline'], $record['claimed'] ?? [])) : [];
 }

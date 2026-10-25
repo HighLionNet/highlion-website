@@ -1,4 +1,3 @@
-/* HighLion shared include loader. */
 (function () {
   "use strict";
   if (window.__HL_INCLUDES_DONE) return;
