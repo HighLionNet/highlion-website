@@ -16,11 +16,12 @@ spec.loader.exec_module(installer)
 
 class TorMigration(unittest.TestCase):
     def test_tor_check_uses_daemon_identity_and_debian_defaults(self):
-        with patch.object(installer, 'tor_runtime_user', return_value='debian-tor'), patch.object(installer.shutil, 'which', return_value='/usr/sbin/runuser'), patch.object(installer.Path, 'is_file', return_value=True):
+        with patch.object(installer, 'tor_runtime_user', return_value='debian-tor'), patch.object(installer.Path, 'is_file', return_value=True):
             command = installer.tor_verify_command('/usr/sbin/tor', Path('/etc/tor/torrc'), 'tor@default.service')
-        self.assertEqual(command[:5], ['/usr/sbin/runuser', '-u', 'debian-tor', '--', '/usr/sbin/tor'])
+        self.assertEqual(command[0], '/usr/sbin/tor')
+        self.assertNotIn('runuser', ' '.join(command))
         self.assertIn('--defaults-torrc', command)
-        self.assertEqual(command[-3:], ['--verify-config', '-f', str(Path('/etc/tor/torrc'))])
+        self.assertEqual(command[-5:], ['--verify-config', '-f', str(Path('/etc/tor/torrc')), '--User', 'debian-tor'])
 
     def test_runtime_user_uses_effective_uid_and_rejects_root(self):
         account = SimpleNamespace(getpwuid=lambda uid: SimpleNamespace(pw_name='debian-tor' if uid == 105 else 'wrong-user'))

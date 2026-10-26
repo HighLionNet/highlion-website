@@ -78,14 +78,14 @@ def tor_runtime_user(unit):
 
 
 def tor_verify_command(tor, config, unit):
-    runner = shutil.which('runuser')
-    if not runner:
-        raise RuntimeError('Missing runuser for validating Tor under its runtime identity.')
-    command = [runner, '-u', tor_runtime_user(unit), '--', tor]
+    # Start privileged, as Debian's ExecStartPre does. Tor's User option must
+    # perform setgroups/setgid/setuid itself; runuser would drop privileges too early.
+    user = tor_runtime_user(unit)
+    command = [tor]
     defaults = Path('/usr/share/tor/tor-service-defaults-torrc')
     if defaults.is_file():
         command += ['--defaults-torrc', str(defaults)]
-    return command + ['--verify-config', '-f', str(config)]
+    return command + ['--verify-config', '-f', str(config), '--User', user]
 
 
 def install():
@@ -118,8 +118,8 @@ def install():
                 break
         if tor_unit is None:
             raise RuntimeError('The existing onion configuration has no active default Tor service to reload; no config changes made.')
-    # Debian supplies User/DataDirectory through its service defaults. Validate
-    # as the actual daemon user, not root; never change hidden-service ownership.
+    # Load Debian's defaults, then let Tor drop to the actual daemon user once.
+    # Never change hidden-service ownership to make validation pass.
     tor_check = tor_verify_command(tor, tor_config, tor_unit) if tor_changes else None
 
     backup = Path('/var/backups/highlion') / ('config-' + time.strftime('%Y%m%dT%H%M%SZ', time.gmtime()) + '-' + str(os.getpid()))
