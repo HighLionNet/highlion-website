@@ -1,1 +1,92 @@
-$(cat /tmp/hl/tree.json)
+{
+  "defaultUser": "kali",
+  "identity": {
+    "user": "kali",
+    "host": "highlion",
+    "home": "/home/kali",
+    "shell": "/bin/zsh",
+    "uid": 1000,
+    "gid": 1000,
+    "groups": ["kali", "sudo"],
+    "prompt": "$"
+  },
+  "users": {
+    "kali": {
+      "user": "kali",
+      "host": "highlion",
+      "home": "/home/kali",
+      "shell": "/bin/zsh",
+      "uid": 1000,
+      "gid": 1000,
+      "groups": ["kali", "sudo"],
+      "prompt": "$"
+    },
+    "root": {
+      "user": "root",
+      "host": "highlion",
+      "home": "/root",
+      "shell": "/bin/zsh",
+      "uid": 0,
+      "gid": 0,
+      "groups": ["root", "sudo", "adm"],
+      "prompt": "#"
+    },
+    "admin": {
+      "user": "admin",
+      "host": "highlion",
+      "home": "/home/admin",
+      "shell": "/bin/zsh",
+      "uid": 1001,
+      "gid": 1001,
+      "groups": ["admin", "sudo"],
+      "prompt": "$"
+    }
+  },
+  "directories": [
+    ["/", "0755", "root", "root"],
+    ["/bin", "0755", "root", "root"],
+    ["/boot", "0755", "root", "root"],
+    ["/dev", "0755", "root", "root"],
+    ["/etc", "0755", "root", "root"],
+    ["/home", "0755", "root", "root"],
+    ["/home/kali", "0755", "kali", "kali"],
+    ["/home/kali/puzzles", "0755", "root", "root"],
+    ["/home/kali/highlion", "0755", "kali", "kali"],
+    ["/home/kali/highlion/.trophies", "0755", "kali", "kali"],
+    ["/home/admin", "0750", "admin", "admin"],
+    ["/lib", "0755", "root", "root"],
+    ["/opt", "0755", "root", "root"],
+    ["/proc", "0555", "root", "root"],
+    ["/root", "0700", "root", "root"],
+    ["/run", "0755", "root", "root"],
+    ["/sbin", "0755", "root", "root"],
+    ["/sys", "0555", "root", "root"],
+    ["/tmp", "1777", "root", "root"],
+    ["/usr", "0755", "root", "root"],
+    ["/usr/bin", "0755", "root", "root"],
+    ["/usr/lib", "0755", "root", "root"],
+    ["/usr/sbin", "0755", "root", "root"],
+    ["/usr/share", "0755", "root", "root"],
+    ["/usr/share/man", "0755", "root", "root"],
+    ["/usr/share/man/man1", "0755", "root", "root"],
+    ["/var", "0755", "root", "root"],
+    ["/var/log", "0755", "root", "root"],
+    ["/var/tmp", "1777", "root", "root"]
+  ],
+  "files": {},
+  "symlinks": {
+    "/bin/busybox": "/usr/bin/busybox"
+  },
+  "busyboxCommands": ["ls", "cat", "echo", "pwd", "cd", "whoami", "id", "uname", "hostname", "date", "ps", "clear", "history", "alias", "export", "env", "which", "file", "head", "tail", "grep", "awk", "sed", "wc", "sort", "uniq", "cut", "tr", "tee", "touch", "mkdir", "rmdir", "rm", "cp", "mv", "ln", "chmod", "chown", "find", "locate", "man", "help", "exit", "logout", "su", "sudo", "python3", "python", "bash", "sh", "zsh", "ip", "ping", "curl", "wget", "netstat", "ss", "arp", "route"],
+  "manTemplate": "{command} - simulated Kali userspace command\n\nThis is a browser-based simulation. Not all options are implemented.\n",
+  "aliases": {
+    "ll": "ls -la",
+    "la": "ls -A",
+    "l": "ls -CF"
+  },
+  "overlayCap": 262144,
+  "overlayKey": "hl-machine-overlay-v1",
+  "trophiesKey": "hl-trophies-v1",
+  "writable": ["/home/kali", "/tmp", "/var/tmp"],
+  "syntheticReadOnly": ["/proc", "/sys"]
+}
