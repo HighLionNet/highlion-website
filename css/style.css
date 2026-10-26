@@ -1,13 +1,13 @@
 @font-face {
   font-family: "Orbitron";
-  src: local("Orbitron"), url("/assets/fonts/Orbitron.ttf?v=hl8w") format("truetype");
+  src: local("Orbitron"), url("/assets/fonts/Orbitron.ttf?v=hl8x") format("truetype");
   font-weight: 400 900;
   font-display: swap;
 }
 
 @font-face {
   font-family: "JetBrains Mono";
-  src: local("JetBrains Mono"), url("/assets/fonts/JetBrainsMono.ttf?v=hl8w") format("truetype");
+  src: local("JetBrains Mono"), url("/assets/fonts/JetBrainsMono.ttf?v=hl8x") format("truetype");
   font-weight: 400 700;
   font-display: swap;
 }
@@ -3625,7 +3625,29 @@ tr[data-href]:focus-visible {
   height: 22px !important;
 }
 
-.flag-dialog { width: min(34rem, calc(100vw - 2rem)); padding: 0; border: 1px solid var(--purple-stroke); border-radius: 12px; color: var(--text); background: var(--bg-1); box-shadow: var(--shadow); font-family: var(--mono); }
+.num-divider {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  min-height: 2rem;
+  margin: 1.5rem auto 2rem;
+  color: var(--cyan);
+  font: 600 0.75rem/1 var(--mono);
+  letter-spacing: 0.15em;
+}
+
+.num-divider::before,
+.num-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--muted));
+}
+
+.num-divider::after { transform: scaleX(-1); }
+.num-divider > span { padding: 0.45rem 0.65rem; border: 1px solid var(--purple-stroke); background: var(--bg-0); }
+
+.flag-dialog { width: min(34rem, calc(100vw - 2rem)); overflow: visible; padding: 0; border: 1px solid var(--purple-stroke); border-radius: 12px; color: var(--text); background: var(--bg-1); box-shadow: var(--shadow); font-family: var(--mono); }
 .flag-dialog::backdrop { background: rgba(3, 5, 14, .85); }
 .flag-form { padding: 1.5rem; }
 .flag-heading { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1.5rem; }
@@ -3634,6 +3656,7 @@ tr[data-href]:focus-visible {
 .flag-form input { width: 100%; border: 1px solid var(--stroke-strong); border-radius: 6px; padding: .8rem; background: var(--bg-0); color: var(--text); font: inherit; }
 .flag-form input:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
 .flag-status { min-height: 1.5rem; color: var(--text-soft); }
+.flag-progress { color: var(--text-soft); font-size: 0.8rem; overflow-wrap: anywhere; }
 .flag-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem; margin: 1.5rem 0; }
 .nav-meta { flex-wrap: wrap; }
 .nav-chip[hidden] { display: none; }

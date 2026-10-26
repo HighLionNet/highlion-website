@@ -24,6 +24,7 @@
   function Shell(machine) {
     this.machine = machine;
     this.busybox = new HL.BusyBox(machine);
+    this.builtins = ["claim", "score", "trophies", "hint"];
     this.machine.shell = this;
     this.maxScriptLines = 200;
     this.maxDepth = 20;
@@ -257,6 +258,7 @@
 
   Shell.prototype.invokeCommand = async function (name, args, stdin, options) {
     if (!name) return { stdout: "", stderr: "", status: 0 };
+    if (this.builtins.indexOf(name) !== -1) return this.busybox.run(name, args, stdin, this, options);
     var path = this.resolveCommand(name);
     if (!path) return { stdout: "", stderr: "zsh: command not found: " + name + "\n", status: 127 };
     var resolved = this.machine.fs.resolve(path, "/", true);
@@ -510,7 +512,7 @@
     var commandPosition = before.slice(0, before.length - current.length).trim() === "" || /[|;&]\s*$/.test(before.slice(0, before.length - current.length));
     var choices = [];
     if (commandPosition) {
-      choices = Array.from(this.busybox.commandNames).concat(Object.keys(this.machine.aliases));
+      choices = this.builtins.concat(Array.from(this.busybox.commandNames), Object.keys(this.machine.aliases));
     } else {
       var slash = current.lastIndexOf("/"); var directory = slash >= 0 ? current.slice(0, slash + 1) : ""; var leaf = slash >= 0 ? current.slice(slash + 1) : current;
       try { choices = this.machine.fs.list(directory || ".", this.machine.cwd, true).map(function (row) { return directory + row.name + (row.node.type === "dir" ? "/" : ""); }).filter(function (item) { return item.slice(directory.length).indexOf(leaf) === 0; }); } catch (error) { choices = []; }
