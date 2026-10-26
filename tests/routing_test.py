@@ -176,6 +176,9 @@ try:
     assert identity['ip'] is None and identity['remote_addr'] == '127.0.0.1' and identity['source'] == 'tor' and identity['verified'] is False
     expect('/api/client-ip.php', [421], port=TOR)  # Forging www Host cannot cross listeners.
     expect('/', [421], headers={'Host': 'attacker.example'})
+    _, headers = expect('/about.html?qa=https', [308], headers={'X-Forwarded-Proto': 'http'})
+    assert headers['Location'] == 'https://www.highlion.net/about.html?qa=https'
+    expect('/about.html', [200], port=TOR, headers={'Host': onion, 'X-Forwarded-Proto': 'http'})
     token_body, _ = expect('/api/csrf.php', [200], ip='192.0.2.10')
     token = json.loads(token_body)['token']
     for suffix in ['', '.php', '/', '/index.php']:
