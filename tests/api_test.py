@@ -31,12 +31,13 @@ def run():
         for source in (REPO / 'api').rglob('*.php'):
             target = api / source.relative_to(REPO / 'api')
             target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_text(source.read_text(encoding='utf-8').replace('/var/tmp', state.as_posix()).replace('/etc/highlion', config.as_posix()), encoding='utf-8')
+            target.write_text(source.read_text(encoding='utf-8').replace('/var/tmp', state.as_posix()).replace('/etc/highlion', config.as_posix()).replace('/var/lib/highlion', state.as_posix()), encoding='utf-8')
+        (state / 'abuse').mkdir()
         passwords = [secrets.token_urlsafe(24) for _ in range(2)]
         cookie = secrets.token_hex(32)
         code = '<?php $values=json_decode(stream_get_contents(STDIN),true); echo json_encode(array_map(fn($v)=>password_hash($v,PASSWORD_BCRYPT),$values));'
         hashes = json.loads(subprocess.check_output([PHP, '-r', code[6:]], input=json.dumps(passwords).encode()))
-        (config / 'shell.env').write_text(f'HL_ROOT_PW_HASH={hashes[0]}\nHL_ADMIN_PW_HASH={hashes[1]}\nHL_OP_COOKIE={cookie}\nHL_SHELL_SLOTS=8\n', encoding='utf-8')
+        (config / 'shell.env').write_text(f'HL_ROOT_PW_HASH={hashes[0]}\nHL_ADMIN_PW_HASH={hashes[1]}\nHL_OP_COOKIE={cookie}\nHL_SHELL_SLOTS=8\nHL_CTF_ROOT_PASSWORD={passwords[1]}\n', encoding='utf-8')
         router = temporary / 'router.php'
         router.write_text("<?php $_SERVER['REMOTE_ADDR']=$_SERVER['HTTP_X_TEST_IP'] ?? '127.0.0.1'; return false;", encoding='utf-8')
         with socket.socket() as sock:
@@ -61,7 +62,7 @@ def run():
                     self.id = ''
 
                 def request(self, endpoint, payload=None, extra=None, raw=None):
-                    headers = {'Origin': 'https://www.highlion.net', 'Content-Type': 'application/json', 'X-Test-IP': self.ip}
+                    headers = {'Origin': 'https://www.highlion.net', 'Content-Type': 'application/json', 'X-Test-IP': self.ip, 'User-Agent': 'HL8x-QA / accurate UA <&>'}
                     if self.cookies: headers['Cookie'] = '; '.join(f'{key}={value}' for key, value in self.cookies.items())
                     if extra: headers.update(extra)
                     body = raw if raw is not None else json.dumps(payload) if payload is not None else None
@@ -133,6 +134,11 @@ def run():
             expect(stranger.request('shell-slot', {'op': 'beat', 'id': first})[0], 404, 'owner binding')
             expect(visitor.control('list')[0], 403, 'visitor controls denied')
             expect(visitor.request('shell-slot', {'op': 'beat', 'id': first}, {'Origin': 'https://evil.example'})[0], 403, 'origin rejected')
+            status, listing = admin.control('list')
+            visitor_row = next(row for row in listing['slots'] if row['id'] == first)
+            expect(visitor_row['ip'], visitor.ip, 'admin sees real remote IP')
+            expect(visitor_row['ua'], 'HL8x-QA / accurate UA <&>', 'admin sees accurate UA')
+            expect(any(key in visitor.beat()[1] for key in ['ip', 'ua', 'slots']), False, 'heartbeat has no identity leak')
             token1 = visitor.request('csrf')[1]['token']
             expect(visitor.request('csrf')[1]['token'], token1, 'csrf stable across tabs')
             expect(visitor.request('shell-slot', {'op': 'beat', 'id': first}, {'Origin': '', 'X-CSRF-TOKEN': token1})[0], 200, 'originless token')
@@ -236,6 +242,66 @@ def run():
                     writer.wait(timeout=5)
             lock_probe = 'require $argv[1]; $first=hl_refresh_lock("test"); $second=hl_refresh_lock("test"); echo json_encode([is_resource($first),$second === false]);'
             expect(json.loads(subprocess.check_output([PHP, '-r', lock_probe, str(api / '_lib.php')])), [True, True], 'refresh single writer')
+            # Logging takes identity from REMOTE_ADDR, not spoofed forwarding headers.
+            hpot = Client(); hpot.ip = '127.0.0.1'
+            expect(hpot.request('contact', extra={'X-Forwarded-For': '8.8.8.8', 'CF-Connecting-IP': '8.8.8.8'})[0], 405, 'bad contact method')
+            row = json.loads((state / 'highlion-honeypot.log').read_text().splitlines()[-1])
+            expect(row['ip'], '127.0.0.1', 'spoofed proxy headers ignored')
+            expect(row['ua'], 'HL8x-QA / accurate UA <&>', 'honeypot accurate UA')
+            expect(row['type'], 'BAD-METHOD', 'method type retained')
+            expect(hpot.request('trap?private=.env&x=%3Cbad%3E')[0], 403, 'trap response')
+            row = json.loads((state / 'highlion-honeypot.log').read_text().splitlines()[-1])
+            expect(row['query'], 'private=.env&x=%3Cbad%3E', 'trap query retained')
+            expect(hpot.request('contact', {'company': 'bot'})[0], 200, 'honeypot stays plausible')
+            # Claims still validate on the server; only verified flags disclose the configured reward.
+            ctf = Client()
+            expect('reward' in ctf.request('ctf')[1], False, 'GET never exposes reward')
+            expect(ctf.request('ctf', {'flag': 'HL8{wrong_flag_value}'})[0], 400, 'invalid claim rejected')
+            for flag in [f'HL8{{modular_{pow(7, 11, 97)}}}', 'HL8{route_34_445_ember}', f'HL8{{xor_{0x6a3c ^ 0x19e7}}}', 'HL8{timeline_kestrel_051842}']:
+                status, claim = ctf.request('ctf', {'flag': flag})
+                expect(status, 200, 'valid claim accepted')
+                expect(claim['reward'], passwords[1], 'same verified reward for every flag')
+            expect(len(claim['claimed']), 4, 'all claims retained')
+            expect(ctf.request('ctf', {'flag': flag})[1]['duplicate'], True, 'duplicate claim retained')
+            # Real probing, never local/private IPs, drives persistent nine-month bans.
+            probe_code = 'require $argv[1]; $_SERVER["REMOTE_ADDR"]=$argv[2]; echo json_encode(hl_probe_state(true));'
+            for local_ip in ['127.0.0.1', '::1', '10.0.0.1', '192.168.1.2', '::ffff:127.0.0.1']:
+                row = json.loads(subprocess.check_output([PHP, '-r', probe_code, str(api / '_lib.php'), local_ip]))
+                expect(row['strikes'], 0, 'local address ignored: ' + local_ip)
+            for count in range(1, 6):
+                row = json.loads(subprocess.check_output([PHP, '-r', probe_code, str(api / '_lib.php'), '8.8.4.4']))
+                expect(row['strikes'], count, 'real IP strike tracked')
+            expect(269 * 86400 < row['ban_until'] - time.time() <= 270 * 86400, True, 'nine-month ban')
+            blocked = Client(); blocked.ip = '8.8.4.4'
+            expect(blocked.request('csrf')[0], 403, 'persistent ban enforced')
+            for local_ip in ['127.0.0.1', '::1']:
+                blocked.ip = local_ip
+                expect(blocked.request('csrf')[0], 200, 'local request not banned')
+            html_code = 'require $argv[1]; echo hl_alert_html(json_decode(stream_get_contents(STDIN),true));'
+            html = subprocess.check_output([PHP, '-r', html_code, str(api / '_lib.php')], input=json.dumps({'ip': '1.2.3.4', 'ua': '<script>&test', 'query': '<bad>'}).encode()).decode()
+            expect('<script>' in html, False, 'alert HTML escaped')
+            expect('<b>&lt;script&gt;&amp;test</b>' in html, True, 'UA prominent and escaped')
+            expect(html.count('<th>'), 9, 'all nine alert headers')
+            # Capture the real Telegram transport envelope without sending any network traffic.
+            (config / 'honeypot.env').write_text('TELEGRAM_BOT_TOKEN=qa-bot\nTELEGRAM_CHAT_ID=qa-chat\n')
+            transport = r'''require $argv[1];
+class HLTestHttps {
+ public $context; private $offset=0;
+ public function stream_open($path,$mode,$options,&$opened_path) { $v=stream_context_get_options($this->context); parse_str($v['http']['content'],$p); $GLOBALS['sent'][]=['path'=>$path,'parameters'=>$p]; return true; }
+ public function stream_read($count) { $s=substr('{"ok":true}',$this->offset,$count); $this->offset+=strlen($s); return $s; }
+ public function stream_eof() { return $this->offset>=11; }
+ public function stream_stat() { return []; }
+}
+stream_wrapper_unregister('https'); stream_wrapper_register('https',HLTestHttps::class);
+hl_telegram($argv[2],hl_alert_html(['ip'=>'1.2.3.4','ua'=>'QA <&>']),true);
+hl_telegram($argv[2],'letterbox stays plain'); echo json_encode($GLOBALS['sent']);'''
+            sent = json.loads(subprocess.check_output([PHP, '-r', transport, str(api / '_lib.php'), str(config / 'honeypot.env')]))
+            expect(sent[0]['path'].endswith('/sendRichMessage'), True, 'rich alert transport')
+            rich = json.loads(sent[0]['parameters']['rich_message'])
+            expect('<table bordered compact>' in rich['html'], True, 'real HTML table envelope')
+            expect(rich['skip_entity_detection'], True, 'request URLs cannot create automatic links')
+            expect(sent[1]['path'].endswith('/sendMessage'), True, 'letterbox transport unchanged')
+            expect(sent[1]['parameters']['text'], 'letterbox stays plain', 'letterbox content unchanged')
             store.write_text('{broken')
             expect(admin.control('list')[0], 503, 'corrupt store fails closed')
             expect(store.read_text(), '{broken', 'corrupt store preserved')

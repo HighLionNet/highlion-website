@@ -5,13 +5,13 @@
   if (!panel) return;
 
   var ALLOWED = {
-    "index.html": "/index.html?v=hl8w",
-    "about.html": "/about.html?v=hl8w",
-    "projects.html": "/projects.html?v=hl8w",
-    "writeups.html": "/writeups.html?v=hl8w",
-    "css/style.css": "/css/style.css?v=hl8w",
-    "components/header.html": "/components/header.html?v=hl8w",
-    "components/footer.html": "/components/footer.html?v=hl8w"
+    "index.html": "/index.html?v=hl8x",
+    "about.html": "/about.html?v=hl8x",
+    "projects.html": "/projects.html?v=hl8x",
+    "writeups.html": "/writeups.html?v=hl8x",
+    "css/style.css": "/css/style.css?v=hl8x",
+    "components/header.html": "/components/header.html?v=hl8x",
+    "components/footer.html": "/components/footer.html?v=hl8x"
   };
   var select = document.getElementById("srcSelect");
   var output = document.getElementById("srcOut");

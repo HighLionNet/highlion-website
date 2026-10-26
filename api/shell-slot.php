@@ -51,13 +51,14 @@ if ($op === 'acquire') {
         else {
             $id = bin2hex(random_bytes(16));
             $slots[] = ['id' => $id, 'client' => $client, 'owner' => hash('sha256', (string) $_SESSION['lease_owner']),
-                'ip_hash' => hl_shell_ip_hash($env), 'user' => 'kali', 'created' => $now, 'seen' => $now, 'commands' => [], 'next' => 0, 'acked' => 0, 'delivered' => 0];
+                'ip_hash' => hl_shell_ip_hash($env), 'ip' => hl_client_ip(), 'ua' => hl_user_agent(), 'user' => 'kali', 'created' => $now, 'seen' => $now, 'commands' => [], 'next' => 0, 'acked' => 0, 'delivered' => 0];
             $reply = ['ok' => true, 'mode' => 'full', 'id' => $id, 'ttl' => $ttl, 'operator' => false];
         }
     }
 } elseif ($op === 'list') {
     $reply = ['ok' => true, 'slots' => array_map(static function (array $row): array {
         return ['id' => $row['id'], 'user' => $row['user'] ?? 'kali', 'created' => $row['created'], 'seen' => $row['seen'],
+            'ip' => $row['ip'] ?? '', 'ua' => $row['ua'] ?? '',
             'locked' => (bool) ($row['locked'] ?? false), 'terminated' => (bool) ($row['terminated'] ?? false),
             'result' => $row['result'] ?? null, 'pending' => count($row['commands'] ?? [])];
     }, $slots)];
@@ -79,6 +80,8 @@ if ($op === 'acquire') {
                 $reply = ['ok' => true, 'mode' => 'terminated'];
             } else {
                 $row['seen'] = $now;
+                $row['ip'] = hl_client_ip();
+                $row['ua'] = hl_user_agent();
                 $ack = is_int($payload['ack'] ?? null) ? $payload['ack'] : 0;
                 $queue = $row['commands'] ?? [];
                 $head = $queue[0] ?? null;

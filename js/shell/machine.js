@@ -143,7 +143,9 @@
     if (absolute === "/proc/net/tcp") return this.net.procTcp();
     var synthetic = this.proc.readProc(absolute, this);
     if (synthetic !== null) return synthetic;
-    return this.fs.readFile(absolute, "/");
+    var content = this.fs.readFile(absolute, "/");
+    if (/\.hlctf$/.test(absolute)) root.dispatchEvent(new CustomEvent("hl:challenge-open", { detail: { path: absolute } }));
+    return content;
   };
 
   Machine.prototype.writeFile = function (path, content, append) {
@@ -216,7 +218,14 @@
     try {
       var saved = raw ? JSON.parse(raw) : null;
       if (saved && saved.v !== 2) HL.kernel.sessionRemove(this.config.overlayKey || "hl-machine-overlay-v1");
-      if (raw && raw.length <= Number(this.config.overlayCap || 262144) && saved && saved.v === 2) this.fs.restoreWritable(saved.files || {});
+      if (raw && raw.length <= Number(this.config.overlayCap || 262144) && saved && saved.v === 2) {
+        this.fs.restoreWritable(saved.files || {});
+        Array.from(this.fs.nodes.keys()).forEach(function (path) {
+          if (path === "/home/kali/puzzles" || path.indexOf("/home/kali/puzzles/") === 0) {
+            this.fs.nodes.delete(path); this.fs.dirty.delete(path); this.fs.deleted.delete(path);
+          }
+        }, this);
+      }
     } catch (error) {}
     var trophyRaw = HL.kernel.localGet(this.config.trophiesKey || "hl-trophies-v1");
     try {

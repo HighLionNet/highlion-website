@@ -37,4 +37,9 @@ $claims = hl_claims();
 $duplicate = in_array($id, $claims, true);
 if (!$duplicate) $claims[] = $id;
 $_SESSION['ctf'] = ['season' => 'station-01', 'claimed' => $claims];
-hl_json(['ok' => true, 'id' => $id, 'claimed' => $claims, 'duplicate' => $duplicate]);
+// Plaintext reward lives only in the existing server environment, never the public image.
+$env = hl_env_load('/etc/highlion/shell.env');
+$reward = (string) ($env['HL_CTF_ROOT_PASSWORD'] ?? '');
+$rootHash = (string) ($env['HL_ADMIN_PW_HASH'] ?? $env['ADMIN_PW_HASH'] ?? '');
+if ($reward === '' || $rootHash === '' || !password_verify($reward, $rootHash)) $reward = '';
+hl_json(['ok' => true, 'reward' => $reward, 'id' => $id, 'claimed' => $claims, 'duplicate' => $duplicate]);

@@ -3,32 +3,15 @@ declare(strict_types=1);
 
 
 require_once __DIR__ . '/_session.php';
-if (!hl_rate_allow('contact-ingress', 8, 600)) hl_json(['ok' => false], 429);
 
 $requestMethod = strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? ''));
 if ($requestMethod !== 'POST') {
-    $ip = hl_client_ip();
-    $country = hl_country();
-    $userAgent = hl_clean_header(substr((string) ($_SERVER['HTTP_USER_AGENT'] ?? 'unknown'), 0, 300));
-    hl_honeypot_write([
-        'ts' => gmdate('c'),
-        'ip' => $ip,
-        'ua' => $userAgent,
-        'page' => 'contact',
-        'country' => $country,
-        'kind' => 'method',
-        'extra' => ['method' => $requestMethod],
-    ]);
-    hl_telegram(
-        '/etc/highlion/honeypot.env',
-        "[HL ALERT] BAD-METHOD contact\n"
-        . 'ip=' . $ip . ' country=' . $country . ' ua=' . $userAgent . "\n"
-        . 'method=' . ($requestMethod !== '' ? $requestMethod : 'UNKNOWN')
-    );
+    hl_alert('BAD-METHOD', 'contact', true);
     header('Allow: POST');
     hl_json(['ok' => false], 405);
 }
 
+if (!hl_rate_allow('contact-ingress', 8, 600)) hl_json(['ok' => false], 429);
 $payload = hl_payload(16384);
 if (!is_array($payload)) {
     hl_json(['ok' => false], 400);
@@ -39,29 +22,7 @@ $value = static function (string $key) use ($payload): string {
 };
 $company = trim($value('company'));
 if ($company !== '') {
-    $page = $value('page') === '403' ? '403' : 'contact';
-    $ip = hl_client_ip();
-    $country = hl_country();
-    $userAgent = hl_clean_header(substr((string) ($_SERVER['HTTP_USER_AGENT'] ?? 'unknown'), 0, 300));
-    hl_honeypot_write([
-        'ts' => gmdate('c'),
-        'ip' => $ip,
-        'ua' => $userAgent,
-        'page' => $page,
-        'country' => $country,
-        'kind' => 'company',
-        'extra' => (object) [],
-    ]);
-    hl_log('honeypot trip');
-    $alertFirstLine = $page === '403'
-        ? '[HL ALERT] HPOT-COMPANY 403'
-        : '[HL ALERT] HPOT-COMPANY contact';
-    hl_telegram(
-        '/etc/highlion/honeypot.env',
-        $alertFirstLine . "\n"
-        . 'ip=' . $ip . ' country=' . $country . ' ua=' . $userAgent . "\n"
-        . 'field=company'
-    );
+    hl_alert('HPOT-COMPANY', $value('page') === '403' ? '403; field=company' : 'contact; field=company', true);
     hl_json(['ok' => true]);
 }
 
@@ -76,24 +37,7 @@ $length = static function (string $input): int {
 };
 
 if (!hl_csrf_check($token)) {
-    $ip = hl_client_ip();
-    $country = hl_country();
-    $userAgent = hl_clean_header(substr((string) ($_SERVER['HTTP_USER_AGENT'] ?? 'unknown'), 0, 300));
-    hl_honeypot_write([
-        'ts' => gmdate('c'),
-        'ip' => $ip,
-        'ua' => $userAgent,
-        'page' => 'contact',
-        'country' => $country,
-        'kind' => 'csrf',
-        'extra' => (object) [],
-    ]);
-    hl_telegram(
-        '/etc/highlion/honeypot.env',
-        "[HL ALERT] CSRF-FAIL contact\n"
-        . 'ip=' . $ip . ' country=' . $country . ' ua=' . $userAgent . "\n"
-        . 'reason=token'
-    );
+    hl_alert('CSRF-FAIL', 'contact; reason=token');
     hl_log('contact csrf rejected');
     hl_json(['ok' => false], 400);
 }
@@ -112,24 +56,7 @@ if (!$nameOk || !$emailOk || !$messageOk || !hl_origin_ok($token)) {
 }
 
 if (!hl_rate_allow('contact', 5, 900)) {
-    $ip = hl_client_ip();
-    $country = hl_country();
-    $userAgent = hl_clean_header(substr((string) ($_SERVER['HTTP_USER_AGENT'] ?? 'unknown'), 0, 300));
-    hl_honeypot_write([
-        'ts' => gmdate('c'),
-        'ip' => $ip,
-        'ua' => $userAgent,
-        'page' => 'contact',
-        'country' => $country,
-        'kind' => 'rate',
-        'extra' => (object) [],
-    ]);
-    hl_telegram(
-        '/etc/highlion/honeypot.env',
-        "[HL ALERT] RATE-LIMIT contact\n"
-        . 'ip=' . $ip . ' country=' . $country . ' ua=' . $userAgent . "\n"
-        . 'window=5/900s'
-    );
+    hl_alert('RATE-LIMIT', 'contact; window=5/900s');
     hl_log('contact limited 0');
     hl_json(['ok' => false], 429);
 }

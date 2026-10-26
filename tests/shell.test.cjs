@@ -87,6 +87,28 @@ for (const name of ['kernel','fs','proc','net','sh','busybox','pack','ctf','mach
   for (const command of ['ping -c 1 8.8.8.8', 'curl https://example.com', 'curl http://highlion.net/api/traffic.php']) {
     const run = await shell.run(command); assert.notEqual(run.status, 0); checks++;
   }
+  const opened = [];
+  events.addEventListener('hl:challenge-open', event => opened.push(event.detail.path));
+  assert.equal(machine.fs.nodes.has('/home/kali/puzzles'), false); checks++;
+  const files = ['/home/kali/.secret_challenge1.hlctf', '/opt/highlion/.secret_challenge2.hlctf', '/home/kali/.secret_challenge3.hlctf', '/opt/highlion/.secret_challenge4.hlctf'];
+  for (const file of files) {
+    assert.ok(machine.fs.nodes.has(file)); checks++;
+    await check('cat ' + file, null);
+    assert.equal(opened.at(-1), file); checks++;
+    await check('open ' + file, null);
+    assert.equal(opened.at(-1), file); checks++;
+  }
+  const listing = await check('ls /home/kali', null);
+  assert.equal(listing.stdout.includes('.hlctf'), false); checks++;
+  for (const [file, node] of machine.fs.nodes) {
+    if (file.startsWith('/proc/') && node.type === 'file') { assert.ok(machine.readFile(file).length > 0, file); checks++; }
+  }
+  storage.set(machine.config.overlayKey, JSON.stringify({v:2, files:{version:2,nodes:{'/home/kali/puzzles':{type:'dir',mode:493,owner:'kali',group:'kali',content:''},'/home/kali/puzzles/old.txt':{type:'file',mode:420,owner:'kali',group:'kali',content:'old'},'/home/kali/migration-keep.txt':{type:'file',mode:420,owner:'kali',group:'kali',content:'keep'}},deleted:[]}}));
+  const migrated = new sandbox.HLShell.Machine(machine.image);
+  assert.equal(migrated.fs.nodes.has('/home/kali/puzzles'), false); checks++;
+  assert.equal(migrated.fs.nodes.has('/home/kali/puzzles/old.txt'), false); checks++;
+  assert.equal(migrated.readFile('/home/kali/migration-keep.txt'), 'keep'); checks++;
+  storage.delete(machine.config.overlayKey);
   const originalPersist = machine.persist;
   machine.persist = () => false;
   await check('mkdir /tmp/quota-full', '', 1);

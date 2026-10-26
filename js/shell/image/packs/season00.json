@@ -1,82 +1,54 @@
 {
   "schema": 1,
   "id": "season00",
-  "title": "Four small puzzles",
+  "title": "HighLion hidden challenges",
   "hidden": false,
   "mount": {
-    "/home/kali/puzzles/briefing.txt": {
+    "/home/kali/.secret_challenge1.hlctf": {
       "type": "file",
       "mode": "0444",
       "owner": "root",
       "group": "root",
-      "content": "Four puzzles. All files and hosts are simulated.\n1. Modular arithmetic: cat ~/puzzles/modular.txt\n2. Route: cat ~/puzzles/route-review.txt\n3. XOR: cat ~/puzzles/xor.txt\n4. Timeline: cat ~/puzzles/clocks.txt\nUse python3 -c 'print(<integer expression>)' for arithmetic: **, %, ^, +, -, *, //, &, |, parentheses.\nSubmit with claim 'HL8{...}' or the FLAGS button.\n"
+      "content": "Compute base ** exponent modulo modulus; use the least nonnegative residue in decimal.\nParameters (modulus, base, exponent): 97, 7, 11\nFormat: HL8{modular_<decimal>}\n\nSubmit with claim 'HL8{...}' or FLAGS.\n"
     },
-    "/home/kali/puzzles/modular.txt": {
+    "/opt/highlion/.secret_challenge2.hlctf": {
       "type": "file",
       "mode": "0444",
       "owner": "root",
       "group": "root",
-      "content": "Compute base ** exponent modulo modulus; use the least nonnegative residue in decimal.\nParameters: ~/puzzles/modular.csv\nFormat: HL8{modular_<decimal>}\n"
+      "content": "Find the SMB host on 10.8.0.0/24; read http://fw01/policy.\nMatch this laptop's source IP, destination and SMB port. First matching rule wins.\nFormat: HL8{route_<destination-last-octet>_<port>_<rule-tag>}\n\nSubmit with claim 'HL8{...}' or FLAGS.\n"
     },
-    "/home/kali/puzzles/modular.csv": {
+    "/home/kali/.secret_challenge3.hlctf": {
       "type": "file",
       "mode": "0444",
       "owner": "root",
       "group": "root",
-      "content": "modulus,base,exponent\n97,7,11\n"
+      "content": "XOR two unsigned 16-bit values.\nLeft: 0x6a3c; right: http://intranet/math/right\nUse the result in decimal, without leading zeros.\nFormat: HL8{xor_<decimal>}\n\nSubmit with claim 'HL8{...}' or FLAGS.\n"
     },
-    "/home/kali/puzzles/route-review.txt": {
+    "/opt/highlion/.secret_challenge4.hlctf": {
       "type": "file",
       "mode": "0444",
       "owner": "root",
       "group": "root",
-      "content": "Find the SMB host on 10.8.0.0/24; read http://fw01/policy.\nMatch this laptop's source IP, destination and SMB port. First matching rule wins.\nFormat: HL8{route_<destination-last-octet>_<port>_<rule-tag>}\n"
-    },
-    "/home/kali/puzzles/xor.txt": {
-      "type": "file",
-      "mode": "0444",
-      "owner": "root",
-      "group": "root",
-      "content": "XOR two unsigned 16-bit values.\nLeft: ~/puzzles/left.hex; right: http://intranet/math/right\nUse the result in decimal, without leading zeros.\nFormat: HL8{xor_<decimal>}\n"
-    },
-    "/home/kali/puzzles/left.hex": {
-      "type": "file",
-      "mode": "0444",
-      "owner": "root",
-      "group": "root",
-      "content": "0x6a3c\n"
-    },
-    "/home/kali/puzzles/clocks.txt": {
-      "type": "file",
-      "mode": "0444",
-      "owner": "root",
-      "group": "root",
-      "content": "Cutoff: 2026-09-26 05:18:30 UTC.\nGateway: UTC+02:00, offset +7 seconds. Transfer: UTC, offset -4 seconds.\nRead http://fw01/relay-log and ~/puzzles/transfer.log. Match ACCEPT and COMMIT by name.\nChoose the first corrected COMMIT strictly after the cutoff; unmatched entries do not count.\nFormat: HL8{timeline_<relay-name>_<UTC-HHMMSS>}\n"
-    },
-    "/home/kali/puzzles/transfer.log": {
-      "type": "file",
-      "mode": "0444",
-      "owner": "root",
-      "group": "root",
-      "content": "2026-09-26T05:18:31 finch COMMIT\n2026-09-26T05:18:38 kestrel COMMIT\n2026-09-26T05:18:44 heron COMMIT\n2026-09-26T05:18:19 swift COMMIT\n"
+      "content": "Cutoff: 2026-09-26 05:18:30 UTC.\nGateway: UTC+02:00, offset +7 seconds. Transfer: UTC, offset -4 seconds.\nRead http://fw01/relay-log and the transfer log below. Match ACCEPT and COMMIT by name.\nChoose the first corrected COMMIT strictly after the cutoff; unmatched entries do not count.\nFormat: HL8{timeline_<relay-name>_<UTC-HHMMSS>}\n\n2026-09-26T05:18:31 finch COMMIT\n2026-09-26T05:18:38 kestrel COMMIT\n2026-09-26T05:18:44 heron COMMIT\n2026-09-26T05:18:19 swift COMMIT\n\nSubmit with claim 'HL8{...}' or FLAGS.\n"
     }
   },
   "flags": [
     {
       "id": "modular",
-      "hint": "Read ~/puzzles/modular.txt; take the least nonnegative residue."
+      "hint": "Read /home/kali/.secret_challenge1.hlctf; take the least nonnegative residue."
     },
     {
       "id": "route",
-      "hint": "Read ~/puzzles/route-review.txt; the first matching rule wins."
+      "hint": "Read /opt/highlion/.secret_challenge2.hlctf; the first matching rule wins."
     },
     {
       "id": "xor",
-      "hint": "Read ~/puzzles/xor.txt; XOR the two 16-bit values."
+      "hint": "Read /home/kali/.secret_challenge3.hlctf; XOR the two 16-bit values."
     },
     {
       "id": "timeline",
-      "hint": "Read ~/puzzles/clocks.txt; correct offsets before comparing COMMIT times."
+      "hint": "Read /opt/highlion/.secret_challenge4.hlctf; correct offsets before comparing COMMIT times."
     }
   ],
   "http": {

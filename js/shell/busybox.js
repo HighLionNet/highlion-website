@@ -389,7 +389,7 @@
     try {
       args.forEach(function (path) {
         var node = this.fs.lstat(path, this.machine.cwd); if (!node) throw new Error(path + ": no such file");
-        var kind = node.type === "dir" ? "directory" : node.type === "symlink" ? "symbolic link to " + node.target : String(node.content || "").indexOf("#!") === 0 ? "POSIX shell script, ASCII text executable" : /[^\x09\x0a\x0d\x20-\x7e]/.test(String(node.content || "")) ? "data" : "ASCII text";
+        var kind = node.type === "dir" ? "directory" : node.type === "symlink" ? "symbolic link to " + node.target : /\.hlctf$/.test(path) ? "HighLion challenge (.hlctf)" : String(node.content || "").indexOf("#!") === 0 ? "POSIX shell script, ASCII text executable" : /[^\x09\x0a\x0d\x20-\x7e]/.test(String(node.content || "")) ? "data" : "ASCII text";
         lines.push(path + ": " + kind);
       }, this);
       return result(lines.join("\n") + "\n");
@@ -747,8 +747,8 @@
       var payload = await this.machine.sessionControl(action, args[1] || "", args.slice(2).join(" "));
       if (!payload || payload.ok !== true) return failure("sessionctl", "request denied");
       if (action !== "list") return result(payload.seq ? "Queued #" + payload.seq + ". Delivery within one heartbeat.\n" : "Session updated.\n");
-      return result((payload.slots || []).map(function (row) {
-        var line = row.id + "\t" + row.user + "\t" + (row.terminated ? "terminated" : row.locked ? "locked" : "active") + "\tpending=" + row.pending;
+      return result("ID\tUSER\tSTATE\tPENDING / REMOTE IP / UA\n" + (payload.slots || []).map(function (row) {
+        var line = row.id + "\t" + row.user + "\t" + (row.terminated ? "terminated" : row.locked ? "locked" : "active") + "\tpending=" + row.pending + "\n  Remote IP: " + (row.ip || "unknown") + "\n  UA: " + (row.ua || "unknown");
         if (row.result) line += "\n  result " + row.result.seq + " (" + row.result.status + "): " + row.result.output;
         return line;
       }).join("\n") + "\n");
@@ -1188,7 +1188,7 @@
   BusyBox.prototype.cmdClaim=function(args){return args.length===1?this.machine.ctf.claim(args[0]):failure("claim","usage: claim FLAG");};
   BusyBox.prototype.cmdHint=function(args){return args.length?failure("hint","usage: hint"):result(this.machine.ctf.hint());};
   BusyBox.prototype.cmdMotd=function(){try{return result(this.machine.readFile("/etc/motd"));}catch(error){return failure("motd",error);}};
-  BusyBox.prototype.cmdOpen=function(args){if(args.length!==1||!Object.prototype.hasOwnProperty.call(this.machine.config.sitePages,args[0]))return failure("open","usage: open home|about|projects|writeups|contact");return result("opening "+args[0]+"\n",0,"",{navigate:this.machine.config.sitePages[args[0]]});};
+  BusyBox.prototype.cmdOpen=function(args){if(args.length===1&&/\.hlctf$/.test(args[0])){try{return result(this.machine.readFile(args[0]));}catch(error){return failure("open",error);}}if(args.length!==1||!Object.prototype.hasOwnProperty.call(this.machine.config.sitePages,args[0]))return failure("open","usage: open home|about|projects|writeups|contact");return result("opening "+args[0]+"\n",0,"",{navigate:this.machine.config.sitePages[args[0]]});};
   BusyBox.prototype.cmdPublished=function(name,args){if(args.length)return failure(name,"extra operand");try{return result(this.machine.readFile("/home/kali/highlion/"+name+".md"));}catch(error){return failure(name,error);}};
 
   BusyBox.prototype.run = async function (name, args, stdin, shell, options) {

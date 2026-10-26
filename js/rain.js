@@ -5,7 +5,7 @@
   if (!canvases.length) return;
   var motionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
   var fontSize = 10;
-  var vocabulary = ["a7f3", "0x3d", "8841", "13", "dead", "7c"];
+  var vocabulary = ["a7f3", "0x3d", "8841", "13", "dead", "7c", "{}", "<>", "01:10", "++"];
 
   canvases.forEach(function (canvas) {
     var band = canvas.closest(".rule-band");
@@ -18,8 +18,9 @@
     var lastPaint = 0;
 
     function resetGlyphs() {
-      var rows = Math.max(1, Math.min(2, Math.floor(height / fontSize)));
-      var count = Math.max(4, Math.floor(width / 92));
+      var ambient = band.classList.contains("ambient-code");
+      var rows = ambient ? Math.max(1, Math.floor(height / 96)) : Math.max(1, Math.min(2, Math.floor(height / fontSize)));
+      var count = Math.max(4, Math.floor(width / (ambient ? 38 : 92)));
       glyphs = Array.from({ length: count }, function (_, index) {
         return {
           x: index * (width / count) + Math.random() * 24,
@@ -42,7 +43,7 @@
           if (glyph.x > width + measured) glyph.x = -measured;
         }
         context.fillStyle = "rgba(122,164,184," + glyph.alpha.toFixed(3) + ")";
-        context.fillText(glyph.text, glyph.x, Math.min(height - 5, 6 + glyph.row * 12));
+        context.fillText(glyph.text, glyph.x, Math.min(height - 5, band.classList.contains("ambient-code") ? 44 + glyph.row * 96 : 6 + glyph.row * 12));
       });
     }
 

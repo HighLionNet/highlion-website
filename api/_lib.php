@@ -40,7 +40,10 @@ function hl_origin_ok(string $csrfToken = ''): bool
 function hl_client_ip(): string
 {
     $address = trim((string) ($_SERVER['REMOTE_ADDR'] ?? ''));
-    return filter_var($address, FILTER_VALIDATE_IP) !== false ? (string) inet_ntop(inet_pton($address)) : '0.0.0.0';
+    if (filter_var($address, FILTER_VALIDATE_IP) === false) return '0.0.0.0';
+    $packed = inet_pton($address);
+    if (strlen($packed) === 16 && substr($packed, 0, 12) === str_repeat("\0", 10) . "\xff\xff") $packed = substr($packed, 12);
+    return (string) inet_ntop($packed);
 }
 
 function hl_csrf_issue(): string
@@ -221,7 +224,7 @@ function hl_env_load(string $path): array
     return $values;
 }
 
-function hl_telegram(string $envPath, string $text): bool
+function hl_telegram(string $envPath, string $text, bool $rich = false): bool
 {
     $values = hl_env_load($envPath);
     $token = trim((string) ($values['TELEGRAM_BOT_TOKEN'] ?? ''));
@@ -229,16 +232,11 @@ function hl_telegram(string $envPath, string $text): bool
     if ($token === '' || $chatId === '' || preg_match('/^[A-Za-z0-9:_-]+$/', $token) !== 1) {
         return false;
     }
-    if (function_exists('mb_substr')) {
-        $text = mb_substr($text, 0, 3500, 'UTF-8');
-    } else {
-        $text = substr($text, 0, 3500);
-    }
-    $body = http_build_query([
-        'chat_id' => $chatId,
-        'text' => $text,
-        'disable_web_page_preview' => 'true',
-    ], '', '&', PHP_QUERY_RFC3986);
+    if (!$rich) $text = function_exists('mb_substr') ? mb_substr($text, 0, 3500, 'UTF-8') : substr($text, 0, 3500);
+    $parameters = ['chat_id' => $chatId];
+    if ($rich) $parameters['rich_message'] = json_encode(['html' => $text, 'skip_entity_detection' => true], JSON_INVALID_UTF8_SUBSTITUTE);
+    else $parameters += ['text' => $text, 'disable_web_page_preview' => 'true'];
+    $body = http_build_query($parameters, '', '&', PHP_QUERY_RFC3986);
     $context = stream_context_create([
         'http' => [
             'method' => 'POST',
@@ -254,7 +252,7 @@ function hl_telegram(string $envPath, string $text): bool
         ],
     ]);
     $http_response_header = [];
-    $response = @file_get_contents('https://api.telegram.org/bot' . $token . '/sendMessage', false, $context, 0, 8192);
+    $response = @file_get_contents('https://api.telegram.org/bot' . $token . ($rich ? '/sendRichMessage' : '/sendMessage'), false, $context, 0, 65536);
     $statusOk = isset($http_response_header[0]) && preg_match('/\s200\s/', (string) $http_response_header[0]) === 1;
     $decoded = is_string($response) ? json_decode($response, true) : null;
     return $statusOk && is_array($decoded) && ($decoded['ok'] ?? false) === true;
@@ -303,3 +301,6 @@ function hl_refresh_lock(string $bucket)
     }
     return $handle;
 }
+
+require_once __DIR__ . '/_alerts.php';
+hl_ban_guard();
