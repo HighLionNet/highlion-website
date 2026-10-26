@@ -29,8 +29,9 @@ function hl_payload(int $limit = 8192): array
     $raw = file_get_contents('php://input', false, null, 0, $limit + 1);
     if (!is_string($raw) || strlen($raw) > $limit) hl_json(['ok' => false], 413);
     $data = json_decode($raw, true, 16);
-    if (!is_array($data) || substr(ltrim($raw), 0, 1) !== '{') hl_json(['ok' => false], 400);
-    return $data;
+    if (is_array($data) && substr(ltrim($raw), 0, 1) === '{') return $data;
+    if (!empty($_POST) && is_array($_POST)) return $_POST;
+    hl_json(['ok' => false], 400);
 }
 
 function hl_operator(array $env): bool
