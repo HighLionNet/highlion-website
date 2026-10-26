@@ -56,7 +56,7 @@ for (const name of ['kernel', 'fs', 'proc', 'net', 'sh', 'busybox', 'pack', 'ctf
   }
   await check('score', '0 / 4 claimed\n');
   await check('trophies', 'No flags claimed.\n');
-  await check('hint', 'Read ~/puzzles/modular.txt; take the least nonnegative residue.\n');
+  await check('hint', 'Read /home/kali/.secret_challenge1.hlctf; take the least nonnegative residue.\n');
   await check('claim', '', 1, 'claim: usage: claim FLAG\n');
   await check('claim one two', '', 1, 'claim: usage: claim FLAG\n');
   assert.equal(requests, 0);
@@ -66,7 +66,7 @@ for (const name of ['kernel', 'fs', 'proc', 'net', 'sh', 'busybox', 'pack', 'ctf
   assert.equal(machine.readFile('~/highlion/.trophies/modular.flag'), 'claimed: modular\n');
   await check('score', '1 / 4 claimed\n');
   await check('trophies', 'modular\n');
-  await check('hint', "Read ~/puzzles/route-review.txt; the first matching rule wins.\n");
+  await check('hint', "Read /opt/highlion/.secret_challenge2.hlctf; the first matching rule wins.\n");
   await check("claim 'HL8{test_flag}'", 'Already claimed.\n');
   await check("claim bad 2> /tmp/claim-error", '', 1);
   assert.equal(machine.readFile('/tmp/claim-error'), 'claim: flag not recognized\n');

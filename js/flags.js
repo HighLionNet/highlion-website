@@ -28,7 +28,9 @@
     if (!response.ok || payload.ok !== true) {
       throw new Error(response.status === 429 ? "Too many attempts. Try again later." : response.status === 400 ? "flag not recognized" : "Claims are unavailable. Try again.");
     }
-    return save(payload);
+    save(payload);
+    if (flag !== undefined) window.dispatchEvent(new CustomEvent("hl:flag-found", { detail: { id: payload.id, reward: payload.reward || "" } }));
+    return payload;
   }
 
   function claim(value) {

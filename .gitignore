@@ -5,3 +5,5 @@ desktop.ini
 .env
 *.env
 .qa/
+__pycache__/
+*.py[cod]

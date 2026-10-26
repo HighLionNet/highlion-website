@@ -30,9 +30,9 @@
 
   async function runProbe() {
     try {
-      latencyResult = await probeUrl("/assets/ping.txt?v=hl8w");
+      latencyResult = await probeUrl("/assets/ping.txt?v=hl8y");
     } catch (error) {
-      latencyResult = { ms: null, url: "/assets/ping.txt?v=hl8w" };
+      latencyResult = { ms: null, url: "/assets/ping.txt?v=hl8y" };
     }
     window.__hlLatency = latencyResult;
     window.dispatchEvent(new CustomEvent("hl:latency", { detail: latencyResult }));

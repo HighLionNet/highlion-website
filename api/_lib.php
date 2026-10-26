@@ -39,8 +39,12 @@ function hl_origin_ok(string $csrfToken = ''): bool
 
 function hl_client_ip(): string
 {
-    $address = trim((string) ($_SERVER['REMOTE_ADDR'] ?? ''));
-    return filter_var($address, FILTER_VALIDATE_IP) !== false ? (string) inet_ntop(inet_pton($address)) : '0.0.0.0';
+    // HL_CLIENT_IP is set by our FastCGI locations, never by an HTTP header.
+    $address = trim((string) ($_SERVER['HL_CLIENT_IP'] ?? $_SERVER['REMOTE_ADDR'] ?? ''));
+    if (filter_var($address, FILTER_VALIDATE_IP) === false) return '0.0.0.0';
+    $packed = inet_pton($address);
+    if (strlen($packed) === 16 && substr($packed, 0, 12) === str_repeat("\0", 10) . "\xff\xff") $packed = substr($packed, 12);
+    return (string) inet_ntop($packed);
 }
 
 function hl_csrf_issue(): string
@@ -119,7 +123,7 @@ function hl_csrf_check($token): bool
     return $cookie !== '' && hash_equals($cookie, $token);
 }
 
-function hl_rate_allow($bucket, $limit, $windowSec): bool
+function hl_rate_allow($bucket, $limit, $windowSec, bool $global = false): bool
 {
     $limit = max(1, (int) $limit);
     $windowSec = max(1, (int) $windowSec);
@@ -130,7 +134,7 @@ function hl_rate_allow($bucket, $limit, $windowSec): bool
     }
     $address = inet_pton(hl_client_ip());
     $rateAddress = is_string($address) && strlen($address) === 16 ? bin2hex(substr($address, 0, 8)) . '/64' : hl_client_ip();
-    $key = sha1((string) $bucket . '|' . $rateAddress);
+    $key = sha1((string) $bucket . '|' . ($global ? 'global' : $rateAddress));
     if (random_int(0, 127) === 0) {
         $entries = @opendir($directory);
         if ($entries !== false) {
@@ -182,7 +186,7 @@ function hl_log($line): void
 
 function hl_honeypot_write(array $row): void
 {
-    $encoded = json_encode($row, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    $encoded = json_encode($row, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
     if (is_string($encoded)) {
         @file_put_contents('/var/tmp/highlion-honeypot.log', $encoded . PHP_EOL, FILE_APPEND | LOCK_EX);
     }
@@ -221,7 +225,7 @@ function hl_env_load(string $path): array
     return $values;
 }
 
-function hl_telegram(string $envPath, string $text): bool
+function hl_telegram(string $envPath, string $text, bool $rich = false, int $timeout = 8): bool
 {
     $values = hl_env_load($envPath);
     $token = trim((string) ($values['TELEGRAM_BOT_TOKEN'] ?? ''));
@@ -229,20 +233,15 @@ function hl_telegram(string $envPath, string $text): bool
     if ($token === '' || $chatId === '' || preg_match('/^[A-Za-z0-9:_-]+$/', $token) !== 1) {
         return false;
     }
-    if (function_exists('mb_substr')) {
-        $text = mb_substr($text, 0, 3500, 'UTF-8');
-    } else {
-        $text = substr($text, 0, 3500);
-    }
-    $body = http_build_query([
-        'chat_id' => $chatId,
-        'text' => $text,
-        'disable_web_page_preview' => 'true',
-    ], '', '&', PHP_QUERY_RFC3986);
+    if (!$rich) $text = function_exists('mb_substr') ? mb_substr($text, 0, 3500, 'UTF-8') : substr($text, 0, 3500);
+    $parameters = ['chat_id' => $chatId];
+    if ($rich) $parameters['rich_message'] = json_encode(['html' => $text, 'skip_entity_detection' => true], JSON_INVALID_UTF8_SUBSTITUTE);
+    else $parameters += ['text' => $text, 'disable_web_page_preview' => 'true'];
+    $body = http_build_query($parameters, '', '&', PHP_QUERY_RFC3986);
     $context = stream_context_create([
         'http' => [
             'method' => 'POST',
-            'timeout' => 8,
+            'timeout' => max(1, min(8, $timeout)),
             'ignore_errors' => true,
             'follow_location' => 0,
             'header' => "Content-Type: application/x-www-form-urlencoded\r\nContent-Length: " . strlen($body) . "\r\n",
@@ -254,10 +253,16 @@ function hl_telegram(string $envPath, string $text): bool
         ],
     ]);
     $http_response_header = [];
-    $response = @file_get_contents('https://api.telegram.org/bot' . $token . '/sendMessage', false, $context, 0, 8192);
+    $response = @file_get_contents('https://api.telegram.org/bot' . $token . ($rich ? '/sendRichMessage' : '/sendMessage'), false, $context, 0, 65536);
     $statusOk = isset($http_response_header[0]) && preg_match('/\s200\s/', (string) $http_response_header[0]) === 1;
     $decoded = is_string($response) ? json_decode($response, true) : null;
-    return $statusOk && is_array($decoded) && ($decoded['ok'] ?? false) === true;
+    $ok = $statusOk && is_array($decoded) && ($decoded['ok'] ?? false) === true;
+    if (!$ok) {
+        // Never log the request URL: it contains the bot token.
+        preg_match('/\s(\d{3})\s/', (string) ($http_response_header[0] ?? ''), $status);
+        error_log('HighLion: Telegram ' . ($rich ? 'sendRichMessage' : 'sendMessage') . ' failed; HTTP=' . ($status[1] ?? 'network') . '; API=' . (int) ($decoded['error_code'] ?? 0));
+    }
+    return $ok;
 }
 
 function hl_country(): string
@@ -303,3 +308,6 @@ function hl_refresh_lock(string $bucket)
     }
     return $handle;
 }
+
+require_once __DIR__ . '/_alerts.php';
+hl_ban_guard();

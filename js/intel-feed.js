@@ -34,7 +34,7 @@
     if (/^\/api\/thumb\.php\?id=[a-f0-9]{40}(?:&v=hl8w)?$/.test(thumb)) candidates.push(thumb.replace(/&v=hl8w$/, "") + "&v=hl8w");
     candidates.push(
       "/api/thumb.php?source=" + encodeURIComponent(source.key) + "&v=hl8w",
-      "/assets/icons/HighLion.ico?v=hl8w"
+      "/assets/icons/HighLion.ico?v=hl8y"
     );
     var image = document.createElement("img");
     image.className = "news-thumb";
