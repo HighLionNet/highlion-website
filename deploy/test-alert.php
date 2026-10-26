@@ -5,7 +5,7 @@ if (PHP_SAPI !== 'cli') { http_response_code(404); exit; }
 require_once dirname(__DIR__) . '/api/_lib.php';
 $row = [
     'ts' => gmdate('c'), 'type' => 'TEST — operator transport check',
-    'ip' => '127.0.0.1', 'peer' => 'CLI', 'country' => '',
+    'ip' => '127.0.0.1', 'peer' => 'CLI', 'source' => 'CLI (synthetic)', 'country' => '',
     'ua' => 'HighLion-QA <HTML & escaping>', 'method' => 'CLI',
     'uri' => '/deploy/test-alert.php', 'query' => 'escaped=<value>&safe=1',
     'notes' => 'Synthetic local test. Loopback is expected here; public HTTP tests verify cloudflared visitor identity.',

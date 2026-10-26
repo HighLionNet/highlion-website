@@ -55,13 +55,32 @@ function hl_probe_state(bool $strike = false): array
     return $row + $empty;
 }
 
+function hl_alert_title(string $type): string
+{
+    $type = strtoupper(trim($type));
+    if (strpos($type, 'TEST') === 0) return 'HighLion security alert — test';
+    if (strpos($type, 'XSS') !== false) return 'XSS payload detected';
+    if (strpos($type, 'TRAVERSAL') !== false) return 'Path traversal detected';
+    if (strpos($type, 'WRAPPER') !== false) return 'File inclusion attempt detected';
+    if (strpos($type, 'SYSTEM-FILE') !== false || strpos($type, 'QUERY-SYSTEM') !== false) return 'System file access attempt detected';
+    if (strpos($type, 'CONFIG-FILE') !== false) return 'Configuration file access attempt detected';
+    if (strpos($type, 'PATH') === 0) return 'Sensitive file access detected';
+    $titles = [
+        'HPOT-COMPANY' => 'Honeypot submission detected',
+        'BAD-METHOD' => 'Unexpected HTTP method detected',
+        'CSRF-FAIL' => 'CSRF validation failed',
+        'RATE-LIMIT' => 'Request rate limit reached',
+    ];
+    return $titles[$type] ?? 'Suspicious request detected';
+}
+
 function hl_alert_html(array $row): string
 {
     $escape = static function ($value): string { return htmlspecialchars((string) $value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'); };
-    $labels = ['Time (UTC)' => 'ts', 'Type' => 'type', 'Remote IP' => 'ip', 'Proxy peer' => 'peer', 'Country' => 'country', 'User agent' => 'ua', 'Method' => 'method', 'URI' => 'uri', 'Query' => 'query', 'Notes' => 'notes', 'Request ID' => 'id'];
-    $html = '<h3>HighLion security alert</h3><table bordered striped compact><tr><th>Field</th><th>Value</th></tr>';
+    $labels = ['Time (UTC)' => 'ts', 'Type' => 'type', 'Remote IP' => 'ip', 'Proxy peer' => 'peer', 'IP source' => 'source', 'Country' => 'country', 'User agent' => 'ua', 'Method' => 'method', 'URI' => 'uri', 'Query' => 'query', 'Notes' => 'notes', 'Request ID' => 'id'];
+    $html = '<h3>' . $escape(hl_alert_title((string) ($row['type'] ?? ''))) . '</h3><table bordered striped compact><tr><th>Field</th><th>Value</th></tr>';
     foreach ($labels as $label => $key) {
-        $value = $escape($row[$key] ?? '');
+        $value = $escape($key === 'ip' && ($row['source'] ?? '') === 'tor' ? 'Unavailable through Tor' : ($row[$key] ?? ''));
         if ($value !== '' && ($key === 'ip' || $key === 'ua')) $value = '<b>' . $value . '</b>';
         $html .= '<tr><th>' . $label . '</th><td>' . ($value === '' ? '—' : $value) . '</td></tr>';
     }
@@ -80,6 +99,7 @@ function hl_alert_row(string $type, string $notes = '', bool $probe = false): ar
     return [
         'ts' => gmdate('c'), 'type' => substr($type, 0, 64), 'ip' => hl_client_ip(), 'country' => hl_country(), 'ua' => substr(hl_user_agent(), 0, 512),
         'peer' => substr((string) ($_SERVER['HL_PEER_IP'] ?? $_SERVER['REMOTE_ADDR'] ?? ''), 0, 45),
+        'source' => hl_ip_source(),
         'id' => substr((string) ($_SERVER['HL_REQUEST_ID'] ?? ''), 0, 64),
         'method' => substr((string) ($_SERVER['REQUEST_METHOD'] ?? 'UNKNOWN'), 0, 16),
         'uri' => substr(explode('?', $uri, 2)[0], 0, 1024), 'query' => $query,

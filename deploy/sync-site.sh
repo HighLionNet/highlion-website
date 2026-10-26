@@ -30,4 +30,4 @@ else
   echo 'Reload the PHP-FPM service selected in the nginx configuration after reviewing it.'
 fi
 printf 'Release files synchronized. Replaced/deleted files: %s\n' "$backup_dir"
-echo 'Active nginx configuration was not edited or reloaded. Apply the Grok handoff, then nginx -t and reload.'
+echo 'Files ready. Now run: sudo python3 /var/www/highlion/deploy/install-config.py'

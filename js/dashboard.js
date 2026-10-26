@@ -22,7 +22,7 @@
     var node = document.getElementById("dLatency");
     if (!node) return;
     node.textContent = formatMs(detail.ms);
-    node.title = "GET /assets/ping.txt?v=hl8y";
+    node.title = "GET /assets/ping.txt?v=hl8z";
   }
 
   async function fetchTraffic() {

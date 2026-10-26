@@ -297,7 +297,10 @@ def run():
             html = subprocess.check_output([PHP, '-r', html_code, str(api / '_lib.php')], input=json.dumps({'ip': '1.2.3.4', 'ua': '<script>&test', 'query': '<bad>'}).encode()).decode()
             expect('<script>' in html, False, 'alert HTML escaped')
             expect('<b>&lt;script&gt;&amp;test</b>' in html, True, 'UA prominent and escaped')
-            expect(html.count('<td>'), 11, 'all request fields in readable two-column table')
+            expect(html.count('<td>'), 12, 'all request fields in readable two-column table')
+            title_code = 'require $argv[1]; echo json_encode(array_map("hl_alert_title",json_decode(stream_get_contents(STDIN),true)));'
+            titles = json.loads(subprocess.check_output([PHP, '-r', title_code, str(api / '_lib.php')], input=json.dumps(['TEST transport', 'PATH traversal', 'PATH xss', 'PATH private-file', 'HPOT-COMPANY', 'CSRF-FAIL', 'BAD-METHOD', 'RATE-LIMIT']).encode()))
+            expect(titles, ['HighLion security alert — test', 'Path traversal detected', 'XSS payload detected', 'Sensitive file access detected', 'Honeypot submission detected', 'CSRF validation failed', 'Unexpected HTTP method detected', 'Request rate limit reached'], 'event-specific alert titles')
             # Capture the real Telegram transport envelope without sending any network traffic.
             (config / 'honeypot.env').write_text('TELEGRAM_BOT_TOKEN=qa-bot\nTELEGRAM_CHAT_ID=qa-chat\n')
             transport = r'''require $argv[1];

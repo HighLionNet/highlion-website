@@ -1,6 +1,7 @@
 import argparse
 import concurrent.futures
 import http.client
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -55,51 +56,41 @@ def free_port():
         sock.bind(('127.0.0.1', 0))
         return sock.getsockname()[1]
 
-PORT, APP, RELAY = [free_port() for _ in range(3)]
-http_maps = (ROOT / 'deploy/nginx-path-http.conf').read_text()
-server = (ROOT / 'deploy/nginx-path-server.conf').read_text()
-server += '\n' + (ROOT / 'deploy/nginx-cloudflared-server.conf').read_text()
-server += '\n' + (ROOT / 'deploy/nginx-abuse.conf').read_text()
-server = server.replace('include fastcgi_params;', f'include {NGINX_CONF_DIR.as_posix()}/fastcgi_params;')
-server = server.replace('unix:/run/php/php-fpm.sock', f'127.0.0.1:{APP}')
-server = server.replace('/var/log/nginx/highlion-path.log', (WORK / 'logs/security.log').as_posix())
-server = server.replace('unix:/run/php/highlion-relay.sock', f'127.0.0.1:{RELAY}')
-server = server.replace('/var/www/highlion/api/_relay.php', (PUBLIC / 'api/_relay.php').as_posix())
-api = (ROOT / 'deploy/nginx-api.conf').read_text().replace('unix:/run/php/php-fpm.sock', f'127.0.0.1:{APP}')
-api = api.replace('include fastcgi_params;', f'include {NGINX_CONF_DIR.as_posix()}/fastcgi_params;')
-(WORK / 'http.conf').write_text(http_maps)
-(WORK / 'server.conf').write_text(server)
-(WORK / 'api.conf').write_text(api)
-conf = f"""
-worker_processes 1;
-daemon off;
-master_process off;
-error_log {(WORK / 'logs/error.log').as_posix()} info;
-pid {(WORK / 'nginx.pid').as_posix()};
-events {{ worker_connections 512; }}
-http {{
-    include {NGINX_CONF_DIR.as_posix()}/mime.types;
-    include {WORK.as_posix()}/http.conf;
-    client_body_temp_path {WORK.as_posix()}/temp;
-    fastcgi_temp_path {WORK.as_posix()}/temp;
-    server {{
-        listen 127.0.0.1:{PORT};
-        server_name www.highlion.net;
-        root {PUBLIC.as_posix()};
-        index index.html;
-        include {WORK.as_posix()}/server.conf;
-        access_log {WORK.as_posix()}/logs/access.log;
-        include {WORK.as_posix()}/api.conf;
-        error_page 403 /403.html;
-        error_page 404 /404.html;
-        error_page 405 /405.html;
-        location / {{
-            if ($request_method !~ ^(GET|HEAD)$) {{ return 405; }}
-            try_files $uri $uri.html $uri/ =404;
-        }}
-    }}
-}}
-"""
+PORT, APP, RELAY, TOR, FALLBACK = [free_port() for _ in range(5)]
+
+
+def expand_repo_includes(source):
+    return re.sub(r'include /var/www/highlion/(deploy/[^;]+);',
+                  lambda match: expand_repo_includes((ROOT / match[1]).read_text()), source)
+
+
+# Exercise the COMPLETE shipped nginx.conf and virtual hosts, including their
+# exact FastCGI parameters. Change only paths, ports and OS-specific process setup.
+conf = (ROOT / 'deploy/nginx.conf').read_text()
+conf = conf.replace('include /etc/nginx/sites-enabled/*;', (ROOT / 'deploy/highlion.conf').read_text())
+conf = conf.replace('include /etc/nginx/modules-enabled/*.conf;', '').replace('include /etc/nginx/conf.d/*.conf;', '')
+conf = expand_repo_includes(conf)
+conf = conf.replace('include /etc/nginx/mime.types;', f'include {NGINX_CONF_DIR.as_posix()}/mime.types;')
+conf = re.sub(r'^user [^;]+;', '', conf, flags=re.M)
+if os.name == 'nt':
+    # Windows nginx has no AF_UNIX support. Both settings trust no TCP peer.
+    conf = conf.replace('set_real_ip_from unix:;', 'set_real_ip_from 0.0.0.0/32;')
+conf = conf.replace('worker_processes auto;', 'worker_processes 1;\ndaemon off;\nmaster_process off;')
+conf = conf.replace('/run/nginx.pid', (WORK / 'nginx.pid').as_posix())
+conf = conf.replace('/var/log/nginx/error.log', (WORK / 'logs/error.log').as_posix())
+conf = conf.replace('/var/log/nginx/access.log', (WORK / 'logs/access.log').as_posix())
+conf = conf.replace('/var/log/nginx/highlion-path.log', (WORK / 'logs/security.log').as_posix())
+conf = conf.replace('/var/www/highlion', PUBLIC.as_posix())
+conf = conf.replace('unix:/run/php/php8.2-fpm.sock', f'127.0.0.1:{APP}')
+conf = conf.replace('unix:/run/php/highlion-relay.sock', f'127.0.0.1:{RELAY}')
+conf = conf.replace('127.0.0.1:8081', f'127.0.0.1:{TOR}')
+conf = re.sub(r'(listen 127\.0\.0\.1:)80(?=[; ])', lambda match: match[1] + str(PORT), conf)
+conf = conf.replace('http {', f'http {{\nclient_body_temp_path {WORK.as_posix()}/temp;\nfastcgi_temp_path {WORK.as_posix()}/temp;', 1)
+# Also verify the canonical identity when realip substitution itself is absent.
+fallback = f'\nserver {{ listen 127.0.0.1:{FALLBACK}; server_name www.highlion.net; set $hl_transport cloudflared; ' + expand_repo_includes((ROOT / 'deploy/nginx-site.conf').read_text()) + '\n}\n'
+fallback = fallback.replace('/var/www/highlion', PUBLIC.as_posix()).replace('unix:/run/php/highlion-relay.sock', f'127.0.0.1:{RELAY}')
+fallback = fallback.replace('/var/log/nginx/access.log', (WORK / 'logs/access.log').as_posix()).replace('/var/log/nginx/highlion-path.log', (WORK / 'logs/security.log').as_posix())
+conf = conf.rsplit('}', 1)[0] + fallback + '}\n'
 (WORK / 'nginx.conf').write_text(conf)
 flags = getattr(subprocess, 'CREATE_NO_WINDOW', 0)
 nginx = str(NGINX_EXE)
@@ -118,8 +109,8 @@ def start(args, name):
     procs.append(proc)
     return proc
 
-def request(target, method='GET', ip='192.0.2.1', headers=None, body=None, source=None):
-    connection = http.client.HTTPConnection('127.0.0.1', PORT, timeout=6, source_address=(source, 0) if source else None)
+def request(target, method='GET', ip='192.0.2.1', headers=None, body=None, source=None, port=None):
+    connection = http.client.HTTPConnection('127.0.0.1', port or PORT, timeout=6, source_address=(source, 0) if source else None)
     values = {'Host': 'www.highlion.net', 'CF-Connecting-IP': ip, 'CF-IPCountry': 'IL'}
     if headers: values.update(headers)
     connection.request(method, target, body=body, headers=values)
@@ -149,9 +140,13 @@ try:
     # HTML includes, CSS, JS, fonts, PDFs, MP4s and the hl8w cache query.
     for source in PUBLIC.rglob('*'):
         if source.is_file() and 'api' not in source.relative_to(PUBLIC).parts and source.name != 'alerts.jsonl':
-            path = '/' + source.relative_to(PUBLIC).as_posix() + '?v=hl8y'
-            body, _ = expect(path, [200])
-            assert body == source.read_bytes(), path
+            path = '/' + source.relative_to(PUBLIC).as_posix() + '?v=hl8z'
+            if source.name in ['403.html', '404.html', '405.html']:
+                expect(path, [404])  # Error documents are internal-only in production.
+            else:
+                body, headers = expect(path, [200])
+                assert body == source.read_bytes(), path
+                assert 'Content-Security-Policy' in headers, path + ' lost security headers'
     for page in ['/', '/about', '/projects', '/writeups', '/about.html?topic=etc/passwd', '/about.html?ref=https%3A%2F%2Fexample.org%2Fwp-login.php', '/%61bout.html', '/about.html?file=report.pdf', '/about.html?search=php://filter']:
         expect(page, [200])
     for method in ['HEAD', 'OPTIONS', 'PUT', 'DELETE', 'PATCH', 'TRACE', 'PROPFIND']:
@@ -162,9 +157,25 @@ try:
     expect('/contact.html', [403], source='127.0.0.2')
     expect('/about.html', [200], source='127.0.0.2', headers={'User-Agent': 'Nikto sqlmap ../../etc/passwd', 'X-Original-URL': '/.env', 'X-Rewrite-URL': '/etc/passwd'})
     # Every API alias; real CSRF and benign JSON preserve form and shell flows.
-    for name in ['csrf', 'ctf', 'thumb']:
+    for name in ['csrf', 'ctf', 'thumb', 'client-ip']:
         for suffix in ['', '.php', '/', '/index.php']:
             expect('/api/' + name + suffix, [200, 204])
+    for origin_port in [PORT, FALLBACK]:
+        for visitor in ['8.8.8.8', '2001:4860:4860::8888']:
+            body, _ = expect('/api/client-ip.php', [200], ip=visitor, port=origin_port, headers={'HL-Client-IP': '9.9.9.9', 'X-Forwarded-For': '9.9.9.9'})
+            identity = json.loads(body)
+            assert identity['ip'] == identity['remote_addr'] == visitor
+            assert identity['source'] == 'cloudflared' and identity['verified'] is True
+            assert identity['peer'] == '127.0.0.1'
+    body, _ = expect('/api/client-ip.php', [200], ip='8.8.8.8', source='127.0.0.2')
+    identity = json.loads(body)
+    assert identity['ip'] == identity['remote_addr'] == '127.0.0.2' and identity['source'] == 'socket' and identity['verified'] is False
+    onion = 'hh7547je3hpb4hj7stuiorzwnwazamecatqn6saqkxamlmckztgr2lid.onion'
+    body, _ = expect('/api/client-ip.php', [200], port=TOR, ip='8.8.8.8', headers={'Host': onion})
+    identity = json.loads(body)
+    assert identity['ip'] is None and identity['remote_addr'] == '127.0.0.1' and identity['source'] == 'tor' and identity['verified'] is False
+    expect('/api/client-ip.php', [421], port=TOR)  # Forging www Host cannot cross listeners.
+    expect('/', [421], headers={'Host': 'attacker.example'})
     token_body, _ = expect('/api/csrf.php', [200], ip='192.0.2.10')
     token = json.loads(token_body)['token']
     for suffix in ['', '.php', '/', '/index.php']:
@@ -179,7 +190,7 @@ try:
     for target in scanner: expect(target, [404])
     assert (PUBLIC / 'alerts.jsonl').read_text().count('\n') == before
     # First observation arrives at the internal pool with original URI/method.
-    expect('/assets/../.env?probe=1', [403], method='POST', ip='198.51.100.1', body='ignored', headers={'User-Agent': 'probe\x7fagent'})
+    expect('/assets/../.env?probe=1', [403], method='POST', port=FALLBACK, ip='198.51.100.1', body='ignored', headers={'User-Agent': 'probe\x7fagent'})
     time.sleep(.1)
     rows = [json.loads(line) for line in (WORK / 'state/highlion-honeypot.log').read_text().splitlines()]
     row = rows[-1]
@@ -192,6 +203,13 @@ try:
     alerts = [json.loads(line) for line in (PUBLIC / 'alerts.jsonl').read_text().splitlines()]
     assert alerts[-1][0].endswith('/honeypot.env') and alerts[-1][2] is True and alerts[-1][3] == 2
     assert '<table bordered striped compact>' in alerts[-1][1]
+    assert '<h3>Path traversal detected</h3>' in alerts[-1][1]
+    expect('/?q=%3Cscript%3Ealert(1)%3C%2Fscript%3E', [403], ip='198.51.100.2')
+    time.sleep(.1)
+    alerts = [json.loads(line) for line in (PUBLIC / 'alerts.jsonl').read_text().splitlines()]
+    assert '<h3>XSS payload detected</h3>' in alerts[-1][1]
+    assert '198.51.100.2' in alerts[-1][1]
+    rows = [json.loads(line) for line in (WORK / 'state/highlion-honeypot.log').read_text().splitlines()]
     baseline = len(rows)
     # One request per IP/minute; global budget also bounds distributed scans.
     for i in range(20):
@@ -210,6 +228,13 @@ try:
     # A scan, throttling and API gates must not impair healthy assets/endpoints.
     expect('/about.html?v=hl8y', [200])
     expect('/api/csrf.php', [200])
+    # Static auth subrequests and application requests must enforce the same IP.
+    banned = WORK / 'state/abuse' / (hashlib.sha256(b'8.8.4.4').hexdigest() + '.json')
+    banned.write_text(json.dumps({'strikes': 5, 'ban_until': int(time.time()) + 3600}))
+    for origin_port in [PORT, FALLBACK]:
+        expect('/about.html', [403], ip='8.8.4.4', port=origin_port)
+        expect('/api/client-ip.php', [403], ip='8.8.4.4', port=origin_port)
+    expect('/api/client-ip.php', [200], ip='8.8.4.4', port=TOR, headers={'Host': onion})
     errors = (WORK / 'logs/error.log').read_text()
     assert 'redirection cycle' not in errors and 'rewrite or internal' not in errors, errors
     logged = [json.loads(line) for line in (WORK / 'logs/security.log').read_text().splitlines()]

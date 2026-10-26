@@ -47,6 +47,13 @@ function hl_client_ip(): string
     return (string) inet_ntop($packed);
 }
 
+function hl_ip_source(): string
+{
+    // This is a FastCGI parameter; HTTP_HL_IP_SOURCE is deliberately ignored.
+    $source = (string) ($_SERVER['HL_IP_SOURCE'] ?? 'socket');
+    return in_array($source, ['cloudflared', 'tor', 'socket'], true) ? $source : 'socket';
+}
+
 function hl_csrf_issue(): string
 {
     $existing = hl_cookie('hl_csrf');

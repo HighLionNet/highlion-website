@@ -26,7 +26,7 @@
           x: index * (width / count) + Math.random() * 24,
           row: index % rows,
           text: vocabulary[index % vocabulary.length],
-          alpha: 0.10 + Math.random() * 0.10,
+          alpha: (band.classList.contains("about-rule-band") ? 0.28 : 0.10) + Math.random() * 0.10,
           speed: 4 + Math.random() * 6
         };
       });

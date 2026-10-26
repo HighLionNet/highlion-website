@@ -1,13 +1,13 @@
 @font-face {
   font-family: "Orbitron";
-  src: local("Orbitron"), url("/assets/fonts/Orbitron.ttf?v=hl8y") format("truetype");
+  src: local("Orbitron"), url("/assets/fonts/Orbitron.ttf?v=hl8z") format("truetype");
   font-weight: 400 900;
   font-display: swap;
 }
 
 @font-face {
   font-family: "JetBrains Mono";
-  src: local("JetBrains Mono"), url("/assets/fonts/JetBrainsMono.ttf?v=hl8y") format("truetype");
+  src: local("JetBrains Mono"), url("/assets/fonts/JetBrainsMono.ttf?v=hl8z") format("truetype");
   font-weight: 400 700;
   font-display: swap;
 }
@@ -1481,6 +1481,12 @@ h3 {
 .about-term .hlterm-body {
   height: auto;
   min-height: 160px;
+}
+
+[data-shell-preview] .hlterm-stream {
+  display: grid;
+  gap: 0.6rem;
+  white-space: normal;
 }
 
 .source-bay-body {
