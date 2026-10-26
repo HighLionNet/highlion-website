@@ -65,6 +65,29 @@ def run(*args):
     subprocess.run(args, check=True)
 
 
+def tor_runtime_user(unit):
+    import pwd
+    pid = subprocess.check_output(['systemctl', 'show', '--property=MainPID', '--value', unit], text=True).strip()
+    if not re.fullmatch(r'[1-9][0-9]*', pid):
+        raise RuntimeError('Cannot determine the running Tor process for ' + unit)
+    status = Path('/proc', pid, 'status').read_text()
+    match = re.search(r'^Uid:\s+\d+\s+(\d+)', status, re.M)
+    if not match or int(match[1]) == 0:
+        raise RuntimeError('Expected a running unprivileged Tor process; refusing to validate as root.')
+    return pwd.getpwuid(int(match[1])).pw_name
+
+
+def tor_verify_command(tor, config, unit):
+    runner = shutil.which('runuser')
+    if not runner:
+        raise RuntimeError('Missing runuser for validating Tor under its runtime identity.')
+    command = [runner, '-u', tor_runtime_user(unit), '--', tor]
+    defaults = Path('/usr/share/tor/tor-service-defaults-torrc')
+    if defaults.is_file():
+        command += ['--defaults-torrc', str(defaults)]
+    return command + ['--verify-config', '-f', str(config)]
+
+
 def install():
     import pwd
     if os.geteuid() != 0:
@@ -95,6 +118,9 @@ def install():
                 break
         if tor_unit is None:
             raise RuntimeError('The existing onion configuration has no active default Tor service to reload; no config changes made.')
+    # Debian supplies User/DataDirectory through its service defaults. Validate
+    # as the actual daemon user, not root; never change hidden-service ownership.
+    tor_check = tor_verify_command(tor, tor_config, tor_unit) if tor_changes else None
 
     backup = Path('/var/backups/highlion') / ('config-' + time.strftime('%Y%m%dT%H%M%SZ', time.gmtime()) + '-' + str(os.getpid()))
     backup.mkdir(parents=True, mode=0o700, exist_ok=False)
@@ -143,8 +169,8 @@ def install():
         print(nginx_check.stdout + nginx_check.stderr, end='')
         if nginx_check.returncode or 'conflicting server name' in nginx_check.stderr.lower():
             raise RuntimeError('nginx validation failed or another enabled site conflicts with these hostnames')
-        if tor_changes:
-            run(tor, '--verify-config', '-f', str(tor_config))
+        if tor_check:
+            run(*tor_check)
     except Exception:
         for path, original in originals.items():
             if original is None:

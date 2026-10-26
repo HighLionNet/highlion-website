@@ -3,6 +3,9 @@ import importlib.util
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
+import sys
+from types import SimpleNamespace
 
 ROOT = Path(__file__).resolve().parents[1]
 (ROOT / '.qa').mkdir(exist_ok=True)
@@ -12,6 +15,21 @@ spec.loader.exec_module(installer)
 
 
 class TorMigration(unittest.TestCase):
+    def test_tor_check_uses_daemon_identity_and_debian_defaults(self):
+        with patch.object(installer, 'tor_runtime_user', return_value='debian-tor'), patch.object(installer.shutil, 'which', return_value='/usr/sbin/runuser'), patch.object(installer.Path, 'is_file', return_value=True):
+            command = installer.tor_verify_command('/usr/sbin/tor', Path('/etc/tor/torrc'), 'tor@default.service')
+        self.assertEqual(command[:5], ['/usr/sbin/runuser', '-u', 'debian-tor', '--', '/usr/sbin/tor'])
+        self.assertIn('--defaults-torrc', command)
+        self.assertEqual(command[-3:], ['--verify-config', '-f', str(Path('/etc/tor/torrc'))])
+
+    def test_runtime_user_uses_effective_uid_and_rejects_root(self):
+        account = SimpleNamespace(getpwuid=lambda uid: SimpleNamespace(pw_name='debian-tor' if uid == 105 else 'wrong-user'))
+        with patch.dict(sys.modules, {'pwd': account}), patch.object(installer.subprocess, 'check_output', return_value='31435\n'), patch.object(installer.Path, 'read_text', return_value='Name:\ttor\nUid:\t0\t105\t105\t105\n'):
+            self.assertEqual(installer.tor_runtime_user('tor@default.service'), 'debian-tor')
+        with patch.dict(sys.modules, {'pwd': account}), patch.object(installer.subprocess, 'check_output', return_value='31435\n'), patch.object(installer.Path, 'read_text', return_value='Uid:\t0\t0\t0\t0\n'):
+            with self.assertRaises(RuntimeError):
+                installer.tor_runtime_user('tor@default.service')
+
     def test_matching_service_only_and_no_key_changes(self):
         with tempfile.TemporaryDirectory(dir=ROOT / '.qa') as temp:
             root = Path(temp)
