@@ -3324,6 +3324,18 @@ h3 {
   background: #7e4798;
 }
 
+#navFlags,
+#navCli {
+  border-color: #3d8bff;
+  color: #fff;
+  background: #3d8bff;
+}
+#navFlags:hover,
+#navCli:hover {
+  border-color: #5aa0ff;
+  background: #5aa0ff;
+}
+
 .nav-tor img {
   width: 15px;
   height: 15px;
