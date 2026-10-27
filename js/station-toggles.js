@@ -22,7 +22,6 @@
 
   function paint(button, label, value) {
     if (!button) return;
-    button.textContent = label;
     button.setAttribute("aria-label", label + " " + value);
     button.setAttribute("aria-pressed", value === "on" ? "true" : "false");
     button.dataset.state = value;
@@ -44,22 +43,25 @@
   function bind() {
     var fxButton = document.getElementById("navFx");
     var scanButton = document.getElementById("navScan");
-    if (!fxButton || !scanButton || fxButton.dataset.bound === "true") return false;
-    fxButton.dataset.bound = "true";
-    scanButton.dataset.bound = "true";
-    fxButton.addEventListener("click", function () {
-      fx = fx === "on" ? "off" : "on";
-      write("hl-fx", fx);
-      applyFx();
-    });
-    scanButton.addEventListener("click", function () {
-      scan = scan === "on" ? "off" : "on";
-      write("hl-scan", scan);
-      applyScan();
-    });
+    if (fxButton && fxButton.dataset.bound !== "true") {
+      fxButton.dataset.bound = "true";
+      fxButton.addEventListener("click", function () {
+        fx = fx === "on" ? "off" : "on";
+        write("hl-fx", fx);
+        applyFx();
+      });
+    }
+    if (scanButton && scanButton.dataset.bound !== "true") {
+      scanButton.dataset.bound = "true";
+      scanButton.addEventListener("click", function () {
+        scan = scan === "on" ? "off" : "on";
+        write("hl-scan", scan);
+        applyScan();
+      });
+    }
     applyFx();
     applyScan();
-    return true;
+    return Boolean(fxButton && scanButton);
   }
 
   function bindCli() {
@@ -71,6 +73,7 @@
     button.addEventListener("click", function () {
       var terminal = document.getElementById("hlterm") || document.getElementById("hlterm-panel");
       if (terminal) terminal.scrollIntoView({ block: "start", behavior: reduced.matches ? "auto" : "smooth" });
+      else window.location.assign("/#hlterm-panel");
     });
     return true;
   }
@@ -89,9 +92,14 @@
   });
   applyFx();
   applyScan();
-  if (!bind() || !bindCli()) {
+  function bindAll() {
+    var togglesReady = bind();
+    var cliReady = bindCli();
+    return togglesReady && cliReady;
+  }
+  if (!bindAll()) {
     var observer = new MutationObserver(function () {
-      if (!bind() || !bindCli()) return;
+      if (!bindAll()) return;
       observer.disconnect();
     });
     observer.observe(document.documentElement, { childList: true, subtree: true });

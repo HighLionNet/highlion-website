@@ -32,16 +32,18 @@
 
   function cleanPrices(prices) {
     if (!Array.isArray(prices)) return [];
-    return prices.map(function (point) { return [Number(point[0]), Number(point[1])]; })
-      .filter(function (point) { return Number.isFinite(point[0]) && Number.isFinite(point[1]) && point[0] > 0 && point[1] >= 0; });
+    return prices.filter(function (point) { return Array.isArray(point) && point.length >= 2 && point[0] !== null && point[1] !== null; })
+      .map(function (point) { return [Number(point[0]), Number(point[1])]; })
+      .filter(function (point) { return Number.isFinite(point[0]) && Number.isFinite(point[1]) && point[0] > 0 && point[1] >= 0; })
+      .sort(function (left, right) { return left[0] - right[0]; });
   }
 
   function seriesForRange(prices, selectedRange) {
     var clean = cleanPrices(prices);
     if (selectedRange !== "1h") return clean;
-    var cutoff = Date.now() - 60 * 60 * 1000;
-    var hour = clean.filter(function (point) { return point[0] >= cutoff; });
-    return hour.length >= 2 ? hour : clean.slice(-12);
+    if (!clean.length) return clean;
+    var cutoff = clean[clean.length - 1][0] - 60 * 60 * 1000;
+    return clean.filter(function (point) { return point[0] >= cutoff; });
   }
 
   function decimals(value) {
@@ -145,17 +147,20 @@
 
   function serverRequest(selectedCoin, selectedRange) {
     var url = "/api/market.php?coin=" + encodeURIComponent(selectedCoin) + "&days=" + days[selectedRange];
-    return fetch(url, { credentials: "same-origin", cache: "no-store", headers: { Accept: "application/json" } })
-      .then(jsonResponse).then(function (payload) {
+    var controller = new AbortController();
+    var deadline = window.setTimeout(function () { controller.abort(); }, 12000);
+    return fetch(url, { credentials: "same-origin", cache: "no-store", signal: controller.signal, headers: { Accept: "application/json" } })
+      .then(function (response) {
+        if (response.status === 404) {
+          return fetch("/api/market?coin=" + encodeURIComponent(selectedCoin) + "&days=" + days[selectedRange], {
+            credentials: "same-origin", cache: "no-store", signal: controller.signal, headers: { Accept: "application/json" }
+          }).then(jsonResponse);
+        }
+        return jsonResponse(response);
+      }).then(function (payload) {
         if (!payload || payload.ok !== true || payload.coin !== selectedCoin || Number(payload.days) !== days[selectedRange]) throw new Error("invalid market payload");
         return { prices: payload.prices, stale: payload.stale === true };
-      });
-  }
-
-  function directRequest(selectedCoin, selectedRange) {
-    var url = "https://api.coingecko.com/api/v3/coins/" + encodeURIComponent(selectedCoin) + "/market_chart?vs_currency=usd&days=" + days[selectedRange];
-    return fetch(url, { cache: "no-store", headers: { Accept: "application/json" } }).then(jsonResponse)
-      .then(function (payload) { return { prices: payload.prices, stale: false }; });
+      }).finally(function () { window.clearTimeout(deadline); });
   }
 
   function load(force) {
@@ -175,7 +180,6 @@
 
     inFlightKey = key; requestedAt.set(key, Date.now());
     serverRequest(selectedCoin, selectedRange)
-      .catch(function () { return directRequest(selectedCoin, selectedRange); })
       .then(function (payload) {
         var prices = seriesForRange(payload.prices, selectedRange);
         if (prices.length < 2) throw new Error("empty market series");

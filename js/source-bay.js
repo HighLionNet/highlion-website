@@ -57,7 +57,7 @@
     document.body.appendChild(anchor);
     anchor.click();
     anchor.remove();
-    URL.revokeObjectURL(blobUrl);
+    window.setTimeout(function () { URL.revokeObjectURL(blobUrl); }, 1000);
   });
 
   show(select.value);

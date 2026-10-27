@@ -31,9 +31,9 @@
   function thumbFor(row, source) {
     var thumb = String(row.thumb || "");
     var candidates = [];
-    if (/^\/api\/thumb\.php\?id=[a-f0-9]{40}(?:&v=hl8w)?$/.test(thumb)) candidates.push(thumb.replace(/&v=hl8w$/, "") + "&v=hl8w");
+    if (/^\/api\/thumb\.php\?id=[a-f0-9]{40}(?:&v=hl8z)?$/.test(thumb)) candidates.push(thumb.replace(/&v=hl8z$/, "") + "&v=hl8z");
     candidates.push(
-      "/api/thumb.php?source=" + encodeURIComponent(source.key) + "&v=hl8w",
+      "/api/thumb.php?source=" + encodeURIComponent(source.key) + "&v=hl8z",
       "/assets/icons/HighLion.ico?v=hl8z"
     );
     var image = document.createElement("img");

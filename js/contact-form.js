@@ -18,6 +18,10 @@
     email: document.getElementById("emailError"),
     message: document.getElementById("messageError")
   };
+  var sending = false;
+  Object.keys(errors).forEach(function (name) {
+    if (errors[name]) fields[name].setAttribute("aria-describedby", errors[name].id);
+  });
 
   function setState(state, detail) {
     status.textContent = state || "";
@@ -39,18 +43,20 @@
 
   function validate(payload) {
     var messages = { name: "", email: "", message: "" };
-    if (payload.name.length < 2 || payload.name.length > 80 || /[\r\n<>]/.test(payload.name)) {
+    if (Array.from(payload.name).length < 2 || Array.from(payload.name).length > 80 || /[\r\n<>\0]/.test(payload.name)) {
       messages.name = "Name must be 2–80 characters.";
     }
-    if (payload.email.length < 6 || payload.email.length > 254 || /[\r\n]/.test(payload.email) || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(payload.email)) {
+    if (payload.email.length < 6 || payload.email.length > 254 || /[\r\n\0]/.test(payload.email) || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(payload.email)) {
       messages.email = "Enter a valid email.";
     }
     if (!payload.message) {
       messages.message = "Message is required.";
-    } else if (payload.message.length < 10) {
+    } else if (Array.from(payload.message).length < 10) {
       messages.message = "Message must be at least 10 characters.";
-    } else if (payload.message.length > 4000 || /\r\n\r\nFrom:/i.test(payload.message) || /MIME-Version:/i.test(payload.message)) {
-      messages.message = "Message must be at least 10 characters.";
+    } else if (Array.from(payload.message).length > 4000) {
+      messages.message = "Message must be at most 4000 characters.";
+    } else if (/\0|\r\n\r\nFrom:|MIME-Version:/i.test(payload.message)) {
+      messages.message = "Remove mail headers or control characters from the message.";
     }
     Object.keys(messages).forEach(function (name) { setFieldError(name, messages[name]); });
     return messages;
@@ -93,12 +99,8 @@
     var endpoints = ["/api/contact.php", "/api/contact", "/api/contact/"];
     var last = null;
     for (var index = 0; index < endpoints.length; index += 1) {
-      try {
-        last = await postOne(endpoints[index], payload, token);
-        if (last.response.status !== 404 || index === endpoints.length - 1) return last;
-      } catch (error) {
-        if (index === endpoints.length - 1) throw error;
-      }
+      last = await postOne(endpoints[index], payload, token);
+      if (last.response.status !== 404 || index === endpoints.length - 1) return last;
     }
     return last;
   }
@@ -110,33 +112,31 @@
     });
   });
 
-  var tokenPromise = loadToken().catch(function () { return ""; });
-
   form.addEventListener("submit", async function (event) {
     event.preventDefault();
+    if (sending) return;
     var payload = {
       name: fields.name.value.trim(),
       email: fields.email.value.trim(),
       message: fields.message.value.trim(),
       company: fields.company.value.trim(),
-      page: window.location.pathname === "/403.html" ? "403" : "contact"
+      page: document.querySelector(".error-panel-403") ? "403" : "contact"
     };
     var messages = payload.company ? { name: "", email: "", message: "" } : validate(payload);
     if (payload.company) clearErrors();
     var firstError = messages.name || messages.email || messages.message;
     if (firstError) {
       setState("Error", firstError);
+      fields[Object.keys(messages).find(function (name) { return messages[name]; })].focus();
       return;
     }
 
     setState("Sending", "");
+    sending = true;
     button.disabled = true;
+    form.setAttribute("aria-busy", "true");
     try {
-      var token = payload.company ? "" : await tokenPromise;
-      if (!token && !payload.company) {
-        token = await loadToken();
-        tokenPromise = Promise.resolve(token);
-      }
+      var token = payload.company ? "" : await loadToken();
       payload.token = token;
       var result = await postMessage(payload, token);
       if (result && result.response.ok && result.json && result.json.ok === true) {
@@ -151,7 +151,9 @@
     } catch (error) {
       setState("Error", "Message not sent.");
     } finally {
+      sending = false;
       button.disabled = false;
+      form.setAttribute("aria-busy", "false");
     }
   });
 })();

@@ -25,10 +25,10 @@ $row = hl_alert_row('PATH ' . $reason, 'sensitive path / traversal', true);
 hl_honeypot_write($row);
 
 http_response_code(403);
-header('Content-Type: text/plain; charset=utf-8');
+header('Content-Type: text/html; charset=utf-8');
 header('Cache-Control: no-store');
 header('X-Content-Type-Options: nosniff');
-if ($method !== 'HEAD') echo 'Forbidden';
+if ($method !== 'HEAD') readfile(dirname(__DIR__) . '/403.html');
 // Release the client before a bounded network call. This pool has two workers
 // and nginx admits one/IP/minute and a sustained six/minute globally, burst 1.
 if (function_exists('fastcgi_finish_request')) fastcgi_finish_request();

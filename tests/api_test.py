@@ -29,6 +29,7 @@ def run():
         sessions = temporary / 'sessions'
         for folder in [api, state, config, sessions]:
             folder.mkdir(parents=True, exist_ok=True)
+        (public / '403.html').write_bytes((REPO / '403.html').read_bytes())
         for source in (REPO / 'api').rglob('*.php'):
             target = api / source.relative_to(REPO / 'api')
             target.parent.mkdir(parents=True, exist_ok=True)
@@ -209,8 +210,13 @@ def run():
             expect(malformed.request('shell-auth', {'user': 'admin', 'password': passwords[0], 'slot': malformed.id, 'generation': 0}, {'Cookie': f'hl_op={cookie}%00; hl_session={malformed.cookies["hl_session"]}'})[0], 401, 'malformed operator cookie')
             malformed.request('shell-slot', {'op': 'release', 'id': malformed.id})
             # Cached APIs stay usable without any outbound request.
-            (state / 'highlion-intel.json').write_text(json.dumps({'ok': True, 'items': [{'title': 'cached', 'thumb': ''}], 'count': 1}))
-            expect(visitor.request('intel')[1]['count'], 1, 'news cache')
+            cached_thumb = 'a' * 40
+            (state / 'highlion-thumbs').mkdir(exist_ok=True)
+            (state / 'highlion-thumbs' / cached_thumb).write_bytes(b'cached-image-fixture')
+            (state / 'highlion-intel.json').write_text(json.dumps({'ok': True, 'items': [{'title': 'cached', 'thumb': '/api/thumb.php?id=' + cached_thumb + '&v=outdated'}], 'count': 1}))
+            cached_feed = visitor.request('intel')[1]
+            expect(cached_feed['count'], 1, 'news cache')
+            expect(cached_feed['items'][0]['thumb'], '/api/thumb.php?id=' + cached_thumb + '&v=hl8z', 'cached thumbnail version normalized')
             (state / 'highlion-market.json').write_text(json.dumps({'bitcoin:1': {'fetched_at': int(time.time()), 'prices': [[1, 2], [3, 4]]}}))
             expect(visitor.request('market?coin=bitcoin&days=1')[1]['prices'], [[1, 2], [3, 4]], 'market cache')
             expect(visitor.request('thumb', extra={'Origin': ''})[0], 204, 'missing thumbnail')
@@ -250,9 +256,12 @@ def run():
             expect(row['ip'], '127.0.0.1', 'spoofed proxy headers ignored')
             expect(row['ua'], 'HL8x-QA / accurate UA <&>', 'honeypot accurate UA')
             expect(row['type'], 'BAD-METHOD', 'method type retained')
-            expect(hpot.request('deny?private=.env&x=%3Cbad%3E')[0], 403, 'deny response')
+            expect((api / 'deny.php').exists(), False, 'public deny endpoint stays absent')
+            relay_code = '$_SERVER["HL_ROUTE"]="station"; $_SERVER["REQUEST_METHOD"]="GET"; $_SERVER["REMOTE_ADDR"]="127.0.0.1"; $_SERVER["REQUEST_URI"]="/.env?private=.env&x=%3Cbad%3E"; $_SERVER["QUERY_STRING"]="private=.env&x=%3Cbad%3E"; $_SERVER["HL_REASON"]="private-file"; require $argv[1];'
+            relay_body = subprocess.check_output([PHP, '-r', relay_code, str(api / '_relay.php')])
+            expect(b'Access forbidden.' in relay_body, True, 'internal relay has styled HTML fallback')
             row = json.loads((state / 'highlion-honeypot.log').read_text().splitlines()[-1])
-            expect(row['query'], 'private=.env&x=%3Cbad%3E', 'deny query retained')
+            expect(row['query'], 'private=.env&x=%3Cbad%3E', 'internal relay query retained')
             expect(hpot.request('contact', {'company': 'bot'})[0], 200, 'honeypot stays plausible')
             expect(hpot.request('contact', extra={'Content-Type': 'application/x-www-form-urlencoded'}, raw='company=bot&page=403')[0], 200, 'form honeypot parsed')
             expect(hpot.request('shell-slot', extra={'Content-Type': 'application/x-www-form-urlencoded'}, raw='op=acquire')[0], 400, 'shell API remains strict JSON')
@@ -300,7 +309,7 @@ def run():
             expect(html.count('<td>'), 12, 'all request fields in readable two-column table')
             title_code = 'require $argv[1]; echo json_encode(array_map("hl_alert_title",json_decode(stream_get_contents(STDIN),true)));'
             titles = json.loads(subprocess.check_output([PHP, '-r', title_code, str(api / '_lib.php')], input=json.dumps(['TEST transport', 'PATH traversal', 'PATH xss', 'PATH private-file', 'HPOT-COMPANY', 'CSRF-FAIL', 'BAD-METHOD', 'RATE-LIMIT']).encode()))
-            expect(titles, ['HighLion security alert — test', 'Path traversal detected', 'XSS payload detected', 'Sensitive file access detected', 'Honeypot submission detected', 'CSRF validation failed', 'Unexpected HTTP method detected', 'Request rate limit reached'], 'event-specific alert titles')
+            expect(titles, ['HighLion security alert — test', 'Path traversal detected', 'XSS payload detected', 'Sensitive file access detected', 'Unexpected company field', 'CSRF validation failed', 'Unexpected HTTP method detected', 'Request rate limit reached'], 'event-specific alert titles')
             # Capture the real Telegram transport envelope without sending any network traffic.
             (config / 'honeypot.env').write_text('TELEGRAM_BOT_TOKEN=qa-bot\nTELEGRAM_CHAT_ID=qa-chat\n')
             transport = r'''require $argv[1];

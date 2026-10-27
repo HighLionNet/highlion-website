@@ -19,6 +19,9 @@ install -d -m 0700 "$backup_dir"
 # in /etc/highlion, runtime state and active nginx/PHP configuration are untouched.
 rsync -a --delete --delay-updates --backup --backup-dir="$backup_dir/files" \
   --chown=root:www-data --chmod=D755,F644 \
+  --filter='P /deploy/***' \
+  --exclude='/.qa/' --exclude='/.hl8x-worktree/' --exclude='/node_modules/' \
+  --exclude='/tests/' --exclude='__pycache__/' --exclude='*.py[cod]' \
   --exclude='/.git/' --exclude='/.well-known/' --exclude='*.env' \
   "$source_dir/" "$site_root/"
 

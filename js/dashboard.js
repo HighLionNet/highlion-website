@@ -42,6 +42,7 @@
     var payload = await fetchTraffic();
     if (!payload) {
       paintCodes([]);
+      paintTopPaths([]);
       return;
     }
     paintCodes(payload.exact, String(payload.window || "") + " " + String(payload.generated || ""));
@@ -81,8 +82,10 @@
   function paintTopPaths(top) {
     var block = document.getElementById("dTopPaths");
     var list = document.getElementById("dTopPathList");
-    if (!block || !list || !Array.isArray(top) || !top.length) return;
+    if (!block || !list) return;
     list.replaceChildren();
+    block.hidden = !Array.isArray(top) || !top.length;
+    if (block.hidden) return;
     top.slice(0, 5).forEach(function (row) {
       var item = document.createElement("li");
       var path = document.createElement("span");

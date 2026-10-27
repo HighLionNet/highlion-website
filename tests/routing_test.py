@@ -134,10 +134,15 @@ try:
         assert status in expected, (target, status, body[:100])
         assert status != 418, target
         checks += 1
+        if status in [403, 404, 405] and kwargs.get('method', 'GET') != 'HEAD':
+            assert body == (PUBLIC / f'{status}.html').read_bytes(), (target, status, 'unstyled error', body[:120])
+            assert 'text/html' in headers.get('Content-Type', ''), (target, headers)
+            assert headers.get('Cache-Control') == 'no-store', (target, headers)
+            assert 'Content-Security-Policy' in headers, (target, 'error lost security headers')
         return body, headers
 
     # Every shipped static file, including fake shell passwd/shadow/resolv.conf,
-    # HTML includes, CSS, JS, fonts, PDFs, MP4s and the hl8w cache query.
+    # HTML includes, CSS, JS, fonts, PDFs, MP4s and the unified cache query.
     for source in PUBLIC.rglob('*'):
         if source.is_file() and 'api' not in source.relative_to(PUBLIC).parts and source.name != 'alerts.jsonl':
             path = '/' + source.relative_to(PUBLIC).as_posix() + '?v=hl8z'
@@ -152,7 +157,16 @@ try:
     for method in ['HEAD', 'OPTIONS', 'PUT', 'DELETE', 'PATCH', 'TRACE', 'PROPFIND']:
         expect('/css/style.css', [200] if method == 'HEAD' else [405], method=method)
     expect('/about.html', [405], method='POST', body='x')
-    expect('/contact.html', [403], headers={'CF-IPCountry': 'US'})
+    for contact in ['/contact', '/contact.html', '/%63ontact.html']:
+        for country in ['US', '', 'XX', 'il', 'IL,US']:
+            body, _ = expect(contact, [403], headers={'CF-IPCountry': country})
+            assert b'id="contactForm"' in body and b'name="company"' in body
+        body, _ = expect(contact, [200])
+        assert body == (PUBLIC / 'contact.html').read_bytes(), contact
+        expect(contact, [403], source='127.0.0.2')
+    expect('/404.html', [404], method='HEAD')
+    expect('/missing-page', [404], method='HEAD')
+    expect('/403.html', [404], headers={'CF-IPCountry': ''})
     # A nontrusted socket cannot claim IL or a different visitor IP.
     expect('/contact.html', [403], source='127.0.0.2')
     expect('/about.html', [200], source='127.0.0.2', headers={'User-Agent': 'Nikto sqlmap ../../etc/passwd', 'X-Original-URL': '/.env', 'X-Rewrite-URL': '/etc/passwd'})
@@ -171,6 +185,8 @@ try:
     identity = json.loads(body)
     assert identity['ip'] == identity['remote_addr'] == '127.0.0.2' and identity['source'] == 'socket' and identity['verified'] is False
     onion = 'hh7547je3hpb4hj7stuiorzwnwazamecatqn6saqkxamlmckztgr2lid.onion'
+    for contact in ['/contact', '/contact.html']:
+        expect(contact, [403], port=TOR, headers={'Host': onion, 'CF-IPCountry': 'IL'})
     body, _ = expect('/api/client-ip.php', [200], port=TOR, ip='8.8.8.8', headers={'Host': onion})
     identity = json.loads(body)
     assert identity['ip'] is None and identity['remote_addr'] == '127.0.0.1' and identity['source'] == 'tor' and identity['verified'] is False
@@ -182,7 +198,10 @@ try:
     token_body, _ = expect('/api/csrf.php', [200], ip='192.0.2.10')
     token = json.loads(token_body)['token']
     for suffix in ['', '.php', '/', '/index.php']:
-        expect('/api/contact' + suffix, [200], ip='192.0.2.10', method='POST', headers={'Content-Type': 'application/json', 'Origin': 'https://www.highlion.net', 'Cookie': 'hl_csrf=' + token}, body=json.dumps({'name':'Test Person', 'email':'test@example.org', 'message':'A real contact message mentioning /etc/passwd and php://filter.', 'token':token}))
+        expect('/api/contact' + suffix, [200], ip='192.0.2.10', method='POST', headers={'CF-IPCountry':'US', 'Content-Type': 'application/json', 'Origin': 'https://www.highlion.net', 'Cookie': 'hl_csrf=' + token}, body=json.dumps({'name':'Test Person', 'email':'test@example.org', 'message':'A real contact message mentioning /etc/passwd and php://filter.', 'token':token}))
+    expect('/api/contact.php', [200], ip='192.0.2.12', method='POST', headers={'CF-IPCountry':'US', 'Content-Type':'application/x-www-form-urlencoded', 'Origin':'https://www.highlion.net', 'Cookie':'hl_csrf=' + token}, body='name=Test+Person&email=test%40example.org&message=A+form+encoded+contact+message.&token=' + token)
+    for suffix in ['.php', '', '/']:
+        expect('/api/contact' + suffix, [200], ip='192.0.2.13', method='POST', headers={'CF-IPCountry':'US', 'Content-Type':'application/x-www-form-urlencoded'}, body='company=bot&page=403')
     for name in ['shell-slot', 'shell-auth', 'ctf']:
         expect('/api/' + name + '.php', [200, 400, 401, 404], method='POST', headers={'Origin': 'https://www.highlion.net', 'Content-Type':'application/json'}, body='{}', ip='192.0.2.11')
     before = (PUBLIC / 'alerts.jsonl').read_text().count('\n')
@@ -229,7 +248,7 @@ try:
     for i in range(7):
         expect('/api/shell-auth' + ['','.php','/','/index.php'][i % 4], [401] if i < 5 else [429], ip='192.0.2.70', method='POST', headers={'Origin':'https://www.highlion.net'}, body='{}')
     # A scan, throttling and API gates must not impair healthy assets/endpoints.
-    expect('/about.html?v=hl8y', [200])
+    expect('/about.html?v=hl8z', [200])
     expect('/api/csrf.php', [200])
     # Static auth subrequests and application requests must enforce the same IP.
     banned = WORK / 'state/abuse' / (hashlib.sha256(b'8.8.4.4').hexdigest() + '.json')
@@ -238,6 +257,7 @@ try:
         expect('/about.html', [403], ip='8.8.4.4', port=origin_port)
         expect('/api/client-ip.php', [403], ip='8.8.4.4', port=origin_port)
     expect('/api/client-ip.php', [200], ip='8.8.4.4', port=TOR, headers={'Host': onion})
+    expect('/api/contact.php', [405], ip='192.0.2.91')
     errors = (WORK / 'logs/error.log').read_text()
     assert 'redirection cycle' not in errors and 'rewrite or internal' not in errors, errors
     logged = [json.loads(line) for line in (WORK / 'logs/security.log').read_text().splitlines()]

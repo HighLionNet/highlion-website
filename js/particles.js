@@ -27,6 +27,7 @@
   var dpr = 1;
   var frame = 0;
   var lastFrame = 0;
+  var enabled = true;
   var pointer = { x: 0, y: 0, active: false };
 
   function clamp(value, minimum, maximum) {
@@ -89,12 +90,12 @@
     context.setTransform(dpr, 0, 0, dpr, 0, 0);
     var count = clamp(Math.floor(width * height / COUNT_DIVISOR), 70, 160);
     points = Array.from({ length: count }, makePoint);
-    if (motionQuery.matches) clear();
+    if (!enabled || motionQuery.matches) clear();
     else draw();
   }
 
   function animate(now) {
-    if (motionQuery.matches) {
+    if (!enabled || motionQuery.matches) {
       frame = 0;
       clear();
       return;
@@ -139,7 +140,7 @@
   }
 
   function start() {
-    if (!frame && !motionQuery.matches) {
+    if (enabled && !frame && !motionQuery.matches) {
       lastFrame = 0;
       frame = window.requestAnimationFrame(animate);
     }
@@ -158,7 +159,7 @@
       if (frame) window.cancelAnimationFrame(frame);
       frame = 0;
       clear();
-    } else {
+    } else if (enabled) {
       draw();
       start();
     }
@@ -168,8 +169,9 @@
   start();
 
   window.HighLionParticles = {
-    start: start,
+    start: function () { enabled = true; start(); },
     stop: function () {
+      enabled = false;
       if (frame) window.cancelAnimationFrame(frame);
       frame = 0;
       clear();
