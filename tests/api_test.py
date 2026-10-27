@@ -250,9 +250,9 @@ def run():
             expect(row['ip'], '127.0.0.1', 'spoofed proxy headers ignored')
             expect(row['ua'], 'HL8x-QA / accurate UA <&>', 'honeypot accurate UA')
             expect(row['type'], 'BAD-METHOD', 'method type retained')
-            expect(hpot.request('trap?private=.env&x=%3Cbad%3E')[0], 403, 'trap response')
+            expect(hpot.request('deny?private=.env&x=%3Cbad%3E')[0], 403, 'deny response')
             row = json.loads((state / 'highlion-honeypot.log').read_text().splitlines()[-1])
-            expect(row['query'], 'private=.env&x=%3Cbad%3E', 'trap query retained')
+            expect(row['query'], 'private=.env&x=%3Cbad%3E', 'deny query retained')
             expect(hpot.request('contact', {'company': 'bot'})[0], 200, 'honeypot stays plausible')
             expect(hpot.request('contact', extra={'Content-Type': 'application/x-www-form-urlencoded'}, raw='company=bot&page=403')[0], 200, 'form honeypot parsed')
             expect(hpot.request('shell-slot', extra={'Content-Type': 'application/x-www-form-urlencoded'}, raw='op=acquire')[0], 400, 'shell API remains strict JSON')
@@ -327,9 +327,9 @@ hl_telegram($argv[2],'letterbox stays plain'); echo json_encode($GLOBALS['sent']
             # Separate PHP processes contend on the same real file lock.
             store.write_text('{"slots":[]}')
             (api / '_session.php').write_text((api / '_session.php').read_text().replace('php://input', 'php://stdin'))
-            bootstrap = "$_SERVER['REQUEST_METHOD']='POST'; $_SERVER['HTTP_ORIGIN']='https://www.highlion.net'; $_SERVER['REMOTE_ADDR']=$argv[1]; require $argv[2];"
+            bootsdeny = "$_SERVER['REQUEST_METHOD']='POST'; $_SERVER['HTTP_ORIGIN']='https://www.highlion.net'; $_SERVER['REMOTE_ADDR']=$argv[1]; require $argv[2];"
             def concurrent_acquire(index):
-                output = subprocess.check_output([PHP, '-d', 'session.save_path=' + sessions.as_posix(), '-r', bootstrap, f'198.51.100.{index}', str(api / 'shell-slot.php')], input=b'{"op":"acquire"}')
+                output = subprocess.check_output([PHP, '-d', 'session.save_path=' + sessions.as_posix(), '-r', bootsdeny, f'198.51.100.{index}', str(api / 'shell-slot.php')], input=b'{"op":"acquire"}')
                 return json.loads(output)
             with concurrent.futures.ThreadPoolExecutor(max_workers=16) as pool:
                 replies = list(pool.map(concurrent_acquire, range(1, 17)))
