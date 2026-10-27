@@ -120,7 +120,17 @@ const server = http.createServer(async (req, res) => {
           const links = await page.locator('[data-project-class=web] .xdr-links a').evaluateAll(nodes => nodes.map(node => getComputedStyle(node).color));
           assert.notEqual(links[0], links[1]);
           const seam = await page.locator('.project-console tbody td:nth-child(2)').first().evaluate(el => [getComputedStyle(el.previousElementSibling).borderRightWidth, getComputedStyle(el).borderLeftWidth, getComputedStyle(el).boxShadow]);
-          assert.deepEqual(seam, ['0px', '1px', 'none']);
+          assert.deepEqual(seam, ['0px', '0px', 'none']);
+          if (width >= 980) {
+            const placed = await page.locator('.project-checksum').evaluate(node => {
+              const hash = node.getBoundingClientRect();
+              const link = node.closest('.xdr-link-row').querySelector('a').getBoundingClientRect();
+              return hash.left > link.right && getComputedStyle(node).textAlign === 'left';
+            });
+            assert.equal(placed, true, 'checksum sits to the right of the links');
+            const heights = await page.locator('.project-console tbody tr').evaluateAll(rows => rows.map(row => row.getBoundingClientRect().height));
+            assert.ok(Math.max(...heights) - Math.min(...heights) <= 8, 'project rows stay level: ' + heights.join(','));
+          }
           const borders = await page.locator('.xdr-side button').evaluateAll(nodes => nodes.map(node => [getComputedStyle(node).borderTopWidth, getComputedStyle(node).borderLeftWidth, getComputedStyle(node).borderTopColor, getComputedStyle(node).borderLeftColor]));
           const edge = width < 980 ? 1 : 0;
           assert.equal(borders[0][edge], '0px');

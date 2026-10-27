@@ -10,7 +10,7 @@
   }
 
   async function fetchJson(name) {
-    var response = await fetch(packBase + name + "?v=hl94", { cache: "no-store", credentials: "same-origin" });
+    var response = await fetch(packBase + name + "?v=hl95", { cache: "no-store", credentials: "same-origin" });
     if (!response.ok) throw new Error("pack unavailable: " + name);
     return response.json();
   }

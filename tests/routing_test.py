@@ -145,7 +145,7 @@ try:
     # HTML includes, CSS, JS, fonts, PDFs, MP4s and the unified cache query.
     for source in PUBLIC.rglob('*'):
         if source.is_file() and 'api' not in source.relative_to(PUBLIC).parts and source.name != 'alerts.jsonl':
-            path = '/' + source.relative_to(PUBLIC).as_posix() + '?v=hl94'
+            path = '/' + source.relative_to(PUBLIC).as_posix() + '?v=hl95'
             if source.name in ['403.html', '404.html', '405.html']:
                 expect(path, [404])  # Error documents are internal-only in production.
             else:
@@ -248,7 +248,7 @@ try:
     for i in range(7):
         expect('/api/shell-auth' + ['','.php','/','/index.php'][i % 4], [401] if i < 5 else [429], ip='192.0.2.70', method='POST', headers={'Origin':'https://www.highlion.net'}, body='{}')
     # A scan, throttling and API gates must not impair healthy assets/endpoints.
-    expect('/about.html?v=hl94', [200])
+    expect('/about.html?v=hl95', [200])
     expect('/api/csrf.php', [200])
     # Static auth subrequests and application requests must enforce the same IP.
     banned = WORK / 'state/abuse' / (hashlib.sha256(b'8.8.4.4').hexdigest() + '.json')
