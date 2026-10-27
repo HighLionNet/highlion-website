@@ -21,7 +21,7 @@ $reason = $clean($_SERVER['HL_REASON'] ?? '', 40);
 
 // No sessions, payload parsing, eval, file includes from user input or writes
 // into the webroot. nginx retains the complete escaped URI in its own log.
-$row = hl_alert_row('PATH ' . $reason, 'sensitive path / traversal trap', true);
+$row = hl_alert_row('PATH ' . $reason, 'sensitive path / traversal', true);
 hl_honeypot_write($row);
 
 http_response_code(403);
