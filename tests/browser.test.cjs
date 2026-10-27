@@ -124,6 +124,15 @@ const server = http.createServer(async (req, res) => {
     }
     console.log('Browser: 20 desktop/mobile page checks, header labels/colors, CLI navigation, source downloads and projects passed.');
 
+    await page.route('**/api/ctf.php', route => route.fulfill({ status: 403, contentType: 'text/html', body: fs.readFileSync(path.join(root, '403.html'), 'utf8') }));
+    await page.goto(origin + '/projects.html');
+    await page.locator('#navFlags').click();
+    await page.locator('#flagValue').fill('HL8{test_flag}');
+    await page.locator('.flag-form [type=submit]').click();
+    await page.waitForFunction(() => document.querySelector('.flag-status').textContent === 'Claims are unavailable. Try again.');
+    await page.locator('[data-close]').click();
+    await page.unroute('**/api/ctf.php');
+
     await page.goto(origin + '/contact.html');
     assert.equal(await page.locator('a[href="mailto:admin@highlion.net"]').textContent().then(x => x.trim()), 'admin@highlion.net');
     assert.equal(await page.locator('a[href="mailto:admin@highlion.net?subject=Resume%20request"]').count(), 1);

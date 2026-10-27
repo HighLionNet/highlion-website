@@ -24,8 +24,8 @@
       options.body = JSON.stringify({ flag: flag });
     }
     var response = await fetch("/api/ctf.php", options);
-    var payload = await response.json();
-    if (!response.ok || payload.ok !== true) {
+    var payload = await response.json().catch(function () { return null; });
+    if (!response.ok || !payload || payload.ok !== true) {
       throw new Error(response.status === 429 ? "Too many attempts. Try again later." : response.status === 400 ? "flag not recognized" : "Claims are unavailable. Try again.");
     }
     save(payload);
