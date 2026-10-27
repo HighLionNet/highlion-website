@@ -186,7 +186,7 @@ try:
     for name in ['shell-slot', 'shell-auth', 'ctf']:
         expect('/api/' + name + '.php', [200, 400, 401, 404], method='POST', headers={'Origin': 'https://www.highlion.net', 'Content-Type':'application/json'}, body='{}', ip='192.0.2.11')
     before = (PUBLIC / 'alerts.jsonl').read_text().count('\n')
-    for target in ['/api/trap', '/api/trap.php', '/api/trap/', '/api/trap/index.php', '/api/_relay.php', '/api/_lib.php', '/api/csrf.php/anything', '/api/unknown.php', '/deploy/nginx-api.conf', '/tests/api_test.py', '/lab/', '/backup.sql', '/a.php.jpg']:
+    for target in ['/api/deny', '/api/deny.php', '/api/deny/', '/api/deny/index.php', '/api/_relay.php', '/api/_lib.php', '/api/csrf.php/anything', '/api/unknown.php', '/deploy/nginx-api.conf', '/tests/api_test.py', '/lab/', '/backup.sql', '/a.php.jpg']:
         expect(target, [404])
     assert (PUBLIC / 'alerts.jsonl').read_text().count('\n') == before
     scanner = ['/wp-login.php', '/PHPMyAdmin/index.php', '/%77p-login.php', '//wp-admin/', '/foo/actuator/env', '/cgi-bin/bash', '/server-status', '/vendor/phpunit/phpunit/src/Util/PHP/eval-stdin.php', '/manager/html', '/.DS_Store']
