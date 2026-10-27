@@ -1902,6 +1902,12 @@ h3 {
   max-width: none;
   font-size: clamp(1.3rem, 2.3vw, 1.85rem);
 }
+.article-head .page-head-row {
+  justify-content: center;
+}
+.article-head .page-head-row h1 {
+  text-align: center;
+}
 
 .article-meta,
 .article-content {
