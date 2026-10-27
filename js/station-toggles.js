@@ -33,12 +33,12 @@
       if (fx === "on") window.HighLionParticles.start();
       else window.HighLionParticles.stop();
     }
-    paint(document.getElementById("navFx"), "FX on/off", fx);
+    paint(document.getElementById("navFx"), "FX", fx);
   }
 
   function applyScan() {
     document.documentElement.classList.toggle("is-scan-off", scan === "off");
-    paint(document.getElementById("navScan"), "SCAN on/off", scan);
+    paint(document.getElementById("navScan"), "SCAN", scan);
   }
 
   function bind() {
@@ -65,6 +65,7 @@
   function bindCli() {
     var button = document.getElementById("navCli");
     if (!button) return false;
+    button.hidden = false;
     if (button.dataset.bound === "true") return true;
     button.dataset.bound = "true";
     button.addEventListener("click", function () {
