@@ -70,14 +70,24 @@ try {
     $suffix = substr(sha1(uniqid('hl', true)), 0, 6);
 }
 $subject = '[HighLion] letterbox ' . gmdate('Ymd') . '-' . $suffix;
-$body = implode("\n", [
-    'Name: ' . $safeName,
-    'Email: ' . $safeEmail,
-    'Time: ' . gmdate('c'),
-    '-----',
-    $safeMessage,
-]);
-$sent = hl_telegram('/etc/highlion/letterbox.env', $subject . "\n" . $body);
+$escape = static function (string $value): string {
+    return htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+};
+$rows = [
+    'Time (UTC)' => gmdate('c'),
+    'Name' => $safeName,
+    'Email' => $safeEmail,
+    'Remote IP' => hl_client_ip(),
+    'User agent' => substr((string) ($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 512),
+];
+$html = '<h3>' . $escape($subject) . '</h3><table bordered striped compact><tr><th>Field</th><th>Value</th></tr>';
+foreach ($rows as $label => $value) {
+    $escaped = $escape($value);
+    if ($escaped !== '' && ($label === 'Remote IP' || $label === 'User agent')) $escaped = '<b>' . $escaped . '</b>';
+    $html .= '<tr><th>' . $escape($label) . '</th><td>' . ($escaped === '' ? '—' : $escaped) . '</td></tr>';
+}
+$html .= '</table><p><b>Message</b></p><pre>' . $escape($safeMessage) . '</pre>';
+$sent = hl_telegram('/etc/highlion/letterbox.env', $html, true);
 if (!$sent) {
     hl_json(['ok' => false], 500);
 }
