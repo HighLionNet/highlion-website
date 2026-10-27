@@ -164,7 +164,7 @@ const server = http.createServer(async (req, res) => {
           assert.equal(await page.locator('#hlterm-panel-about a').getAttribute('href'), '/#hlterm-panel');
           await page.locator('#srcSelect').selectOption('about.html');
           await page.locator('#srcDownload:enabled').waitFor();
-          assert.match(await page.locator('#srcOut').textContent(), /currnetly.*develope.*planing/);
+          assert.match(await page.locator('#srcOut').textContent(), /currently.*develop.*planning/);
         }
         if (['index', 'about', 'projects', 'contact', '403', '404', '405', 'writeups'].includes(name)) {
           await page.locator('#navCli').click();
