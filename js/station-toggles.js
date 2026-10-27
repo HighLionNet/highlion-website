@@ -65,10 +65,7 @@
   function bindCli() {
     var button = document.getElementById("navCli");
     if (!button) return false;
-    var path = window.location.pathname;
-    var isHome = path === "/" || path === "/index.html";
-    button.hidden = !isHome;
-    if (!isHome || button.dataset.bound === "true") return true;
+    if (button.dataset.bound === "true") return true;
     button.dataset.bound = "true";
     button.addEventListener("click", function () {
       var terminal = document.getElementById("hlterm") || document.getElementById("hlterm-panel");
