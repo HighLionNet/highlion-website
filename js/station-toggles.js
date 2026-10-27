@@ -1,1 +1,101 @@
-$(cat /tmp/station-toggles.js)
+(function () {
+  "use strict";
+
+  var reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
+
+  function read(key, fallback) {
+    try {
+      var value = window.sessionStorage.getItem(key);
+      return value === "on" || value === "off" ? value : fallback;
+    } catch (error) {
+      return fallback;
+    }
+  }
+
+  function write(key, value) {
+    try { window.sessionStorage.setItem(key, value); } catch (error) {}
+  }
+
+  var fx = read("hl-fx", reduced.matches ? "off" : "on");
+  var scan = read("hl-scan", "on");
+  var savedAppearance = null;
+
+  function paint(button, label, value) {
+    if (!button) return;
+    button.textContent = label;
+    button.setAttribute("aria-label", label + " " + value);
+    button.setAttribute("aria-pressed", value === "on" ? "true" : "false");
+    button.dataset.state = value;
+  }
+
+  function applyFx() {
+    if (window.HighLionParticles) {
+      if (fx === "on") window.HighLionParticles.start();
+      else window.HighLionParticles.stop();
+    }
+    paint(document.getElementById("navFx"), "FX on/off", fx);
+  }
+
+  function applyScan() {
+    document.documentElement.classList.toggle("is-scan-off", scan === "off");
+    paint(document.getElementById("navScan"), "SCAN on/off", scan);
+  }
+
+  function bind() {
+    var fxButton = document.getElementById("navFx");
+    var scanButton = document.getElementById("navScan");
+    if (!fxButton || !scanButton || fxButton.dataset.bound === "true") return false;
+    fxButton.dataset.bound = "true";
+    scanButton.dataset.bound = "true";
+    fxButton.addEventListener("click", function () {
+      fx = fx === "on" ? "off" : "on";
+      write("hl-fx", fx);
+      applyFx();
+    });
+    scanButton.addEventListener("click", function () {
+      scan = scan === "on" ? "off" : "on";
+      write("hl-scan", scan);
+      applyScan();
+    });
+    applyFx();
+    applyScan();
+    return true;
+  }
+
+  function bindCli() {
+    var button = document.getElementById("navCli");
+    if (!button) return false;
+    var path = window.location.pathname;
+    var isHome = path === "/" || path === "/index.html";
+    button.hidden = !isHome;
+    if (!isHome || button.dataset.bound === "true") return true;
+    button.dataset.bound = "true";
+    button.addEventListener("click", function () {
+      var terminal = document.getElementById("hlterm") || document.getElementById("hlterm-panel");
+      if (terminal) terminal.scrollIntoView({ block: "start", behavior: reduced.matches ? "auto" : "smooth" });
+    });
+    return true;
+  }
+
+  window.addEventListener("hl:appearance", function (event) {
+    var change = event.detail || {};
+    if (change.save && !savedAppearance) savedAppearance = { fx: fx, scan: scan };
+    if (change.restore && savedAppearance) { fx = savedAppearance.fx; scan = savedAppearance.scan; savedAppearance = null; }
+    if (["on", "off"].indexOf(change.fx) !== -1) fx = change.fx;
+    if (["on", "off"].indexOf(change.scan) !== -1) scan = change.scan;
+    applyFx(); applyScan();
+  });
+  window.addEventListener("hl:fx", function (event) {
+    if (["on", "off"].indexOf(event.detail) === -1) return;
+    fx = event.detail; write("hl-fx", fx); applyFx();
+  });
+  applyFx();
+  applyScan();
+  if (!bind() || !bindCli()) {
+    var observer = new MutationObserver(function () {
+      if (!bind() || !bindCli()) return;
+      observer.disconnect();
+    });
+    observer.observe(document.documentElement, { childList: true, subtree: true });
+  }
+})();
