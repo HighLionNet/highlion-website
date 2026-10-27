@@ -52,7 +52,7 @@
     "/home/kali/highlion/.git/HEAD": {"mode": "0644", "owner": "kali", "group": "kali", "content": "ref: refs/heads/main\n"},
     "/home/kali/highlion/.git/refs/heads/main": {"mode": "0644", "owner": "kali", "group": "kali", "content": "545b41606a274209003cc1e66e4cd1bfc04468f9\n"},
     "/home/kali/highlion/.git/config": {"mode": "0644", "owner": "kali", "group": "kali", "content": "[core]\n\trepositoryformatversion = 0\n\tbare = false\n[branch \"main\"]\n\tmerge = refs/heads/main\n"},
-    "/home/kali/highlion/projects.md": {"mode": "0644", "owner": "kali", "group": "kali", "content": "Home Lab\nNetworking\nHighLion Web\nWindows Privacy Platform\n"},
+    "/home/kali/highlion/projects.md": {"mode": "0644", "owner": "kali", "group": "kali", "content": "Home Lab\nPihole DNS Server\nNetworking\nHighLion Web\nWindows Privacy Platform\n"},
     "/home/kali/highlion/writeups.md": {"mode": "0644", "owner": "kali", "group": "kali", "content": "Exposed Pi-hole Admin Page\nCVE-2026-2441\n"},
     "/home/kali/puzzles/notes.txt": {"mode": "0644", "owner": "kali", "group": "kali", "content": "Simulated LAN: 10.8.0.0/24.\nfw01 .1, intranet .21, files01 .34.\nNo WAN from here.\n"},
     "/usr/share/lab/files01.shares": {"mode": "0444", "owner": "root", "group": "root", "content": "public\ntransfer\nfinance          ACCESS_DENIED\nadmin$           ACCESS_DENIED\n"},

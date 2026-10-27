@@ -112,7 +112,9 @@ const server = http.createServer(async (req, res) => {
         }
         if (name === 'projects') {
           assert.equal(await page.locator('thead th').count(), 4);
-          assert.deepEqual(await page.locator('tbody tr').evaluateAll(rows => rows.map(row => row.cells.length)), [4, 4, 4, 4]);
+          assert.deepEqual(await page.locator('tbody tr').evaluateAll(rows => rows.map(row => row.cells.length)), [4, 4, 4, 4, 4]);
+          assert.match(await page.locator('tbody').textContent(), /Pihole DNS Server/);
+          assert.equal((await page.locator('tbody tr').first().locator('td').nth(3).textContent()).trim(), '-');
           assert.equal(await page.locator('.project-checksum').count(), 1);
           assert.equal(await page.locator('.project-checksum').textContent(), 'SHA256: 67173e9f3adc374823fa617716643534d5e9d67edd04df70d76c4294e53ecf5e');
           const colors = await page.locator('tbody tr td:nth-child(2)').evaluateAll(nodes => nodes.map(node => getComputedStyle(node).color));

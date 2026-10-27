@@ -7,7 +7,7 @@
   <meta name="color-scheme" content="dark">
   <meta name="theme-color" content="#070914">
   <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
-  <meta name="description" content="HighLion projects across networking, Linux, web infrastructure, and Windows privacy tooling.">
+  <meta name="description" content="HighLion projects across networking, DNS, web infrastructure, and Windows privacy tooling.">
   <title>HighLion — Projects</title>
   <link rel="icon" href="/assets/icons/HighLion.ico?v=hl95" sizes="any">
   <link rel="stylesheet" href="/css/style.css?v=hl95">
@@ -30,8 +30,8 @@
         <div class="xdr-top"><span class="xdr-mark"><img src="/assets/icons/HighLion.ico?v=hl95" alt=""></span><span>CATALOG</span></div>
         <div class="xdr-body">
           <nav class="xdr-side" aria-label="Project class filter">
-            <button type="button" data-project-filter="all" aria-pressed="true"><span>All</span><b>4</b></button>
-            <button type="button" data-project-filter="infrastructure" aria-pressed="false"><span>Infrastructure</span><b>1</b></button>
+            <button type="button" data-project-filter="all" aria-pressed="true"><span>All</span><b>5</b></button>
+            <button type="button" data-project-filter="infrastructure" aria-pressed="false"><span>Infrastructure</span><b>2</b></button>
             <button type="button" data-project-filter="cisco" aria-pressed="false"><span>Networking</span><b>1</b></button>
             <button type="button" data-project-filter="web" aria-pressed="false"><span>Web</span><b>1</b></button>
             <button type="button" data-project-filter="windows" aria-pressed="false"><span>Windows</span><b>1</b></button>
@@ -43,7 +43,12 @@
                 <tbody>
                   <tr data-project-class="infrastructure">
                     <td><span class="xdr-name">HighLion Network</span><span class="xdr-detail">My home-lab, with a VLAN segmented network, private DNS, cloud, and web servers.</span></td>
-                    <td>Infrastructure</td><td>Live</td><td>Internal lab</td>
+                    <td>Infrastructure</td><td>Live</td><td>-</td>
+                  </tr>
+                  <tr data-project-class="infrastructure" data-href="/writeups/pihole.html" tabindex="0">
+                    <td><span class="xdr-name">Pihole DNS Server</span><span class="xdr-detail">My network DNS server, running Pi-hole.</span></td>
+                    <td>Infrastructure</td><td>Live</td>
+                    <td class="xdr-links"><a href="/writeups/pihole.html">Writeup</a></td>
                   </tr>
                   <tr data-project-class="cisco" data-href="https://github.com/HighLionNet/network-labs" data-row-link="first" tabindex="0">
                     <td><span class="xdr-name">Cisco</span><span class="xdr-detail">My Packet Tracer labs, using Cisco CLI.</span></td>
