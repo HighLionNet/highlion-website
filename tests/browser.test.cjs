@@ -71,15 +71,33 @@ const server = http.createServer(async (req, res) => {
         assert.equal(before[0].color, 'rgb(85, 84, 184)');
         assert.equal(before[1].color, before[0].color);
         assert.equal(before[2].color, 'rgb(126, 71, 152)');
+        const toggleColors = await page.locator('#navFx, #navScan').evaluateAll(nodes => nodes.map(node => ({
+          radius: getComputedStyle(node).borderRadius,
+          color: getComputedStyle(node).backgroundColor,
+          pressed: node.getAttribute('aria-pressed'),
+          label: node.querySelector('.nav-toggle-state').textContent.trim()
+        })));
+        assert.ok(toggleColors.every(item => item.radius === '6px'), name);
+        assert.equal(toggleColors[0].label, toggleColors[0].pressed === 'true' ? 'ON' : 'OFF', name + ' FX label');
+        assert.equal(toggleColors[1].label, toggleColors[1].pressed === 'true' ? 'ON' : 'OFF', name + ' SCAN label');
+        assert.equal(toggleColors[0].color, toggleColors[0].pressed === 'true' ? 'rgb(14, 127, 141)' : 'rgb(22, 52, 59)', name + ' FX');
+        assert.equal(toggleColors[1].color, toggleColors[1].pressed === 'true' ? 'rgb(29, 122, 66)' : 'rgb(22, 53, 40)', name + ' SCAN');
         for (const selector of ['#navFx', '#navScan']) {
           const initial = await page.locator(selector).getAttribute('aria-pressed');
+          const initialState = (await page.locator(selector + ' .nav-toggle-state').textContent()).trim();
           await page.locator(selector).click();
           assert.notEqual(await page.locator(selector).getAttribute('aria-pressed'), initial);
+          assert.notEqual((await page.locator(selector + ' .nav-toggle-state').textContent()).trim(), initialState);
           await page.locator(selector).click();
           assert.equal(await page.locator(selector).getAttribute('aria-pressed'), initial);
+          assert.equal((await page.locator(selector + ' .nav-toggle-state').textContent()).trim(), initialState);
         }
-        assert.equal(await page.locator('#navFx').textContent(), 'FX');
-        assert.equal(await page.locator('#navScan').textContent(), 'SCAN');
+        const fxState = (await page.locator('#navFx .nav-toggle-state').textContent()).trim();
+        const scanState = (await page.locator('#navScan .nav-toggle-state').textContent()).trim();
+        assert.ok(fxState === 'ON' || fxState === 'OFF');
+        assert.ok(scanState === 'ON' || scanState === 'OFF');
+        assert.equal((await page.locator('#navFx .nav-toggle-name').textContent()).trim(), 'FX');
+        assert.equal((await page.locator('#navScan .nav-toggle-name').textContent()).trim(), 'SCAN');
         assert.deepEqual(await page.locator('#navFlags, #navCli, #navTor').evaluateAll(nodes => nodes.map(node => ({ label: node.textContent.trim(), radius: getComputedStyle(node).borderRadius, color: getComputedStyle(node).backgroundColor }))), before);
         assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, name + ' overflow');
         if (name === 'projects') {
@@ -92,9 +110,18 @@ const server = http.createServer(async (req, res) => {
           const links = await page.locator('[data-project-class=web] .xdr-links a').evaluateAll(nodes => nodes.map(node => getComputedStyle(node).color));
           assert.notEqual(links[0], links[1]);
           assert.equal(await page.locator('.xdr-links').first().evaluate(node => getComputedStyle(node).display), 'table-cell');
-          const borders = await page.locator('.xdr-side button').evaluateAll(nodes => nodes.map(node => [getComputedStyle(node).borderTopWidth, getComputedStyle(node).borderLeftWidth]));
-          assert.equal(borders[0][width < 980 ? 1 : 0], '0px');
-          assert.ok(borders.slice(1).every(row => row[width < 980 ? 1 : 0] === '1px'));
+          const borders = await page.locator('.xdr-side button').evaluateAll(nodes => nodes.map(node => [getComputedStyle(node).borderTopWidth, getComputedStyle(node).borderLeftWidth, getComputedStyle(node).borderTopColor, getComputedStyle(node).borderLeftColor]));
+          const edge = width < 980 ? 1 : 0;
+          assert.equal(borders[0][edge], '0px');
+          assert.ok(borders.slice(1).every(row => row[edge] === '1px' && row[edge + 2] === 'rgb(109, 132, 184)'));
+          const hashBox = await page.locator('.project-checksum').evaluate(node => {
+            const hash = node.getBoundingClientRect();
+            const cell = node.closest('td').getBoundingClientRect();
+            return { right: hash.right, left: hash.left, cellRight: cell.right, cellLeft: cell.left, height: hash.height };
+          });
+          assert.ok(hashBox.right <= hashBox.cellRight + 1, 'checksum stays inside its cell');
+          assert.ok(hashBox.left >= hashBox.cellLeft - 1, 'checksum stays inside its cell');
+          assert.ok(hashBox.height > 16, 'checksum stays visible inside the catalog');
           await page.locator('[data-project-filter=web]').click();
           assert.equal(await page.locator('tbody tr:visible').count(), 1);
           await page.locator('[data-project-filter=all]').click();
@@ -230,7 +257,8 @@ const server = http.createServer(async (req, res) => {
     await page.addScriptTag({ url: origin + '/js/station-toggles.js' });
     await page.evaluate(() => { const b = document.createElement('button'); b.id = 'navCli'; b.textContent = 'CLI'; document.body.append(b); });
     await page.waitForFunction(() => document.querySelector('#navCli').dataset.bound === 'true');
-    assert.equal(await page.locator('#navFx span').count(), 1, 'paint preserves markup');
+    assert.equal(await page.locator('#navFx span').first().textContent(), 'FX', 'paint preserves markup');
+    assert.match((await page.locator('#navFx .nav-toggle-state').textContent()).trim(), /^(ON|OFF)$/);
     await page.locator('#navCli').click();
     await page.waitForURL(origin + '/#hlterm-panel');
     assert.deepEqual(errors, [], 'uncaught browser errors');

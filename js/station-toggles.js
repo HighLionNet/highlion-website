@@ -22,9 +22,37 @@
 
   function paint(button, label, value) {
     if (!button) return;
-    button.setAttribute("aria-label", label + " " + value);
-    button.setAttribute("aria-pressed", value === "on" ? "true" : "false");
+    var on = value === "on";
+    button.setAttribute("aria-label", label + (on ? " on" : " off"));
+    button.setAttribute("aria-pressed", on ? "true" : "false");
     button.dataset.state = value;
+    button.classList.toggle("is-on", on);
+    button.classList.toggle("is-off", !on);
+    var name = button.querySelector(".nav-toggle-name");
+    if (!name) {
+      var existing = button.querySelector("span");
+      if (existing && !existing.classList.contains("nav-toggle-state")) name = existing;
+    }
+    if (!name) {
+      var loose = [];
+      for (var index = 0; index < button.childNodes.length; index += 1) {
+        var node = button.childNodes[index];
+        if (node.nodeType === 3 && node.textContent.trim()) loose.push(node);
+      }
+      name = document.createElement("span");
+      name.className = "nav-toggle-name";
+      name.textContent = loose.length ? loose.map(function (node) { return node.textContent.trim(); }).join(" ") : label;
+      if (loose.length) button.insertBefore(name, loose[0]);
+      else button.appendChild(name);
+      loose.forEach(function (node) { node.remove(); });
+    }
+    var state = button.querySelector(".nav-toggle-state");
+    if (!state) {
+      state = document.createElement("span");
+      state.className = "nav-toggle-state";
+      button.appendChild(state);
+    }
+    state.textContent = on ? "ON" : "OFF";
   }
 
   function applyFx() {
