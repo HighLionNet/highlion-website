@@ -2054,9 +2054,13 @@ h3 {
   color: var(--danger);
 }
 
-.honeypot {
+.honeypot,
+.spare {
   position: absolute;
   left: -9999px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
 }
 
 .socials {
