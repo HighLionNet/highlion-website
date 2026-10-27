@@ -43,7 +43,7 @@ function hl_probe_state(bool $strike = false): array
         $row['events'] = array_slice($recent, -32);
         $row['strikes'] = count($row['events']);
         $row['last'] = $now;
-        // Five positive trap events within thirty days: a 270-day ban.
+        // Five positive probe events within thirty days: a 270-day ban.
         if ($row['strikes'] >= 5 && (int) ($row['ban_until'] ?? 0) <= $now) $row['ban_until'] = $now + 270 * 86400;
         rewind($handle);
         $encoded = (string) json_encode($row);
@@ -66,7 +66,7 @@ function hl_alert_title(string $type): string
     if (strpos($type, 'CONFIG-FILE') !== false) return 'Configuration file access attempt detected';
     if (strpos($type, 'PATH') === 0) return 'Sensitive file access detected';
     $titles = [
-        'HPOT-COMPANY' => 'Honeypot submission detected',
+        'HPOT-COMPANY' => 'Unexpected company field',
         'BAD-METHOD' => 'Unexpected HTTP method detected',
         'CSRF-FAIL' => 'CSRF validation failed',
         'RATE-LIMIT' => 'Request rate limit reached',
