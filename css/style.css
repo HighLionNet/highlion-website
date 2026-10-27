@@ -2054,7 +2054,7 @@ h3 {
   color: var(--danger);
 }
 
-.honeypot {
+.spare {
   position: absolute;
   left: -9999px;
 }
