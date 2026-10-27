@@ -5,13 +5,14 @@
   if (!panel) return;
 
   var ALLOWED = {
-    "index.html": "/index.html?v=hl93",
-    "about.html": "/about.html?v=hl93",
-    "projects.html": "/projects.html?v=hl93",
-    "writeups.html": "/writeups.html?v=hl93",
-    "css/style.css": "/css/style.css?v=hl93",
-    "components/header.html": "/components/header.html?v=hl93",
-    "components/footer.html": "/components/footer.html?v=hl93"
+    "index.html": "/index.html?v=hl94",
+    "about.html": "/about.html?v=hl94",
+    "projects.html": "/projects.html?v=hl94",
+    "writeups.html": "/writeups.html?v=hl94",
+    "contact.html": "/contact.html?v=hl94",
+    "css/style.css": "/css/style.css?v=hl94",
+    "components/header.html": "/components/header.html?v=hl94",
+    "components/footer.html": "/components/footer.html?v=hl94"
   };
   var select = document.getElementById("srcSelect");
   var output = document.getElementById("srcOut");
@@ -25,8 +26,8 @@
     currentText = "";
     download.disabled = true;
 
-    var url = ALLOWED[name];
-    if (!url) return;
+    var url = Object.prototype.hasOwnProperty.call(ALLOWED, name) ? ALLOWED[name] : "";
+    if (!url || url.charAt(0) !== "/" || url.indexOf("..") !== -1 || url.indexOf("//") !== -1) return;
     output.textContent = "Loading " + name + "…";
     fetch(url, { cache: "no-store", credentials: "same-origin" })
       .then(function (response) {

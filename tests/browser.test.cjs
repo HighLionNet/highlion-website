@@ -100,6 +100,16 @@ const server = http.createServer(async (req, res) => {
         assert.equal((await page.locator('#navScan .nav-toggle-name').textContent()).trim(), 'SCAN');
         assert.deepEqual(await page.locator('#navFlags, #navCli, #navTor').evaluateAll(nodes => nodes.map(node => ({ label: node.textContent.trim(), radius: getComputedStyle(node).borderRadius, color: getComputedStyle(node).backgroundColor }))), before);
         assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, name + ' overflow');
+        if (name === 'contact' || name === '403') {
+          assert.equal(await page.locator('label[for=company]').evaluate(el => {
+            const box = el.getBoundingClientRect();
+            const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2);
+            return hit === el || (hit && el.contains(hit));
+          }), false, name + ' company field is visible');
+        }
+        if (name === 'index' || name === 'writeups') {
+          assert.deepEqual(await page.locator('.writeup-table th').allTextContents(), ['TITLE', 'TYPE', 'STATUS', 'LINKS', 'SHA-256']);
+        }
         if (name === 'projects') {
           assert.equal(await page.locator('thead th').count(), 4);
           assert.deepEqual(await page.locator('tbody tr').evaluateAll(rows => rows.map(row => row.cells.length)), [4, 4, 4, 4]);
@@ -109,7 +119,8 @@ const server = http.createServer(async (req, res) => {
           assert.equal(new Set(colors).size, 4);
           const links = await page.locator('[data-project-class=web] .xdr-links a').evaluateAll(nodes => nodes.map(node => getComputedStyle(node).color));
           assert.notEqual(links[0], links[1]);
-          assert.equal(await page.locator('.xdr-links').first().evaluate(node => getComputedStyle(node).display), 'table-cell');
+          const seam = await page.locator('.project-console tbody td:nth-child(2)').first().evaluate(el => [getComputedStyle(el.previousElementSibling).borderRightWidth, getComputedStyle(el).borderLeftWidth, getComputedStyle(el).boxShadow]);
+          assert.deepEqual(seam, ['0px', '1px', 'none']);
           const borders = await page.locator('.xdr-side button').evaluateAll(nodes => nodes.map(node => [getComputedStyle(node).borderTopWidth, getComputedStyle(node).borderLeftWidth, getComputedStyle(node).borderTopColor, getComputedStyle(node).borderLeftColor]));
           const edge = width < 980 ? 1 : 0;
           assert.equal(borders[0][edge], '0px');
@@ -128,6 +139,8 @@ const server = http.createServer(async (req, res) => {
           await page.locator('.project-console').screenshot({ path: path.join(qa, `cleanup-projects-${width}.png`) });
         }
         if (name === 'about') {
+          assert.deepEqual(await page.locator('#srcSelect option').evaluateAll(nodes => nodes.map(node => node.value)), ['index.html', 'about.html', 'projects.html', 'writeups.html', 'contact.html', 'css/style.css', 'components/header.html', 'components/footer.html']);
+          assert.equal(await page.locator('.profile-facts dt').evaluateAll(nodes => nodes.every(node => node.getClientRects().length === 1)), true);
           await page.locator('#srcDownload:enabled').waitFor();
           await page.locator('#srcSelect').selectOption('css/style.css');
           await page.waitForFunction(() => document.querySelector('#srcOut').textContent.startsWith('@font-face'));

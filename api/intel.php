@@ -265,7 +265,7 @@ function hl_intel_cached_payload(
             || !is_file($thumbDirectory . '/' . $match[1])) {
             $item['thumb'] = '';
         } else {
-            $item['thumb'] = '/api/thumb.php?id=' . $match[1] . '&v=hl93';
+            $item['thumb'] = '/api/thumb.php?id=' . $match[1] . '&v=hl94';
         }
     }
     unset($item);
@@ -596,7 +596,7 @@ foreach ($items as &$item) {
             $imageHosts
         );
     }
-    $item['thumb'] = $thumbId === '' ? '' : '/api/thumb.php?id=' . $thumbId . '&v=hl93';
+    $item['thumb'] = $thumbId === '' ? '' : '/api/thumb.php?id=' . $thumbId . '&v=hl94';
     unset($item['image'], $item['_timestamp']);
 }
 unset($item);
