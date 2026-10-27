@@ -1890,6 +1890,13 @@ h3 {
   padding: 0.75rem 0;
   border-bottom: 0;
 }
+.article-head .page-head-row {
+  justify-content: center;
+}
+.article-head .page-head-row h1 {
+  text-align: center;
+}
+
 
 .article-head h1 {
   max-width: none;
@@ -3311,6 +3318,18 @@ h3 {
   border-color: #7e4798;
   color: #fff;
   background: #7e4798;
+}
+
+#navFlags,
+#navCli {
+  border-color: #3d8bff;
+  color: #fff;
+  background: #3d8bff;
+}
+#navFlags:hover,
+#navCli:hover {
+  border-color: #5aa0ff;
+  background: #5aa0ff;
 }
 
 .nav-tor img {
