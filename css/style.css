@@ -1,13 +1,13 @@
 @font-face {
   font-family: "Orbitron";
-  src: local("Orbitron"), url("/assets/fonts/Orbitron.ttf?v=hl92") format("truetype");
+  src: local("Orbitron"), url("/assets/fonts/Orbitron.ttf?v=hl93") format("truetype");
   font-weight: 400 900;
   font-display: swap;
 }
 
 @font-face {
   font-family: "JetBrains Mono";
-  src: local("JetBrains Mono"), url("/assets/fonts/JetBrainsMono.ttf?v=hl92") format("truetype");
+  src: local("JetBrains Mono"), url("/assets/fonts/JetBrainsMono.ttf?v=hl93") format("truetype");
   font-weight: 400 700;
   font-display: swap;
 }
@@ -262,8 +262,11 @@ textarea {
   border: 0;
   border-left: 2px solid transparent;
   border-radius: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  background-color: transparent;
+  background-image: none;
   color: var(--text);
-  background: transparent;
   font: 600 11px/1 var(--mono);
   letter-spacing: 0.06em;
   white-space: nowrap;
@@ -2409,8 +2412,11 @@ h3 {
 }
 
 .nav-chip {
+  appearance: none;
+  -webkit-appearance: none;
   border-radius: 0;
-  background: transparent;
+  background-color: transparent;
+  background-image: none;
 }
 
 .nav-tor {
@@ -3035,8 +3041,11 @@ h3 {
   border: 0;
   border-left: 2px solid transparent;
   border-radius: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  background-color: transparent;
+  background-image: none;
   color: var(--muted);
-  background: transparent;
   font: 500 11px/1 var(--mono);
   text-align: left;
   cursor: pointer;
@@ -3327,59 +3336,78 @@ h3 {
 
 .nav-tor,
 .nav-tor:hover {
+  appearance: none;
   border-color: #7e4798;
   border-radius: 6px;
   color: #fff;
-  background: #7e4798;
+  background-color: #7e4798;
+  background-image: none;
 }
 
 #navFlags,
 #navCli {
-  border-color: #5554b8;
+  appearance: none;
+  -webkit-appearance: none;
+  border: 1px solid #5554b8;
   border-radius: 6px;
   color: #fff;
-  background: #5554b8;
+  background-color: #5554b8;
+  background-image: none;
 }
 #navFlags:hover,
 #navCli:hover {
   border-color: #6968ce;
-  background: #6968ce;
+  color: #fff;
+  background-color: #6968ce;
+  background-image: none;
 }
 
 #navFx,
 #navScan {
+  appearance: none;
+  -webkit-appearance: none;
   border-width: 1px;
   border-style: solid;
   border-radius: 6px;
   gap: 0.42rem;
-  padding: 0.32rem 0.48rem;
+  padding: 0.32rem 0.42rem 0.32rem 0.5rem;
   color: #fff;
+  background-image: none;
 }
 #navFx.is-on {
   border-color: #1493a3;
-  background: #0e7f8d;
+  background-color: #0e7f8d;
 }
 #navFx.is-off {
   border-color: #3d6870;
   color: #d5e4ea;
-  background: #16343b;
+  background-color: #16343b;
 }
 #navScan.is-on {
   border-color: #2f9d5a;
-  background: #1d7a42;
+  background-color: #1d7a42;
 }
 #navScan.is-off {
   border-color: #3d6a50;
   color: #d7eadf;
-  background: #163528;
+  background-color: #163528;
 }
 #navFx:hover,
 #navScan:hover {
   filter: none;
 }
 .nav-toggle-state {
-  font-size: 9px;
+  display: inline-flex;
+  align-items: center;
+  min-height: 15px;
+  padding: 0 0.32rem;
+  border-radius: 3px;
+  background-color: rgba(0, 0, 0, 0.38);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
   letter-spacing: 0.08em;
+  line-height: 1;
 }
 
 .nav-tor img {

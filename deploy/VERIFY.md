@@ -37,9 +37,9 @@ sudo tail -n 8 /var/log/nginx/highlion-path.log | python3 -m json.tool --json-li
 
 ## About and claim animations
 
-Open `https://www.highlion.net/about.html?v=hl92`. There must be TWO thin animated code bands, like index: between the profile/source grid and terminal preview, and below the preview. They contain moving hex letters/code, not a static 01 badge. The source bay and reduced terminal preview remain. At 390px width both bands still paint without horizontal scrolling. Reduced motion shows static glyphs.
+Open `https://www.highlion.net/about.html?v=hl93`. There must be TWO thin animated code bands, like index: between the profile/source grid and terminal preview, and below the preview. They contain moving hex letters/code, not a static 01 badge. The source bay and reduced terminal preview remain. At 390px width both bands still paint without horizontal scrolling. Reduced motion shows static glyphs.
 
-Open `https://www.highlion.net/?v=hl92`. In the simulated terminal, run `cat /home/kali/.secret_challenge1.hlctf`, close the challenge popup, then `claim HL8{modular_76}`. Verify success and the configured reward. Close reward windows before further commands. `score` and `trophies` must agree with FLAGS.
+Open `https://www.highlion.net/?v=hl93`. In the simulated terminal, run `cat /home/kali/.secret_challenge1.hlctf`, close the challenge popup, then `claim HL8{modular_76}`. Verify success and the configured reward. Close reward windows before further commands. `score` and `trophies` must agree with FLAGS.
 
 Submit `HL8{xor_29659}` through header FLAGS: confetti appears over the modal, it closes after about 900ms, and the reward popup follows. The dedicated canvas disappears within two seconds. Invalid `HL8{invalid_flag}` leaves an error and no confetti. To exercise a delegated trigger from the browser console:
 
