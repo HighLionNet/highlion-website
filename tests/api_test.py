@@ -216,7 +216,7 @@ def run():
             (state / 'highlion-intel.json').write_text(json.dumps({'ok': True, 'items': [{'title': 'cached', 'thumb': '/api/thumb.php?id=' + cached_thumb + '&v=outdated'}], 'count': 1}))
             cached_feed = visitor.request('intel')[1]
             expect(cached_feed['count'], 1, 'news cache')
-            expect(cached_feed['items'][0]['thumb'], '/api/thumb.php?id=' + cached_thumb + '&v=hl96', 'cached thumbnail version normalized')
+            expect(cached_feed['items'][0]['thumb'], '/api/thumb.php?id=' + cached_thumb + '&v=hl97', 'cached thumbnail version normalized')
             (state / 'highlion-market.json').write_text(json.dumps({'bitcoin:1': {'fetched_at': int(time.time()), 'prices': [[1, 2], [3, 4]]}}))
             expect(visitor.request('market?coin=bitcoin&days=1')[1]['prices'], [[1, 2], [3, 4]], 'market cache')
             expect(visitor.request('thumb', extra={'Origin': ''})[0], 204, 'missing thumbnail')

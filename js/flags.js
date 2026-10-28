@@ -71,7 +71,7 @@
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
     var particles = [];
-    var colors = ["#26ccff", "#a25afd", "#ff5e7e", "#88ff5a", "#fcff42", "#ffa62d", "#ff36ff"];
+    var colors = ["#66f7ff", "#6cffe6", "#e7c56b", "#ff64cb"];
     for (var i = 0; i < 80; i++) {
       particles.push({
         x: canvas.width / 2,
@@ -82,7 +82,8 @@
         color: colors[Math.floor(Math.random() * colors.length)],
         size: Math.random() * 6 + 3,
         rot: Math.random() * Math.PI * 2,
-        vr: (Math.random() - 0.5) * 0.3
+        vr: (Math.random() - 0.5) * 0.3,
+        streak: i % 3 === 0
       });
     }
     function frame() {
@@ -101,7 +102,15 @@
         ctx.rotate(p.rot);
         ctx.globalAlpha = Math.max(0, p.life);
         ctx.fillStyle = p.color;
-        ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size * 0.6);
+        if (p.streak) {
+          ctx.fillRect(-p.size * 1.5, -0.7, p.size * 3, 1.4);
+        } else {
+          ctx.beginPath();
+          ctx.moveTo(-p.size / 2, -p.size / 3);
+          ctx.lineTo(p.size / 2, 0);
+          ctx.lineTo(-p.size / 4, p.size / 2);
+          ctx.closePath(); ctx.fill();
+        }
         ctx.restore();
       });
       if (alive) frameId = requestAnimationFrame(frame);
