@@ -1,13 +1,13 @@
 @font-face {
   font-family: "Orbitron";
-  src: local("Orbitron"), url("/assets/fonts/Orbitron.ttf?v=hl95") format("truetype");
+  src: local("Orbitron"), url("/assets/fonts/Orbitron.ttf?v=hl96") format("truetype");
   font-weight: 400 900;
   font-display: swap;
 }
 
 @font-face {
   font-family: "JetBrains Mono";
-  src: local("JetBrains Mono"), url("/assets/fonts/JetBrainsMono.ttf?v=hl95") format("truetype");
+  src: local("JetBrains Mono"), url("/assets/fonts/JetBrainsMono.ttf?v=hl96") format("truetype");
   font-weight: 400 700;
   font-display: swap;
 }
@@ -3991,3 +3991,8 @@ tr[data-href]:focus-visible {
 }
 .about-grid { gap: 0.4rem; }
 .about-rule-band { border-color: rgba(255, 255, 255, 0.05); }
+
+#tor-mirror {
+  scroll-margin-top: calc(50vh - 7.5rem);
+  scroll-margin-bottom: calc(50vh - 7.5rem);
+}

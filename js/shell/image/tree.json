@@ -47,7 +47,7 @@
     "/home/admin/.zshrc": {"mode": "0640", "owner": "admin", "group": "admin", "content": "export PATH=/bin:/usr/bin:/usr/sbin\nexport PROMPT='%n@%m:%~$ '\nalias ll='ls -la'\nalias la='ls -a'\nalias l='ls -l'\n"},
     "/root/.zshrc": {"mode": "0600", "owner": "root", "group": "root", "content": "export PATH=/bin:/usr/bin:/usr/sbin\nexport PROMPT='%n@%m:%~# '\nalias ll='ls -la'\n"},
     "/root/README.txt": {"mode": "0600", "owner": "root", "group": "root", "content": "CTF privileged account. This filesystem and LAN are simulated. No host access.\n"},
-    "/home/kali/README.txt": {"mode": "0644", "owner": "kali", "group": "kali", "content": "Kali GNU/Linux Rolling\n"},
+    "/home/kali/README.txt": {"mode": "0644", "owner": "kali", "group": "kali", "content": "Welcome to the HighLion website's built-in Kali Linux terminal!\nFeel free to use it for navigating the site, fetching information about projects, or downloading files such as writeups and reports. There are also plenty of additional features and challenges throughout the system, so feel free to dig around!\n"},
     "/home/kali/highlion/README.txt": {"mode": "0644", "owner": "kali", "group": "kali", "content": "Hidden HighLion challenges live in dotfiles. Try ls -a in your home and /opt/highlion.\nRead .hlctf files with cat or open; submit via claim or FLAGS.\n"},
     "/home/kali/highlion/.git/HEAD": {"mode": "0644", "owner": "kali", "group": "kali", "content": "ref: refs/heads/main\n"},
     "/home/kali/highlion/.git/refs/heads/main": {"mode": "0644", "owner": "kali", "group": "kali", "content": "545b41606a274209003cc1e66e4cd1bfc04468f9\n"},

@@ -92,6 +92,37 @@
     return Boolean(fxButton && scanButton);
   }
 
+  function centerTor(smooth) {
+    var target = document.getElementById("tor-mirror");
+    if (!target) return;
+    var rect = target.getBoundingClientRect();
+    var top = window.scrollY + rect.top - (window.innerHeight - rect.height) / 2;
+    var max = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+    if (top < 0) top = 0;
+    if (top > max) top = max;
+    window.scrollTo({ top: top, behavior: smooth && !reduced.matches ? "smooth" : "auto" });
+  }
+
+  function onAbout() {
+    var path = window.location.pathname.replace(/\/+$/, "") || "/";
+    return path === "/about.html" || path === "/about";
+  }
+
+  function bindTor() {
+    if (window.location.hash === "#tor-mirror") centerTor(false);
+    var link = document.getElementById("navTor");
+    if (!link) return false;
+    if (link.dataset.bound === "true") return true;
+    link.dataset.bound = "true";
+    link.addEventListener("click", function (event) {
+      if (!onAbout() || !document.getElementById("tor-mirror")) return;
+      event.preventDefault();
+      if (window.location.hash !== "#tor-mirror") history.pushState(null, "", "#tor-mirror");
+      centerTor(true);
+    });
+    return true;
+  }
+
   function bindCli() {
     var button = document.getElementById("navCli");
     if (!button) return false;
@@ -123,8 +154,15 @@
   function bindAll() {
     var togglesReady = bind();
     var cliReady = bindCli();
-    return togglesReady && cliReady;
+    var torReady = bindTor();
+    return togglesReady && cliReady && torReady;
   }
+  window.addEventListener("hashchange", function () {
+    if (window.location.hash === "#tor-mirror") centerTor(!reduced.matches);
+  });
+  window.addEventListener("load", function () {
+    if (window.location.hash === "#tor-mirror") centerTor(false);
+  });
   if (!bindAll()) {
     var observer = new MutationObserver(function () {
       if (!bindAll()) return;

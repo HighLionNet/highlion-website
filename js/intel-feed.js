@@ -31,10 +31,10 @@
   function thumbFor(row, source) {
     var thumb = String(row.thumb || "");
     var candidates = [];
-    if (/^\/api\/thumb\.php\?id=[a-f0-9]{40}(?:&v=hl95)?$/.test(thumb)) candidates.push(thumb.replace(/&v=hl95$/, "") + "&v=hl95");
+    if (/^\/api\/thumb\.php\?id=[a-f0-9]{40}(?:&v=hl96)?$/.test(thumb)) candidates.push(thumb.replace(/&v=hl96$/, "") + "&v=hl96");
     candidates.push(
-      "/api/thumb.php?source=" + encodeURIComponent(source.key) + "&v=hl95",
-      "/assets/icons/HighLion.ico?v=hl95"
+      "/api/thumb.php?source=" + encodeURIComponent(source.key) + "&v=hl96",
+      "/assets/icons/HighLion.ico?v=hl96"
     );
     var image = document.createElement("img");
     image.className = "news-thumb";

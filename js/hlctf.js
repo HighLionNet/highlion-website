@@ -13,7 +13,7 @@
   var previousFocus = null;
   var actors = null;
   function loadActors() {
-    if (!actors) actors = fetch("/assets/hlctf-operatives.svg?v=hl95", { credentials: "same-origin" }).then(function (response) {
+    if (!actors) actors = fetch("/assets/hlctf-operatives.svg?v=hl96", { credentials: "same-origin" }).then(function (response) {
       if (!response.ok) throw new Error("operatives unavailable");
       return response.text();
     }).then(function (source) {

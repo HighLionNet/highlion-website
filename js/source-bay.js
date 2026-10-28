@@ -5,14 +5,14 @@
   if (!panel) return;
 
   var ALLOWED = {
-    "index.html": "/index.html?v=hl95",
-    "about.html": "/about.html?v=hl95",
-    "projects.html": "/projects.html?v=hl95",
-    "writeups.html": "/writeups.html?v=hl95",
-    "contact.html": "/contact.html?v=hl95",
-    "css/style.css": "/css/style.css?v=hl95",
-    "components/header.html": "/components/header.html?v=hl95",
-    "components/footer.html": "/components/footer.html?v=hl95"
+    "index.html": "/index.html?v=hl96",
+    "about.html": "/about.html?v=hl96",
+    "projects.html": "/projects.html?v=hl96",
+    "writeups.html": "/writeups.html?v=hl96",
+    "contact.html": "/contact.html?v=hl96",
+    "css/style.css": "/css/style.css?v=hl96",
+    "components/header.html": "/components/header.html?v=hl96",
+    "components/footer.html": "/components/footer.html?v=hl96"
   };
   var select = document.getElementById("srcSelect");
   var output = document.getElementById("srcOut");
