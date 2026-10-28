@@ -30,8 +30,9 @@ var HL_LIVING_CHROME = true;
   });
   if (seen || motion.matches) return;
 
+  var early = !document.body;
   var started = performance.now();
-  var finished = false, frame = 0, safety = 0, designedEnd = 0;
+  var finished = false, frame = 0, safety = 0, designedEnd = 0, readyTimer = 0, preparing;
   var headlines = [], frames = [], content = [], observer;
   var overlay = document.createElement("div");
   overlay.className = "hl-boot-overlay";
@@ -60,9 +61,10 @@ var HL_LIVING_CHROME = true;
   function finish() {
     if (finished || !overlay) return;
     finished = true;
-    clearTimeout(safety); clearTimeout(designedEnd);
+    clearTimeout(safety); clearTimeout(designedEnd); clearTimeout(readyTimer);
     cancelAnimationFrame(frame);
     if (observer) observer.disconnect();
+    if (preparing) preparing.disconnect();
     headlines.forEach(restore);
     frames.forEach(function (node) {
       if (node.parentElement) node.parentElement.classList.remove("hl-boot-frame-host");
@@ -74,7 +76,7 @@ var HL_LIVING_CHROME = true;
     });
     overlay.removeEventListener("pointerdown", finish);
     document.removeEventListener("keydown", escape);
-    root.classList.remove("is-booting");
+    root.classList.remove("is-booting", "is-boot-home", "is-boot-preparing");
     overlay.remove();
   }
   function escape(event) { if (event.key === "Escape") finish(); }
@@ -82,7 +84,8 @@ var HL_LIVING_CHROME = true;
     if (finished) return;
     var age = performance.now() - started;
     // Fetched includes join the same clock. Late includes are already complete.
-    document.querySelectorAll(contentSelector).forEach(function (element) {
+    if (early) document.querySelectorAll("main, header.nav, .site-footer").forEach(function (element) { align(element, "hl-boot-page"); });
+    if (!early) document.querySelectorAll(contentSelector).forEach(function (element) {
       if (age >= 2100 || element.closest("dialog") || element.classList.contains("hl-boot-content") ||
           (element.parentElement && element.parentElement.closest(contentSelector))) return;
       content.push({ element: element, delay: element.style.animationDelay });
@@ -125,17 +128,18 @@ var HL_LIVING_CHROME = true;
       if (age >= item.end) restore(item);
       else item.run.textContent = item.glyphs.slice(0, Math.floor(item.glyphs.length * Math.max(0, (age - item.begin) / (item.end - item.begin)))).join("");
     });
-    // Last authored frame is 2360ms; the 2400ms timer is only a fallback.
-    if (age >= 2360) finish();
+    // Home finishes its coordinated scan at 2000ms; other boots keep 2360ms.
+    if (age >= (early ? 2000 : 2360)) finish();
     else frame = requestAnimationFrame(tick);
   }
-  try {
-    // Install the safety reveal before any mutations that could throw.
-    safety = setTimeout(finish, Math.max(0, 2400 - (performance.now() - started)));
-    overlay.addEventListener("pointerdown", finish);
-    document.addEventListener("keydown", escape);
-    root.classList.add("is-booting");
+  function start() {
+    if (finished || frame) return;
+    clearTimeout(readyTimer);
+    if (preparing) preparing.disconnect();
+    if (early) started = performance.now();
     document.body.appendChild(overlay);
+    root.classList.remove("is-boot-preparing");
+    if (early) document.querySelectorAll("main, header.nav, .site-footer").forEach(function (element) { align(element, "hl-boot-page"); });
     align(overlay, "hl-boot-overlay");
     collect();
     observer = new MutationObserver(function (records) {
@@ -146,7 +150,32 @@ var HL_LIVING_CHROME = true;
       })) collect();
     });
     observer.observe(document.body, { childList: true, subtree: true });
-    designedEnd = setTimeout(finish, Math.max(0, 2370 - (performance.now() - started)));
+    designedEnd = setTimeout(finish, Math.max(0, (early ? 2010 : 2370) - (performance.now() - started)));
     frame = requestAnimationFrame(tick);
+  }
+  function prepare() {
+    if (finished) return;
+    var fontsReady = !document.fonts;
+    function ready() {
+      if (fontsReady && document.querySelector("header.nav") && document.querySelector(".site-footer")) start();
+    }
+    // Coordinate fetched chrome and fonts before a single reveal; never hold
+    // the page indefinitely for a failed include or a slow font connection.
+    preparing = new MutationObserver(ready);
+    preparing.observe(document.body, { childList: true });
+    readyTimer = setTimeout(start, 250);
+    if (document.fonts) document.fonts.ready.then(function () { fontsReady = true; ready(); });
+    ready();
+  }
+  try {
+    // Home runs in the head: set the guard before the body can first paint.
+    safety = setTimeout(finish, Math.max(0, 2400 - (performance.now() - started)));
+    overlay.addEventListener("pointerdown", finish);
+    document.addEventListener("keydown", escape);
+    root.classList.add("is-booting");
+    if (early) {
+      root.classList.add("is-boot-home", "is-boot-preparing");
+      document.addEventListener("DOMContentLoaded", prepare, { once: true });
+    } else start();
   } catch (error) { finish(); }
 })();

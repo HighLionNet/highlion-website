@@ -4050,6 +4050,17 @@ html.is-booting .hl-boot-status span:last-child { color: #98abba; }
 @keyframes hl-boot-content { 0%,76.19% { opacity: 0; } 100% { opacity: 1; } }
 @keyframes hl-boot-overlay { 0% { opacity: 1; } 88.98% { opacity: 1; } 100% { opacity: 0; } }
 
+/* Index boot: one full-contrast scan, armed in the head before first paint.
+   The page reveals as one surface; no separate paragraph/panel opacity fades. */
+html.is-booting.is-boot-home :is(main, header.nav, .site-footer) { animation: hl-boot-page .7s cubic-bezier(.2,.65,.3,1) both; }
+html.is-booting.is-boot-home.is-boot-preparing :is(main, header.nav, .site-footer) { animation: none; clip-path: inset(0 100% 0 0); }
+html.is-booting.is-boot-home .hl-boot-overlay { background: transparent; animation: none; }
+html.is-booting.is-boot-home .hl-boot-grid { display: none; }
+html.is-booting.is-boot-home .hl-boot-overlay::before { content: ''; position: absolute; inset: 0 0 auto; height: 1px; background: linear-gradient(90deg, transparent, #66f7ff, transparent); box-shadow: 0 0 12px #66f7ff70; animation: hl-boot-sweep 1.9s ease-out both; }
+html.is-booting.is-boot-home .hl-boot-status { background: #080c14; padding: 4px 8px; }
+@keyframes hl-boot-page { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0); } }
+@keyframes hl-boot-sweep { 0% { transform: translateY(0); opacity: 1; } 95% { opacity: 1; } 100% { transform: translateY(100dvh); opacity: 0; } }
+
 /* LIVING CHROME TEST. Rules apply only while html.is-living is set.
    Delete the html.is-living prefix to make them permanent. */
 html.is-living :is(.xdr-console, .monitor, .hlterm-panel, .onion-panel) { animation: hl-living-border 10s ease-in-out infinite; }
@@ -4060,4 +4071,6 @@ html.is-living.is-motion-paused :is(.xdr-console, .monitor, .hlterm-panel, .onio
 @media (prefers-reduced-motion: reduce) {
   html.is-living :is(.xdr-console, .monitor, .hlterm-panel, .onion-panel, .scanlines) { animation: none !important; }
   html.is-booting :is(.hl-boot-frame, .hl-boot-content) { animation: none !important; opacity: 1; }
+  html.is-booting.is-boot-home :is(main, header.nav, .site-footer) { animation: none !important; clip-path: none !important; }
+  html.is-booting.is-boot-home .hl-boot-overlay::before { animation: none !important; }
 }
