@@ -11,6 +11,12 @@ curl -4 -fsS https://www.highlion.net/api/client-ip.php
 
 Both `ip` and `remote_addr` must match Cloudflare's trace, `source` must be `cloudflared`, and `verified` must be true. Only `peer` should be loopback. This comparison fails loudly; a raw access-log header is not accepted as proof.
 
+The same script then checks the installed nginx origin: `/contact` and
+`/contact.html` must contain one document, one form and all five links, including
+the two server-only profiles. It checks HEAD, country denial, direct fragment/JSON
+denial, styled 404/405 responses, `Allow` headers and a query-preserving slash
+redirect. These local checks do not submit messages or generate method alerts.
+
 ## Test an actual public HTTP alert
 
 ```sh

@@ -134,6 +134,10 @@ try:
         assert status in expected, (target, status, body[:100])
         assert status != 418, target
         checks += 1
+        if kwargs.get('method') == 'HEAD':
+            assert body == b'', (target, 'HEAD returned a body')
+        if status == 405:
+            assert headers.get('Allow'), (target, '405 missing Allow header')
         if status in [403, 404, 405] and kwargs.get('method', 'GET') != 'HEAD':
             assert body == (PUBLIC / f'{status}.html').read_bytes(), (target, status, 'unstyled error', body[:120])
             assert 'text/html' in headers.get('Content-Type', ''), (target, headers)
@@ -144,44 +148,76 @@ try:
     # Every shipped static file, including fake shell passwd/shadow/resolv.conf,
     # HTML includes, CSS, JS, fonts, PDFs, MP4s and the unified cache query.
     (PUBLIC / 'assets').mkdir(exist_ok=True)
-    (PUBLIC / 'assets' / 'contact-links.inc.html').write_bytes(b'<!-- live-contact-profile -->\n')
+    profile_file = PUBLIC / 'assets/contact-links.inc.html'
+    profile_fixture = (b'<a class="social-link" href="https://www.linkedin.com/in/fixture-profile">LinkedIn</a>\n'
+                       b'<a class="social-link" href="https://www.tryhackme.com/p/fixture-profile">TryHackMe</a>\n')
+    profile_file.write_bytes(profile_fixture)
+    def contact_page(body):
+        assert body.lower().count(b'<!doctype html>') == 1, 'nested error document'
+        assert body.count(b'id="contactForm"') == 1, 'duplicate contact form'
+        assert b'error-panel' not in body and b'Access forbidden' not in body
+        assert body.count(profile_fixture) == 1, 'missing or duplicated profiles'
+        assert b'<!--#' not in body, 'unprocessed SSI'
+        assert body.count(b'class="social-link"') == 5, 'missing contact links'
     for source in PUBLIC.rglob('*'):
         if source.is_file() and 'api' not in source.relative_to(PUBLIC).parts and source.name != 'alerts.jsonl':
             path = '/' + source.relative_to(PUBLIC).as_posix() + '?v=hl97'
             if source.name in ['403.html', '404.html', '405.html']:
                 expect(path, [404])  # Error documents are internal-only in production.
             elif source.name == 'contact-links.inc.html':
-                expect(path, [403])
+                expect(path, [404])
             else:
                 body, headers = expect(path, [200])
                 if source.name == 'contact.html':
                     assert b'linkedin.com' not in source.read_bytes()
                     assert b'tryhackme.com' not in source.read_bytes()
                     assert (PUBLIC / 'assets' / 'contact-links.inc.html').read_bytes() in body
+                    contact_page(body)
                 else:
                     assert body == source.read_bytes(), path
                 assert 'Content-Security-Policy' in headers, path + ' lost security headers'
     for page in ['/', '/about', '/projects', '/writeups', '/about.html?topic=etc/passwd', '/about.html?ref=https%3A%2F%2Fexample.org%2Fwp-login.php', '/%61bout.html', '/about.html?file=report.pdf', '/about.html?search=php://filter']:
         expect(page, [200])
     for method in ['HEAD', 'OPTIONS', 'PUT', 'DELETE', 'PATCH', 'TRACE', 'PROPFIND']:
-        expect('/css/style.css', [200] if method == 'HEAD' else [405], method=method)
+        _, headers = expect('/css/style.css', [200] if method == 'HEAD' else [405], method=method)
+        if method != 'HEAD': assert headers['Allow'] == 'GET, HEAD'
     expect('/about.html', [405], method='POST', body='x')
     for contact in ['/contact', '/contact.html', '/%63ontact.html']:
         for country in ['US', '', 'XX', 'il', 'IL,US']:
             body, _ = expect(contact, [403], headers={'CF-IPCountry': country})
             assert b'id="contactForm"' in body and b'name="company"' in body
-        body, _ = expect(contact, [200])
+        body, contact_headers = expect(contact, [200])
         assert (PUBLIC / 'assets' / 'contact-links.inc.html').read_bytes() in body, contact
+        contact_page(body)
+        assert contact_headers['Cache-Control'] == 'private, no-store'
         assert b'linkedin.com' not in (PUBLIC / 'contact.html').read_bytes()
         expect(contact, [403], source='127.0.0.2')
+        expect(contact, [200], method='HEAD')
+        expect(contact, [403], method='HEAD', headers={'CF-IPCountry': 'US'})
+    # A missing optional fragment must not inject a complete 404 into the page.
+    profile_file.unlink()
+    body, _ = expect('/contact.html', [200])
+    assert body.lower().count(b'<!doctype html>') == 1 and b'error-panel' not in body
+    assert body.count(b'id="contactForm"') == 1
+    profile_file.write_bytes(profile_fixture)
     (PUBLIC / 'assets' / 'contact-links.json').write_text('[]\n')
     for country in ['US', '', 'XX', 'il', 'IL,US']:
-        expect('/assets/contact-links.json', [403], headers={'CF-IPCountry': country})
-    body, _ = expect('/assets/contact-links.json', [200])
-    assert body == b'[]\n'
-    expect('/assets/contact-links.json', [403], source='127.0.0.2')
+        expect('/assets/contact-links.json', [404], headers={'CF-IPCountry': country})
+    expect('/assets/contact-links.json', [404])
+    expect('/assets/contact-links.json', [404], source='127.0.0.2')
     for country in ['IL', 'US', '', 'XX']:
-        expect('/assets/contact-links.inc.html', [403], headers={'CF-IPCountry': country})
+        expect('/assets/contact-links.inc.html', [404], headers={'CF-IPCountry': country})
+        for alias in ['/assets/contact-links.inc', '/assets/contact-links%2einc', '/assets/contact-links.inc.html/', '/assets/contact-links.json/']:
+            expect(alias, [404], headers={'CF-IPCountry': country})
+    for target in ['/403', '/404', '/405', '/403/', '/404/', '/405/']:
+        expect(target, [404])
+    for name in ['index', 'about', 'projects', 'writeups', 'contact']:
+        for suffix in ['/', '.html/']:
+            _, headers = expect('/' + name + suffix + '?via=slash', [308])
+            assert headers['Location'] == '/' + name + '.html?via=slash'
+    for target in ['/assets/', '/components/', '/writeups/missing', '/missing-page/']:
+        expect(target, [404])
+    expect('/writeups/pihole', [200])
     expect('/404.html', [404], method='HEAD')
     expect('/missing-page', [404], method='HEAD')
     expect('/403.html', [404], headers={'CF-IPCountry': ''})
@@ -212,6 +248,13 @@ try:
     expect('/', [421], headers={'Host': 'attacker.example'})
     _, headers = expect('/about.html?qa=https', [308], headers={'X-Forwarded-Proto': 'http'})
     assert headers['Location'] == 'https://www.highlion.net/about.html?qa=https'
+    _, headers = expect('/contact?via=apex', [308], headers={'Host': 'highlion.net'})
+    assert headers['Location'] == 'https://www.highlion.net/contact?via=apex'
+    for origin_port in [PORT, FALLBACK]:
+        body, _ = expect('/contact', [200], port=origin_port)
+        contact_page(body)
+    _, headers = expect('/writeups/?via=tor', [308], port=TOR, headers={'Host': onion})
+    assert headers['Location'] == '/writeups.html?via=tor'
     expect('/about.html', [200], port=TOR, headers={'Host': onion, 'X-Forwarded-Proto': 'http'})
     token_body, _ = expect('/api/csrf.php', [200], ip='192.0.2.10')
     token = json.loads(token_body)['token']
@@ -275,7 +318,17 @@ try:
         expect('/about.html', [403], ip='8.8.4.4', port=origin_port)
         expect('/api/client-ip.php', [403], ip='8.8.4.4', port=origin_port)
     expect('/api/client-ip.php', [200], ip='8.8.4.4', port=TOR, headers={'Host': onion})
-    expect('/api/contact.php', [405], ip='192.0.2.91')
+    for name, allowed in [('contact', 'POST'), ('shell-auth', 'POST'), ('shell-slot', 'POST, HEAD'), ('ctf', 'GET, HEAD, POST'), ('csrf', 'GET, HEAD')]:
+        for suffix in ['', '.php', '/', '/index.php']:
+            _, headers = expect('/api/' + name + suffix, [405], method='OPTIONS')
+            assert headers['Allow'] == allowed, (name, headers)
+    for path in ['/api/contact.php', '/api/%63ontact.php', '/api/shell-auth.php', '/api/shell-slot.php']:
+        _, headers = expect(path, [405], ip='192.0.2.91')
+        assert headers['Allow'] == ('POST, HEAD' if 'shell-slot' in path else 'POST')
+    expect('/api/ctf.php', [200], method='HEAD')
+    # Run the installed-origin part of the deployment check against this fixture.
+    verification = (ROOT / 'deploy/verify-live.sh').read_text().split("python3 - <<'PY'\n", 1)[1].rsplit('\nPY', 1)[0]
+    exec(compile(verification.replace("'127.0.0.1', 80,", f"'127.0.0.1', {PORT},"), 'verify-live.sh', 'exec'), {})
     errors = (WORK / 'logs/error.log').read_text()
     assert 'redirection cycle' not in errors and 'rewrite or internal' not in errors, errors
     logged = [json.loads(line) for line in (WORK / 'logs/security.log').read_text().splitlines()]

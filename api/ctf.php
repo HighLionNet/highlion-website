@@ -2,14 +2,14 @@
 declare(strict_types=1);
 require_once __DIR__ . '/_session.php';
 $method = strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? ''));
-if ($method === 'GET') {
+if ($method === 'GET' || $method === 'HEAD') {
     if (!hl_rate_allow('ctf-read', 60, 60)) hl_json(['ok' => false], 429);
     hl_session();
     $claims = hl_claims();
     hl_json(['ok' => true, 'claimed' => $claims, 'total' => 4]);
 }
 if ($method !== 'POST') {
-    header('Allow: GET, POST');
+    header('Allow: GET, HEAD, POST');
     hl_json(['ok' => false], 405);
 }
 if (!hl_origin_ok((string) ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? ''))) hl_json(['ok' => false], 403);

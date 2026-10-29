@@ -11,6 +11,15 @@ sudo python3 /var/www/highlion/deploy/install-config.py
 bash /var/www/highlion/deploy/verify-live.sh
 ```
 
+Use `sudo bash <extracted-release>/deploy/sync-site.sh <extracted-release>` to sync
+an archive extracted outside the webroot. It backs up replaced files and preserves
+the server-only `assets/contact-links.inc.html` and legacy `assets/contact-links.json`.
+Before syncing, `contact-profiles.py` rebuilds the two profile anchors from those
+live files, recovering missing entries from the newest `/var/backups/highlion/*/files`
+backups when available. It stops if either profile cannot be recovered. Personal
+profile URLs remain outside Git; do not replace this step with an unfiltered
+`rsync --delete` or copy the rendered Cloudflare response into source files.
+
 The installer detects the sole active application FPM socket/version, writes the two nginx files and bounded relay FPM pool, provisions persistent abuse state, backs up replaced configuration under `/var/backups/highlion/config-*`, and checks FPM/nginx/Tor syntax before reloading. A validation error restores the previous config files. It disables the old duplicated `conf.d/highlion-path.conf` and distribution default site if present, retaining them in the backup. Other virtual-host files are preserved; conflicting external configuration causes nginx validation to fail rather than silently activating it.
 
 `deploy/nginx.conf` installs as `/etc/nginx/nginx.conf`. `deploy/highlion.conf` installs through the existing enabled-site path, preserving its sites-available symlink. The default FPM upstream in the template is `/run/php/php8.2-fpm.sock`; the installer substitutes the detected application socket.
@@ -31,6 +40,20 @@ The installer locates the existing hidden service by its public hostname file an
 
 Only explicit API paths can run PHP. Helpers/deploy/tests/dotfiles/backups remain blocked. Unknown Host values return 421. HTML is revalidated; static assets retain the complete security headers and use versioned cache references (`hl97`). The canonical apex redirect uses HTTPS; public www requests with a trusted Cloudflare HTTP scheme are also redirected to HTTPS, without redirecting the separate onion listener. Path traversal, sensitive file probes and executable XSS query payloads route to a separate, bounded relay; query/user-agent values are escaped before HTML output. Alert titles describe each observed event; the generic HighLion heading is reserved for TEST events.
 
-The full shipped configuration is exercised by `tests/routing_test.py`, including PHP native REMOTE_ADDR, IPv4/IPv6, fallback without realip substitution, header spoofing, onion isolation, static and API bans, aliases, methods, headers, and absence of internal redirect loops. The PHP suite verifies event-specific headings and existing authentication/CSRF/reward behavior. The browser suite verifies that both About code-band canvases paint and move on desktop/mobile.
+The contact page retains its verified IL-only country gate. `/contact` internally
+selects `/contact.html`, including its SSI processing and `private, no-store` cache
+policy. The server-only profile fragment is an internal nginx location; both it
+and the retired JSON URL return 404 to direct requests. A missing fragment leaves
+an empty include, never an embedded error document. Deployment verification fails
+if either profile is absent. No browser fetch of a personal-profile file is needed.
+
+Known top-level page URLs with trailing slashes redirect with 308 to their `.html`
+paths, preserving the query and using relative destinations on the onion service.
+The 403/404/405 documents remain internal, keep the original error status, disable
+caching and retain security headers. Their extensionless aliases return 404.
+Every 405 includes the route's `Allow` header; HEAD responses have no body. The
+alert relay rejects excess requests immediately instead of delaying connections.
+
+The full shipped configuration is exercised by `tests/routing_test.py`, including PHP native REMOTE_ADDR, IPv4/IPv6, fallback without realip substitution, header spoofing, onion isolation, static and API bans, aliases, methods, headers, SSI profiles, missing-fragment behavior and absence of internal redirect loops. The PHP suite verifies event-specific headings and existing authentication/CSRF/reward behavior. The browser suite checks contact links/forms and error-page navigation on desktop/mobile. `tests/contact_profiles_test.py` verifies server-only profile recovery without real accounts.
 
 References: [nginx realip](https://nginx.org/en/docs/http/ngx_http_realip_module.html), [Cloudflare headers](https://developers.cloudflare.com/fundamentals/reference/http-request-headers/), [Tor service target configuration](https://community.torproject.org/onion-services/setup/).

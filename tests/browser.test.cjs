@@ -9,6 +9,8 @@ const qa = path.join(root, '.qa');
 fs.mkdirSync(qa, { recursive: true });
 const csp = fs.readFileSync(path.join(root, 'deploy/nginx-headers.conf'), 'utf8').match(/Content-Security-Policy "([^"]+)"/)[1];
 const contacts = [];
+// Fake server-only profiles; actual nginx SSI is covered by routing_test.py.
+const contactProfiles = '<a class="social-link" href="https://www.linkedin.com/in/fixture-profile" target="_blank" rel="noopener noreferrer"><img src="/assets/marks/linkedin.svg" alt="">LinkedIn</a><a class="social-link" href="https://www.tryhackme.com/p/fixture-profile" target="_blank" rel="noopener noreferrer"><img src="/assets/marks/tryhackme.svg" alt="">TryHackMe</a>';
 let tokens = 0;
 let traffic = [{ path: '/example', n: 3 }];
 let prices = [[Date.now() - 7200000, 70], [Date.now() - 1800000, 100], [Date.now(), 110]];
@@ -40,6 +42,9 @@ const server = http.createServer(async (req, res) => {
   if (!file.startsWith(root + path.sep) || !fs.existsSync(file) || !fs.statSync(file).isFile()) { res.writeHead(404); return res.end(); }
   const mime = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml', '.ico': 'image/x-icon', '.ttf': 'font/ttf', '.txt': 'text/plain' };
   res.writeHead(200, { 'Content-Type': mime[path.extname(file)] || 'application/octet-stream', 'Content-Security-Policy': csp });
+  if (file === path.join(root, 'contact.html')) {
+    return res.end(fs.readFileSync(file, 'utf8').replace(/<!--# block[^\n]+\n\s*<!--# include[^\n]+/, contactProfiles));
+  }
   fs.createReadStream(file).pipe(res);
 });
 
@@ -188,6 +193,12 @@ const server = http.createServer(async (req, res) => {
     await page.goto(origin + '/contact.html');
     assert.equal(/linkedin\.com|tryhackme\.com/i.test(fs.readFileSync(path.join(root, 'contact.html'), 'utf8')), false);
     assert.equal(fs.readFileSync(path.join(root, 'contact.html'), 'utf8').includes('contact-links.inc.html'), true);
+    assert.equal(await page.locator('#contactForm').count(), 1);
+    assert.equal(await page.locator('.error-page').count(), 0);
+    assert.equal(await page.locator('.contact-links-panel .social-link').count(), 5);
+    assert.equal(await page.locator('a[href="https://www.linkedin.com/in/fixture-profile"]').count(), 1);
+    assert.equal(await page.locator('a[href="https://www.tryhackme.com/p/fixture-profile"]').count(), 1);
+    assert.equal(await page.locator('.nav-links [aria-current="page"]').textContent(), '/contact');
     assert.equal(await page.locator('a[href="mailto:admin@highlion.net"]').textContent().then(x => x.trim()), 'admin@highlion.net');
     assert.equal(await page.locator('a[href="mailto:admin@highlion.net?subject=Resume%20request"]').count(), 1);
     await page.locator('#submitContact').click();
@@ -218,6 +229,8 @@ const server = http.createServer(async (req, res) => {
     const tokenBefore = tokens;
     await page.route('**/contact.html', route => route.fulfill({ status: 403, contentType: 'text/html', body: fs.readFileSync(path.join(root, '403.html'), 'utf8') }));
     await page.goto(origin + '/contact.html');
+    await page.locator('header.nav').waitFor();
+    assert.equal(await page.locator('.nav-links [aria-current="page"]').count(), 0, 'error page must not identify itself as contact');
     await page.locator('#company').evaluate(el => { el.value = 'bot'; });
     await page.locator('#submitContact').click();
     await page.waitForFunction(() => document.querySelector('#formStatus').textContent === 'Sent');
@@ -280,7 +293,7 @@ const server = http.createServer(async (req, res) => {
     await page.waitForFunction(() => [...document.querySelectorAll('.rain-canvas')].every(el => el.width > 0 && el.getContext('2d').getImageData(0, 0, el.width, el.height).data.some(v => v)));
 
     await page.goto(origin + '/404.html');
-    await page.setContent('<button id="navFx"><span>FX</span></button><button id="navScan">SCAN</button>');
+    await page.setContent('<button id="navFx"><span>FX</span></button><button id="navScan">SCAN</button><a id="navTor" href="/about.html#tor-mirror">Tor Mirror</a>');
     await page.addScriptTag({ url: origin + '/js/station-toggles.js' });
     await page.evaluate(() => { const b = document.createElement('button'); b.id = 'navCli'; b.textContent = 'CLI'; document.body.append(b); });
     await page.waitForFunction(() => document.querySelector('#navCli').dataset.bound === 'true');

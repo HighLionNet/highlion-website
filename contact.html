@@ -65,7 +65,8 @@
             <img src="/assets/marks/github.svg?v=hl97" alt="">
             GitHub
           </a>
-          <!--# include file="assets/contact-links.inc.html" -->
+          <!--# block name="contact-links-unavailable" --><!--# endblock -->
+          <!--# include virtual="/assets/contact-links.inc.html" stub="contact-links-unavailable" -->
           <a class="social-link" href="mailto:admin@highlion.net">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="m4 7 8 6 8-6"></path></svg>
             admin@highlion.net
@@ -80,7 +81,7 @@
   </main>
 
   <div data-include="/components/footer.html?v=hl97"></div>
-  <script src="/js/fix-include.js?v=hl97" defer></script>
+  <script src="/js/fix-include.js?v=hl97-routing1" defer></script>
   <script src="/js/flags.js?v=hl97" defer></script>
   <script src="/js/boot.js?v=hl97" defer></script>
   <script src="/js/hlctf.js?v=hl97" defer></script>
