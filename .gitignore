@@ -8,5 +8,6 @@ desktop.ini
 __pycache__/
 *.py[cod]
 
-# Live-site contact profiles. Never commit this file.
+# Live-site contact profiles. Never commit these files.
 assets/contact-links.json
+assets/contact-links.inc.html

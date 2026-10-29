@@ -143,14 +143,23 @@ try:
 
     # Every shipped static file, including fake shell passwd/shadow/resolv.conf,
     # HTML includes, CSS, JS, fonts, PDFs, MP4s and the unified cache query.
+    (PUBLIC / 'assets').mkdir(exist_ok=True)
+    (PUBLIC / 'assets' / 'contact-links.inc.html').write_bytes(b'<!-- live-contact-profile -->\n')
     for source in PUBLIC.rglob('*'):
         if source.is_file() and 'api' not in source.relative_to(PUBLIC).parts and source.name != 'alerts.jsonl':
             path = '/' + source.relative_to(PUBLIC).as_posix() + '?v=hl97'
             if source.name in ['403.html', '404.html', '405.html']:
                 expect(path, [404])  # Error documents are internal-only in production.
+            elif source.name == 'contact-links.inc.html':
+                expect(path, [403])
             else:
                 body, headers = expect(path, [200])
-                assert body == source.read_bytes(), path
+                if source.name == 'contact.html':
+                    assert b'linkedin.com' not in source.read_bytes()
+                    assert b'tryhackme.com' not in source.read_bytes()
+                    assert (PUBLIC / 'assets' / 'contact-links.inc.html').read_bytes() in body
+                else:
+                    assert body == source.read_bytes(), path
                 assert 'Content-Security-Policy' in headers, path + ' lost security headers'
     for page in ['/', '/about', '/projects', '/writeups', '/about.html?topic=etc/passwd', '/about.html?ref=https%3A%2F%2Fexample.org%2Fwp-login.php', '/%61bout.html', '/about.html?file=report.pdf', '/about.html?search=php://filter']:
         expect(page, [200])
@@ -162,7 +171,8 @@ try:
             body, _ = expect(contact, [403], headers={'CF-IPCountry': country})
             assert b'id="contactForm"' in body and b'name="company"' in body
         body, _ = expect(contact, [200])
-        assert body == (PUBLIC / 'contact.html').read_bytes(), contact
+        assert (PUBLIC / 'assets' / 'contact-links.inc.html').read_bytes() in body, contact
+        assert b'linkedin.com' not in (PUBLIC / 'contact.html').read_bytes()
         expect(contact, [403], source='127.0.0.2')
     (PUBLIC / 'assets' / 'contact-links.json').write_text('[]\n')
     for country in ['US', '', 'XX', 'il', 'IL,US']:
@@ -170,6 +180,8 @@ try:
     body, _ = expect('/assets/contact-links.json', [200])
     assert body == b'[]\n'
     expect('/assets/contact-links.json', [403], source='127.0.0.2')
+    for country in ['IL', 'US', '', 'XX']:
+        expect('/assets/contact-links.inc.html', [403], headers={'CF-IPCountry': country})
     expect('/404.html', [404], method='HEAD')
     expect('/missing-page', [404], method='HEAD')
     expect('/403.html', [404], headers={'CF-IPCountry': ''})
