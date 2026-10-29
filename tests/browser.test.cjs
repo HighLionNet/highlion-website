@@ -186,7 +186,7 @@ const server = http.createServer(async (req, res) => {
     await page.unroute('**/api/ctf.php');
 
     await page.goto(origin + '/contact.html');
-    assert.equal(/shmuel|yermus|tortman/i.test(fs.readFileSync(path.join(root, 'contact.html'), 'utf8')), false);
+    assert.equal(/linkedin\.com|tryhackme\.com/i.test(fs.readFileSync(path.join(root, 'contact.html'), 'utf8')), false);
     assert.equal(await page.locator('a[href="mailto:admin@highlion.net"]').textContent().then(x => x.trim()), 'admin@highlion.net');
     assert.equal(await page.locator('a[href="mailto:admin@highlion.net?subject=Resume%20request"]').count(), 1);
     await page.locator('#submitContact').click();
