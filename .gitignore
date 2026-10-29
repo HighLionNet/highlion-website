@@ -7,3 +7,6 @@ desktop.ini
 .qa/
 __pycache__/
 *.py[cod]
+
+# Live-site contact profiles. Never commit this file.
+assets/contact-links.json
