@@ -164,6 +164,12 @@ try:
         body, _ = expect(contact, [200])
         assert body == (PUBLIC / 'contact.html').read_bytes(), contact
         expect(contact, [403], source='127.0.0.2')
+    (PUBLIC / 'assets' / 'contact-links.json').write_text('[]\n')
+    for country in ['US', '', 'XX', 'il', 'IL,US']:
+        expect('/assets/contact-links.json', [403], headers={'CF-IPCountry': country})
+    body, _ = expect('/assets/contact-links.json', [200])
+    assert body == b'[]\n'
+    expect('/assets/contact-links.json', [403], source='127.0.0.2')
     expect('/404.html', [404], method='HEAD')
     expect('/missing-page', [404], method='HEAD')
     expect('/403.html', [404], headers={'CF-IPCountry': ''})
