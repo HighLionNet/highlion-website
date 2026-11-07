@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta name="application-name" content="HighLion HLv8">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#070914">
+  <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
+  <meta name="description" content="HighLion projects across networking, DNS, web infrastructure, and Windows privacy tooling.">
+  <title>HighLion — Projects</title>
+  <link rel="icon" href="/assets/icons/HighLion.ico?v=hl97" sizes="any">
+  <link rel="stylesheet" href="/css/style.css?v=hl98">
+</head>
+<body><a class="skip" href="#main">Skip to content</a>
+  <div class="scanlines" aria-hidden="true"></div>
+  <canvas id="fx" class="fx" aria-hidden="true"></canvas>
+  <div data-include="/components/header.html?v=hl97"></div>
+
+  <main id="main">
+    <header class="shell page-head compact">
+      <div class="page-head-row">
+        <h1 class="headline">My Projects:</h1>
+      </div>
+      </header>
+
+    <section class="shell section" aria-labelledby="project-catalog">
+      <h2 class="sr-only" id="project-catalog">Project catalog</h2>
+      <div class="xdr-console project-console" data-project-console>
+        <div class="xdr-top"><span class="xdr-mark"><img src="/assets/icons/HighLion.ico?v=hl97" alt=""></span><span>CATALOG</span></div>
+        <div class="xdr-body">
+          <nav class="xdr-side" aria-label="Project class filter">
+            <button type="button" data-project-filter="all" aria-pressed="true"><span>All</span><b>5</b></button>
+            <button type="button" data-project-filter="infrastructure" aria-pressed="false"><span>Infrastructure</span><b>2</b></button>
+            <button type="button" data-project-filter="cisco" aria-pressed="false"><span>Networking</span><b>1</b></button>
+            <button type="button" data-project-filter="web" aria-pressed="false"><span>Web</span><b>1</b></button>
+            <button type="button" data-project-filter="windows" aria-pressed="false"><span>Windows</span><b>1</b></button>
+          </nav>
+          <div class="xdr-main">
+            <div class="xdr-table-wrap">
+              <table class="xdr-table">
+                <thead><tr><th scope="col">NAME:</th><th scope="col">CLASS:</th><th scope="col">STATUS:</th><th scope="col">LINKS:</th></tr></thead>
+                <tbody>
+                  <tr data-project-class="infrastructure">
+                    <td><span class="xdr-name">HighLion Network</span><span class="xdr-detail">My home-lab, with a VLAN segmented network, private DNS, cloud, and web servers.</span></td>
+                    <td>Infrastructure</td><td>Live</td><td>-</td>
+                  </tr>
+                  <tr data-project-class="infrastructure" data-href="/writeups/pihole.html" tabindex="0">
+                    <td><span class="xdr-name">Pihole DNS Server</span><span class="xdr-detail">My network DNS server, running Pi-hole.</span></td>
+                    <td>Infrastructure</td><td>Live</td>
+                    <td class="xdr-links"><a href="/writeups/pihole.html">Writeup</a></td>
+                  </tr>
+                  <tr data-project-class="cisco" data-href="https://github.com/HighLionNet/network-labs" data-row-link="first" tabindex="0">
+                    <td><span class="xdr-name">Cisco</span><span class="xdr-detail">My Packet Tracer labs, using Cisco CLI.</span></td>
+                    <td>Networking</td><td>Packet Tracer</td>
+                    <td class="xdr-links"><span class="xdr-link-row"><span class="xdr-link-list"><a href="https://github.com/HighLionNet/network-labs" target="_blank" rel="noopener noreferrer">Repository</a><a href="/assets/Packet_Tracer_Project.pkt?v=hl97" download>Download .pkt</a></span><code class="project-checksum">SHA256: 67173e9f3adc374823fa617716643534<br>d5e9d67edd04df70d76c4294e53ecf5e</code></span></td>
+                  </tr>
+                  <tr data-project-class="web" data-href="/about.html" tabindex="0">
+                    <td><span class="xdr-name">HighLion Web</span><span class="xdr-detail">My personal website and portfolio, available at https://www.highlion.net</span></td>
+                    <td>Web</td><td>Live</td>
+                    <td class="xdr-links"><a href="https://github.com/HighLionNet/highlion-website" target="_blank" rel="noopener noreferrer">Repository</a><a href="/about.html">Architecture</a></td>
+                  </tr>
+                  <tr data-project-class="windows" data-href="https://github.com/HighLionNet/Windows-Privacy-Platform" data-row-link="first" tabindex="0">
+                    <td><span class="xdr-name">Windows Privacy Platform</span><span class="xdr-detail">A Local Win10/11 privacy control app. Source and the latest release (v2.3.5) is available on GitHub.</span></td>
+                    <td>Windows</td><td>v2.3.5</td>
+                    <td class="xdr-links"><a href="https://github.com/HighLionNet/Windows-Privacy-Platform" target="_blank" rel="noopener noreferrer">Repository</a><a href="https://github.com/HighLionNet/Windows-Privacy-Platform/releases/tag/v2.3.5" target="_blank" rel="noopener noreferrer">Release</a></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div data-include="/components/footer.html?v=hl97"></div>
+  <script src="/js/fix-include.js?v=hl97-routing1" defer></script>
+  <script src="/js/flags.js?v=hl98-auth1" defer></script>
+  <script src="/js/boot.js?v=hl98" defer></script>
+  <script src="/js/hlctf.js?v=hl97" defer></script>
+  <script src="/js/session-meta.js?v=hl97" defer></script>
+  <script src="/js/particles.js?v=hl97" defer></script>
+  <script src="/js/station-toggles.js?v=hl97" defer></script>
+  <script src="/js/row-link.js?v=hl97" defer></script>
+  <script src="/js/projects.js?v=hl97" defer></script>
+</body></html>
