@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta name="application-name" content="HighLion HLv8">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#070914">
+  <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
+  <title>HighLion — 403 Forbidden</title>
+  <link rel="icon" href="/assets/icons/HighLion.ico?v=hl97" sizes="any">
+  <link rel="stylesheet" href="/css/style.css?v=hl98">
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <div class="scanlines" aria-hidden="true"></div>
+  <canvas id="fx" class="fx" aria-hidden="true"></canvas>
+  <div data-include="/components/header.html?v=hl97"></div>
+
+  <main id="main" class="shell error-page">
+    <section class="monitor error-panel error-panel-403">
+      <div class="error-code" aria-hidden="true">403</div>
+      <h1>Access forbidden.</h1>
+      <p>This resource is not available from your current connection.</p>
+      <div class="error-actions">
+        <a class="btn" href="/index.html">Home</a>
+        <a class="btn secondary" href="/writeups.html">Writeups</a>
+        <a class="btn secondary" href="mailto:admin@highlion.net">Email admin</a>
+      </div>
+      <form class="contact-form compact" id="contactForm" novalidate>
+        <div class="field">
+          <label for="name">Your Name</label>
+          <input id="name" name="name" type="text" autocomplete="name" minlength="2" maxlength="80" required>
+          <span class="field-error" id="nameError"></span>
+        </div>
+        <div class="field">
+          <label for="email">Your Email</label>
+          <input id="email" name="email" type="email" autocomplete="email" minlength="6" maxlength="254" required>
+          <span class="field-error" id="emailError"></span>
+        </div>
+        <div class="field">
+          <label for="message">Type Message</label>
+          <textarea id="message" name="message" minlength="10" maxlength="4000" required></textarea>
+          <span class="field-error" id="messageError"></span>
+        </div>
+        <div class="honeypot" aria-hidden="true">
+          <label for="company">Company</label>
+          <input id="company" name="company" type="text" tabindex="-1" autocomplete="off">
+        </div>
+        <div class="form-row">
+          <button class="btn" id="submitContact" type="submit">Send Message</button>
+          <span class="form-status" id="formStatus" data-state="" aria-live="polite"></span>
+        </div>
+        <p class="contact-copy" id="formFeedback" aria-live="polite"></p>
+      </form>
+    </section>
+  </main>
+
+  <div data-include="/components/footer.html?v=hl97"></div>
+  <script src="/js/fix-include.js?v=hl97-routing1" defer></script>
+  <script src="/js/flags.js?v=hl98-auth1" defer></script>
+  <script src="/js/boot.js?v=hl98" defer></script>
+  <script src="/js/hlctf.js?v=hl97" defer></script>
+  <script src="/js/session-meta.js?v=hl97" defer></script>
+  <script src="/js/particles.js?v=hl97" defer></script>
+  <script src="/js/station-toggles.js?v=hl97" defer></script>
+  <script src="/js/contact-form.js?v=hl97" defer></script>
+</body>
+</html>
