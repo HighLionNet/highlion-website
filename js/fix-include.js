@@ -1,0 +1,55 @@
+(function () {
+  "use strict";
+  if (window.__HL_INCLUDES_DONE) return;
+  window.__HL_INCLUDES_DONE = true;
+
+  function dedupeOnce() {
+    var headers = document.querySelectorAll("header.nav");
+    var footers = document.querySelectorAll("footer.site-footer");
+    for (var i = 1; i < headers.length; i += 1) headers[i].remove();
+    for (var j = 1; j < footers.length; j += 1) footers[j].remove();
+  }
+
+  function finish() {
+    dedupeOnce();
+    var path = window.location.pathname.replace(/\/+$/, "") || "/";
+    if (path === "/" || path === "/index") path = "/index.html";
+    else if (/^\/writeups\//.test(path) || path === "/writeups") path = "/writeups.html";
+    else if (path === "/projects") path = "/projects.html";
+    else if (path === "/about") path = "/about.html";
+    else if (path === "/contact") path = "/contact.html";
+    if (document.querySelector(".error-page")) path = "";
+    document.querySelectorAll(".nav-links a").forEach(function (link) {
+      if (link.getAttribute("href") === path) link.setAttribute("aria-current", "page");
+      else link.removeAttribute("aria-current");
+    });
+  }
+
+  document.addEventListener("DOMContentLoaded", function () {
+    var nodes = Array.from(document.querySelectorAll("[data-include]"));
+    if (!nodes.length) {
+      finish();
+      return;
+    }
+
+    Promise.all(nodes.map(function (element) {
+      var url = element.getAttribute("data-include");
+      return fetch(url, { cache: "no-store", credentials: "same-origin" })
+        .then(function (response) {
+          if (!response.ok) throw new Error(response.status + " " + response.statusText);
+          return response.text();
+        })
+        .then(function (html) {
+          element.insertAdjacentHTML("beforebegin", html);
+          element.remove();
+        })
+        .catch(function (error) {
+          console.error("include failed:", url, error);
+        });
+    }))
+      .finally(function () {
+        finish();
+        window.setTimeout(dedupeOnce, 100);
+      });
+  });
+})();
