@@ -1,0 +1,180 @@
+(function () {
+  "use strict";
+
+  var ATTRACT_RADIUS = 170;
+  var ATTRACT_FORCE = 0.10;
+  var DRAG = 0.985;
+  var WANDER = 0.028;
+  var MIN_SPEED = 0.16;
+  var MAX_SPEED = 2.4;
+  var ALPHA_MIN = 0.45;
+  var ALPHA_MAX = 0.88;
+  var SIZE_MIN = 1.3;
+  var SIZE_MAX = 2.6;
+  var LINK_DIST = 130;
+  var LINK_ALPHA = 0.20;
+  var COUNT_DIVISOR = 16000;
+
+  var canvas = document.getElementById("fx");
+  if (!canvas) return;
+  var context = canvas.getContext("2d", { alpha: true });
+  if (!context) return;
+
+  var motionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+  var points = [];
+  var width = 0;
+  var height = 0;
+  var dpr = 1;
+  var frame = 0;
+  var lastFrame = 0;
+  var enabled = true;
+  var pointer = { x: 0, y: 0, active: false };
+
+  function clamp(value, minimum, maximum) {
+    return Math.max(minimum, Math.min(maximum, value));
+  }
+
+  function between(minimum, maximum) {
+    return minimum + Math.random() * (maximum - minimum);
+  }
+
+  function makePoint() {
+    return {
+      x: Math.random() * width,
+      y: Math.random() * height,
+      vx: between(-0.55, 0.55),
+      vy: between(-0.55, 0.55),
+      size: between(SIZE_MIN, SIZE_MAX),
+      alpha: between(ALPHA_MIN, ALPHA_MAX)
+    };
+  }
+
+  function clear() {
+    context.clearRect(0, 0, width, height);
+  }
+
+  function draw() {
+    clear();
+    for (var index = 0; index < points.length; index += 1) {
+      var point = points[index];
+      context.beginPath();
+      context.arc(point.x, point.y, point.size, 0, Math.PI * 2);
+      context.fillStyle = "rgba(102,247,255," + point.alpha.toFixed(3) + ")";
+      context.fill();
+    }
+
+    for (var left = 0; left < points.length; left += 1) {
+      for (var right = left + 1; right < points.length; right += 1) {
+        var dx = points[right].x - points[left].x;
+        var dy = points[right].y - points[left].y;
+        var distance = Math.hypot(dx, dy);
+        if (distance < LINK_DIST) {
+          context.beginPath();
+          context.moveTo(points[left].x, points[left].y);
+          context.lineTo(points[right].x, points[right].y);
+          context.strokeStyle = "rgba(61,139,255," + (LINK_ALPHA * (1 - distance / LINK_DIST)).toFixed(3) + ")";
+          context.stroke();
+        }
+      }
+    }
+  }
+
+  function resize() {
+    width = window.innerWidth;
+    height = window.innerHeight;
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.width = Math.round(width * dpr);
+    canvas.height = Math.round(height * dpr);
+    canvas.style.width = width + "px";
+    canvas.style.height = height + "px";
+    context.setTransform(dpr, 0, 0, dpr, 0, 0);
+    var count = clamp(Math.floor(width * height / COUNT_DIVISOR), 70, 160);
+    points = Array.from({ length: count }, makePoint);
+    if (!enabled || motionQuery.matches) clear();
+    else draw();
+  }
+
+  function animate(now) {
+    if (!enabled || motionQuery.matches) {
+      frame = 0;
+      clear();
+      return;
+    }
+    frame = window.requestAnimationFrame(animate);
+    if (document.hidden || now - lastFrame < 24) return;
+    lastFrame = now;
+
+    points.forEach(function (point) {
+      if (pointer.active) {
+        var dx = pointer.x - point.x;
+        var dy = pointer.y - point.y;
+        var distance = Math.hypot(dx, dy);
+        if (distance < ATTRACT_RADIUS && distance > 0.01) {
+          point.vx += (dx / distance) * ATTRACT_FORCE;
+          point.vy += (dy / distance) * ATTRACT_FORCE;
+        }
+      }
+      point.vx *= DRAG;
+      point.vy *= DRAG;
+      point.vx += between(-WANDER, WANDER);
+      point.vy += between(-WANDER, WANDER);
+      var speed = Math.hypot(point.vx, point.vy);
+      if (speed < MIN_SPEED) {
+        var heading = speed > 0.001 ? Math.atan2(point.vy, point.vx) : between(0, Math.PI * 2);
+        point.vx = Math.cos(heading) * MIN_SPEED;
+        point.vy = Math.sin(heading) * MIN_SPEED;
+        speed = MIN_SPEED;
+      }
+      if (speed > MAX_SPEED) {
+        point.vx = point.vx / speed * MAX_SPEED;
+        point.vy = point.vy / speed * MAX_SPEED;
+      }
+      point.x += point.vx;
+      point.y += point.vy;
+      if (point.x < -8) point.x = width + 8;
+      if (point.x > width + 8) point.x = -8;
+      if (point.y < -8) point.y = height + 8;
+      if (point.y > height + 8) point.y = -8;
+    });
+    draw();
+  }
+
+  function start() {
+    if (enabled && !frame && !motionQuery.matches) {
+      lastFrame = 0;
+      frame = window.requestAnimationFrame(animate);
+    }
+  }
+
+  window.addEventListener("pointermove", function (event) {
+    pointer.x = event.clientX;
+    pointer.y = event.clientY;
+    pointer.active = true;
+  }, { passive: true });
+  window.addEventListener("pointerleave", function () { pointer.active = false; }, { passive: true });
+  window.addEventListener("blur", function () { pointer.active = false; });
+  window.addEventListener("resize", resize, { passive: true });
+  motionQuery.addEventListener("change", function () {
+    if (motionQuery.matches) {
+      if (frame) window.cancelAnimationFrame(frame);
+      frame = 0;
+      clear();
+    } else if (enabled) {
+      draw();
+      start();
+    }
+  });
+
+  resize();
+  start();
+
+  window.HighLionParticles = {
+    start: function () { enabled = true; start(); },
+    stop: function () {
+      enabled = false;
+      if (frame) window.cancelAnimationFrame(frame);
+      frame = 0;
+      clear();
+    }
+  };
+})();
