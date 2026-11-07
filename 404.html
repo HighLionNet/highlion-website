@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta name="application-name" content="HighLion HLv8">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#070914">
+  <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
+  <title>HighLion — 404 Not Found</title>
+  <link rel="icon" href="/assets/icons/HighLion.ico?v=hl97" sizes="any">
+  <link rel="stylesheet" href="/css/style.css?v=hl98">
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <div class="scanlines" aria-hidden="true"></div>
+  <canvas id="fx" class="fx" aria-hidden="true"></canvas>
+  <div data-include="/components/header.html?v=hl97"></div>
+
+  <main id="main" class="shell error-page">
+    <section class="monitor error-panel error-panel-404">
+      <div class="error-code" aria-hidden="true">404</div>
+      <h1>Page not found.</h1>
+      <p>The requested path does not exist. Return to the site or continue through a known route.</p>
+      <p class="error-path"><span>requested:</span> <code id="requestedPath">/</code></p>
+      <div class="error-actions">
+        <a class="btn" href="/index.html">Home</a>
+        <a class="btn secondary" href="/writeups.html">Writeups</a>
+        <a class="btn secondary" href="/projects.html">Projects</a>
+        <a class="btn secondary" href="/contact.html">Contact</a>
+      </div>
+    </section>
+  </main>
+
+  <div data-include="/components/footer.html?v=hl97"></div>
+  <script src="/js/fix-include.js?v=hl97-routing1" defer></script>
+  <script src="/js/flags.js?v=hl98-auth1" defer></script>
+  <script src="/js/boot.js?v=hl98" defer></script>
+  <script src="/js/hlctf.js?v=hl97" defer></script>
+  <script src="/js/session-meta.js?v=hl97" defer></script>
+  <script src="/js/particles.js?v=hl97" defer></script>
+  <script src="/js/station-toggles.js?v=hl97" defer></script>
+</body>
+</html>
