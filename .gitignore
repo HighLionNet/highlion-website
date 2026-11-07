@@ -1,0 +1,17 @@
+Thumbs.db
+desktop.ini
+.DS_Store
+.env
+*.env
+*.php
+api/
+deploy/
+tests/
+lab/
+.qa/
+.codex/
+.agents/
+__pycache__/
+*.py[cod]
+assets/contact-links.json
+assets/contact-links.inc.html
