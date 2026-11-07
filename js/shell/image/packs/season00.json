@@ -1,0 +1,59 @@
+{
+  "schema": 1,
+  "id": "season00",
+  "title": "HighLion hidden challenges",
+  "hidden": false,
+  "mount": {
+    "/home/kali/.secret_challenge1.hlctf": {
+      "type": "file",
+      "mode": "0444",
+      "owner": "root",
+      "group": "root",
+      "content": "Compute base ** exponent modulo modulus; use the least nonnegative residue in decimal.\nParameters (modulus, base, exponent): 97, 7, 11\nFormat: HL8{modular_<decimal>}\n\nSubmit with claim 'HL8{...}' or FLAGS.\n"
+    },
+    "/opt/highlion/.secret_challenge2.hlctf": {
+      "type": "file",
+      "mode": "0444",
+      "owner": "root",
+      "group": "root",
+      "content": "Find the SMB host on 10.8.0.0/24; read http://fw01/policy.\nMatch this laptop's source IP, destination and SMB port. First matching rule wins.\nFormat: HL8{route_<destination-last-octet>_<port>_<rule-tag>}\n\nSubmit with claim 'HL8{...}' or FLAGS.\n"
+    },
+    "/home/kali/.secret_challenge3.hlctf": {
+      "type": "file",
+      "mode": "0444",
+      "owner": "root",
+      "group": "root",
+      "content": "XOR two unsigned 16-bit values.\nLeft: 0x6a3c; right: http://intranet/math/right\nUse the result in decimal, without leading zeros.\nFormat: HL8{xor_<decimal>}\n\nSubmit with claim 'HL8{...}' or FLAGS.\n"
+    },
+    "/opt/highlion/.secret_challenge4.hlctf": {
+      "type": "file",
+      "mode": "0444",
+      "owner": "root",
+      "group": "root",
+      "content": "Cutoff: 2026-09-26 05:18:30 UTC.\nGateway: UTC+02:00, offset +7 seconds. Transfer: UTC, offset -4 seconds.\nRead http://fw01/relay-log and the transfer log below. Match ACCEPT and COMMIT by name.\nChoose the first corrected COMMIT strictly after the cutoff; unmatched entries do not count.\nFormat: HL8{timeline_<relay-name>_<UTC-HHMMSS>}\n\n2026-09-26T05:18:31 finch COMMIT\n2026-09-26T05:18:38 kestrel COMMIT\n2026-09-26T05:18:44 heron COMMIT\n2026-09-26T05:18:19 swift COMMIT\n\nSubmit with claim 'HL8{...}' or FLAGS.\n"
+    }
+  },
+  "flags": [
+    {
+      "id": "modular",
+      "hint": "Read /home/kali/.secret_challenge1.hlctf; take the least nonnegative residue."
+    },
+    {
+      "id": "route",
+      "hint": "Read /opt/highlion/.secret_challenge2.hlctf; the first matching rule wins."
+    },
+    {
+      "id": "xor",
+      "hint": "Read /home/kali/.secret_challenge3.hlctf; XOR the two 16-bit values."
+    },
+    {
+      "id": "timeline",
+      "hint": "Read /opt/highlion/.secret_challenge4.hlctf; correct offsets before comparing COMMIT times."
+    }
+  ],
+  "http": {
+    "10.8.0.1/policy": "chain FORWARD; first match wins\n01 src=10.8.0.0/29 dst=10.8.0.34 port=445 action=allow tag=ash\n02 src=10.8.0.10/32 dst=10.8.0.21 port=80 action=allow tag=birch\n03 src=10.8.0.8/29 dst=10.8.0.34 port=445 action=allow tag=ember\n04 src=10.8.0.0/24 dst=10.8.0.34 port=445 action=deny tag=slate\n",
+    "10.8.0.21/math/right": "0x19e7\n",
+    "10.8.0.1/relay-log": "2026-09-26T07:18:21 swift ACCEPT\n2026-09-26T07:18:41 kestrel ACCEPT\n2026-09-26T07:18:46 heron ACCEPT\n2026-09-26T07:18:44 wren ACCEPT\n"
+  }
+}
