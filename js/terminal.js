@@ -12,6 +12,9 @@
   var bootPromise = null;
   var acquirePromise = null;
   var csrfPromise = null;
+  var csrfRefreshTimer = 0;
+  var csrfRefreshAt = 0;
+  var csrfRefreshGeneration = 0;
   var slot = { id: "", ttl: 90, operator: false };
   var heartbeatTimer = 0;
   var acquireTimer = 0;
@@ -66,6 +69,7 @@
     if (!sharedMachine) return;
     if (payload.mode === "terminated") {
       released = true;
+      clearCsrfRefresh();
       cancelAuth();
       restoreAppearance();
       sharedMachine.controlLocked = true;
@@ -112,26 +116,52 @@
     }
   }
 
-  function requestToken(url) {
-    return fetch(url, { method: "GET", credentials: "same-origin", cache: "no-store" })
+  function clearCsrfRefresh() {
+    window.clearTimeout(csrfRefreshTimer);
+    csrfRefreshTimer = 0;
+    csrfRefreshGeneration += 1;
+  }
+
+  function scheduleCsrfRefresh() {
+    clearCsrfRefresh();
+    if (released || !csrfRefreshAt) return;
+    csrfRefreshTimer = window.setTimeout(function () {
+      csrfRefreshTimer = 0;
+      csrfToken(true).catch(function () {});
+    }, Math.max(1000, csrfRefreshAt - Date.now()));
+  }
+
+  function requestToken(url, refresh) {
+    return fetch(url, { method: "GET", credentials: "same-origin", cache: "no-store", headers: refresh ? { "X-CSRF-Refresh": "1" } : {} })
       .then(function (response) {
         if (!response.ok) throw new Error("token unavailable");
         return response.json();
       })
       .then(function (payload) {
         if (!payload || payload.ok !== true || typeof payload.token !== "string") throw new Error("token unavailable");
-        return payload.token;
+        return payload;
       });
   }
 
   function csrfToken(refresh) {
-    if (refresh) csrfPromise = null;
+    if (refresh) { clearCsrfRefresh(); csrfPromise = null; }
     if (!csrfPromise) {
-      csrfPromise = requestToken(CSRF_URLS[0])
-        .catch(function () { return requestToken(CSRF_URLS[1]); })
-        .catch(function () { return requestToken(CSRF_URLS[2]); })
-        .catch(function (error) { csrfPromise = null; throw error; });
-    }
+      csrfRefreshAt = 0;
+      var generation = csrfRefreshGeneration;
+      csrfPromise = requestToken(CSRF_URLS[0], refresh)
+        .catch(function () { return requestToken(CSRF_URLS[1], refresh); })
+        .catch(function () { return requestToken(CSRF_URLS[2], refresh); })
+        .then(function (payload) {
+          if (generation === csrfRefreshGeneration) {
+            // The server reports the remaining time for a token shared across tabs.
+            var delay = Number(payload.refresh_after_ms);
+            csrfRefreshAt = Date.now() + (Number.isFinite(delay) && delay >= 0 ? Math.min(delay, 1620000) : 1620000);
+            scheduleCsrfRefresh();
+          }
+          return payload.token;
+        })
+        .catch(function (error) { if (generation === csrfRefreshGeneration) csrfPromise = null; throw error; });
+    } else if (!csrfRefreshTimer && !released && csrfRefreshAt) scheduleCsrfRefresh();
     return csrfPromise;
   }
 
@@ -175,6 +205,9 @@
 
   function clearSlot() {
     cancelAuth();
+    clearCsrfRefresh();
+    csrfPromise = null;
+    csrfRefreshAt = 0;
     restoreAppearance();
     controlAck = 0;
     controlResult = null;
@@ -272,10 +305,12 @@
   }
 
   function release() {
-    if (released || !slot.id) return;
+    clearCsrfRefresh();
+    if (released) return;
+    released = true;
+    if (!slot.id) return;
     cancelAuth();
     if (sharedMachine) sharedMachine.shell.cancel();
-    released = true;
     restoreAppearance();
     slotPost({ op: "release", id: slot.id }).catch(function () {});
   }
